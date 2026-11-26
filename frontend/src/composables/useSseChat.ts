@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { getAuthToken, apiUrl, formatApiDetail } from '../api'
-import { t } from '../i18n'
+import { locale, t } from '../i18n'
 import type {
   AgentStepT,
   ChatMessage,
@@ -145,7 +145,11 @@ export function createSseChat(options: SseChatOptions) {
           Accept: 'text/event-stream',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message, session_id: sessionId }),
+        body: JSON.stringify({
+          message,
+          session_id: sessionId,
+          language: locale.value,
+        }),
         signal: abortCtrl.signal,
       })
 

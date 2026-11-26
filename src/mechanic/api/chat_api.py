@@ -1,13 +1,14 @@
 '''
 File:   chat_api.py
-Brief:  Chat endpoint with SSE streaming and conversation reset.
+Brief:  Chat endpoint with SSE streaming, conversation reset, and language selection.
 Author: Mistress-Lukutar
 Date:   2026-11-26
-Version: v0.1.0
+Version: v0.1.1
 
 Provides the ``/api/chat`` router with a streaming chat endpoint that wraps
 the :class:`~mechanic.agent.loop.AgentLoop` and yields SSE-formatted events,
-plus a reset endpoint to clear a vehicle's conversation history.
+plus a reset endpoint to clear a vehicle's conversation history. Supports an
+optional ``language`` field on ``ChatRequest`` for non-Russian responses.
 '''
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -43,10 +45,12 @@ class ChatRequest(BaseModel):
     Attributes:
         message: User message text.
         session_id: Optional session identifier for the vehicle check.
+        language: Target response language (ru, kk, uz, hi); defaults to ru.
     """
 
     message: str
     session_id: str | None = None
+    language: Literal["ru", "kk", "uz", "hi"] | None = None
 
 
 async def _auth_user(request: Request) -> object:  # TokenUser
@@ -89,6 +93,7 @@ async def _chat_events(
     hub: object,  # ServiceHub
     conversations: ConversationStore,
     llm_cfg: LlmConfig,
+    language: Literal["ru", "kk", "uz", "hi"] | None = None,
 ) -> object:  # AsyncIterator[tuple[str, dict]]
     """Generate SSE events from the agent loop.
 
@@ -100,6 +105,7 @@ async def _chat_events(
         hub: ServiceHub instance.
         conversations: Conversation store.
         llm_cfg: Effective LLM configuration.
+        language: Target response language (ru/kk/uz/hi).
 
     Yields:
         (event_name, payload) tuples from the agent loop.
@@ -113,7 +119,7 @@ async def _chat_events(
         protocol=protocol,
     )
     registry = _build_registry(hub)
-    system_prompt = build_system_prompt(hub, vehicle_id)
+    system_prompt = build_system_prompt(hub, vehicle_id, language=language)
 
     loop = AgentLoop(
         client=client,
@@ -159,6 +165,7 @@ async def chat(
             hub,
             conversations,
             llm_cfg,
+            language=body.language,
         ):
             yield f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 

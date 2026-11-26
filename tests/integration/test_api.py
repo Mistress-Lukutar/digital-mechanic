@@ -588,3 +588,21 @@ async def test_admin_required(app_client: httpx.AsyncClient) -> None:
         "/api/admin/usage/totals", headers={"Authorization": f"Bearer {mech_token}"}
     )
     assert resp.status_code == 403
+
+
+async def test_chat_invalid_language_422(app_client: httpx.AsyncClient) -> None:
+    """POST /api/chat with language='de' returns 422 (invalid literal)."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    resp = await app_client.post(
+        "/api/chat/M333YK47",
+        json={"message": "hello", "language": "de"},
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422

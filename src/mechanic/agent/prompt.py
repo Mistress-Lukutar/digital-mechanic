@@ -1,13 +1,14 @@
 '''
 File:   prompt.py
-Brief:  System prompt builder for the digital mechanic agent.
+Brief:  System prompt builder for the digital mechanic agent with language selection.
 Author: Mistress-Lukutar
 Date:   2026-11-26
-Version: v0.1.0
+Version: v0.1.1
 
 Reads a template from prompts/system.md (or uses a fallback), fills in
 the vehicle context block and engine-specific documents block, then
-returns the complete system prompt string.
+returns the complete system prompt string. Supports an optional *language*
+parameter to append a language-rule block for non-Russian responses.
 
 The module-level PROMPTS_DIR constant can be monkeypatched by tests to
 point at alternative directories.
@@ -23,6 +24,15 @@ logger = logging.getLogger(__name__)
 # Default prompts directory relative to CWD (repo root).
 # Tests may monkeypatch this to point at a temp dir.
 PROMPTS_DIR: Path = Path("prompts")
+
+# Language display names for the language-block instruction.
+LANGUAGE_NAMES: dict[str, str] = {
+    "kk": "казахский (қазақша)",
+    "uz": "узбекский (oʻzbekcha, латиница)",
+    "hi": "хинди (देवनागरी)",
+}
+
+_KNOWN_LANGUAGES: set[str] = {"ru", "kk", "uz", "hi"}
 
 FALLBACK_TEMPLATE: str = """\
 ## 1. Role and Context
@@ -50,20 +60,36 @@ The agent must respond in Russian and follow the rules above.
 """
 
 
-def build_system_prompt(hub: object, vehicle_id: str) -> str:  # ServiceHub
+def build_system_prompt(
+    hub: object, vehicle_id: str, language: str = "ru"
+) -> str:  # ServiceHub
     """Build the full system prompt for a given vehicle.
 
     Reads the template from ``prompts/system.md`` (or uses a fallback),
-    fills in the vehicle block and engine documents block, then replaces
-    the placeholders.
+    fills in the vehicle block and engine documents block, replaces
+    placeholders, and appends a language-rule block when *language* is not
+    ``"ru"`` (or when an unknown value is provided — it falls back to the
+    Russian rule).
 
     Args:
         hub: The :class:`~mechanic.services.hub.ServiceHub` instance.
         vehicle_id: License-plate identifier of the selected vehicle.
+        language: Target response language code. Valid values are ``"ru"``,
+            ``"kk"``, ``"uz"``, ``"hi"``. Unknown values fall back to
+            ``"ru"`` (a warning is logged).
 
     Returns:
-        The complete system prompt string with all placeholders filled.
+        The complete system prompt string with all placeholders filled and
+        the language block appended where applicable.
     """
+
+    # Validate / normalise language parameter.
+    if language not in _KNOWN_LANGUAGES:
+        logger.warning(
+            "build_system_prompt: unknown language '%s', falling back to 'ru'",
+            language,
+        )
+        language = "ru"
 
     # Determine prompts directory path.
     prompts_path = PROMPTS_DIR / "system.md"
@@ -154,7 +180,33 @@ def build_system_prompt(hub: object, vehicle_id: str) -> str:  # ServiceHub
     result = template.replace("{vehicle_block}", vehicle_block)
     result = result.replace("{docs_block}", docs_block)
 
+    # --- Append language block (blank-line separated) ---
+    if language == "ru":
+        lang_block = (
+            "\n"
+            "## ЯЗЫК ОТВЕТА\n"
+            "\n"
+            "Отвечай на языке вопроса пользователя (по умолчанию — русский). "
+            "Цитаты\n"
+            "`[обозначение документа, стр. N]`, обозначения документов, цифры и\n"
+            "технические термины из руководства не переводи — приводи их так,\n"
+            "как в источнике."
+        )
+    else:
+        lang_name = LANGUAGE_NAMES[language]
+        lang_block = (
+            "\n"
+            "## ЯЗЫК ОТВЕТА\n"
+            "\n"
+            f"Отвечай на языке: {lang_name}. Цитаты\n"
+            "`[обозначение документа, стр. N]`, обозначения документов, цифры и\n"
+            "термины из руководства не переводи — приводи их так, как в источнике,\n"
+            "поясняя на языке ответа."
+        )
+
+    result += lang_block
+
     return result
 
 
-__all__: list[str] = ["PROMPTS_DIR", "build_system_prompt"]
+__all__: list[str] = ["PROMPTS_DIR", "LANGUAGE_NAMES", "build_system_prompt"]
