@@ -2,6 +2,7 @@
 import { ref, reactive } from 'vue'
 import type { TicketDraftEvent } from '../types'
 import { createTicket } from '../api'
+import { t } from '../i18n'
 
 const props = defineProps<{
   draft: TicketDraftEvent
@@ -47,17 +48,17 @@ const successId = ref<string | null>(null)
 
 function validate(): string | null {
   // conclusion non-empty
-  if (!conclusion.value.trim()) return 'Введите заключение'
+  if (!conclusion.value.trim()) return t('ticket.validation.conclusion')
 
   // operations ≥ 1 non-empty line
   const ops = operationsText.value.split('\n').map(l => l.trim()).filter(Boolean)
-  if (ops.length === 0) return 'Укажите хотя бы одну операцию'
+  if (ops.length === 0) return t('ticket.validation.ops')
 
   // references ≥ 1 with manual non-empty and page ≥ 1
   for (let i = 0; i < references.length; i++) {
     const r = references[i]
-    if (!r.manual.trim()) return `Ссылка #${i + 1}: укажите руководство`
-    if (r.pdf_page < 1) return `Ссылка #${i + 1}: страница должна быть ≥ 1`
+    if (!r.manual.trim()) return t('ticket.validation.ref_manual', { n: String(i + 1) })
+    if (r.pdf_page < 1) return t('ticket.validation.ref_page', { n: String(i + 1) })
   }
 
   return null
@@ -100,7 +101,7 @@ async function handleSubmit(): Promise<void> {
     } else if (e instanceof Error) {
       submitError.value = e.message
     } else {
-      submitError.value = 'Ошибка создания заявки'
+      submitError.value = t('ticket.error.create')
     }
   } finally {
     submitting.value = false
@@ -108,16 +109,16 @@ async function handleSubmit(): Promise<void> {
 }
 
 const urgencyLabels: Record<string, string> = {
-  low: 'Низкий',
-  medium: 'Средний',
-  high: 'Высокий',
+  low: t('ticket.urgency.low'),
+  medium: t('ticket.urgency.medium'),
+  high: t('ticket.urgency.high'),
 }
 </script>
 
 <template>
   <div v-if="successId" class="ticket-success panel">
-    <p class="success-text">Заявка {{ successId }} создана</p>
-    <button class="primary" @click="emit('close')">Закрыть</button>
+    <p class="success-text">{{ t('ticket.success', { id: successId }) }}</p>
+    <button class="primary" @click="emit('close')">{{ t('ticket.close') }}</button>
   </div>
 
   <form v-else class="ticket-form" @submit.prevent="handleSubmit">
@@ -129,19 +130,19 @@ const urgencyLabels: Record<string, string> = {
 
     <!-- Conclusion -->
     <div class="field">
-      <label class="label" for="ticket-conclusion">Заключение</label>
+      <label class="label" for="ticket-conclusion">{{ t('ticket.conclusion.label') }}</label>
       <textarea
         id="ticket-conclusion"
         v-model="conclusion"
         rows="3"
         required
-        placeholder="Опишите заключение..."
+        :placeholder="t('ticket.conclusion.placeholder')"
       />
     </div>
 
     <!-- Urgency -->
     <div class="field">
-      <label class="label" for="ticket-urgency">Приоритет</label>
+      <label class="label" for="ticket-urgency">{{ t('ticket.urgency.label') }}</label>
       <select id="ticket-urgency" v-model="urgency">
         <option value="low">{{ urgencyLabels.low }}</option>
         <option value="medium">{{ urgencyLabels.medium }}</option>
@@ -154,50 +155,50 @@ const urgencyLabels: Record<string, string> = {
 
     <!-- Operations -->
     <div class="field">
-      <label class="label" for="ticket-ops">Операции (по одной на строку)</label>
+      <label class="label" for="ticket-ops">{{ t('ticket.ops.label') }}</label>
       <textarea
         id="ticket-ops"
         v-model="operationsText"
         rows="3"
         required
-        placeholder="Замена масла&#10;Проверка ремня"
+        :placeholder="t('ticket.ops.placeholder')"
       />
     </div>
 
     <!-- Spare parts -->
     <div class="field">
-      <label class="label" for="ticket-parts">Запчасти (необязательно, по одной на строку)</label>
+      <label class="label" for="ticket-parts">{{ t('ticket.parts.label') }}</label>
       <textarea
         id="ticket-parts"
         v-model="sparePartsText"
         rows="2"
-        placeholder="Фильтр масляный, Фильтр воздушный"
+        :placeholder="t('ticket.parts.placeholder')"
       />
     </div>
 
     <!-- References -->
     <div class="field">
-      <label class="label">Ссылки на руководство</label>
+      <label class="label">{{ t('ticket.refs.label') }}</label>
       <div v-for="(ref, idx) in references" :key="idx" class="ref-row">
         <input
           v-model="ref.manual"
           type="text"
-          placeholder="Название руководства"
+          :placeholder="t('ticket.ref.manual_placeholder')"
           class="ref-manual"
         />
         <input
           v-model.number="ref.pdf_page"
           type="number"
           min="1"
-          placeholder="Стр."
+          :placeholder="t('ticket.ref.page_placeholder')"
           class="ref-page"
         />
-        <button type="button" class="ref-remove" @click="removeReference(idx)" title="Удалить">
+        <button type="button" class="ref-remove" @click="removeReference(idx)" :title="t('ticket.ref.remove_title')">
           &times;
         </button>
       </div>
       <button type="button" class="add-ref-btn" @click="addReference">
-        + Добавить ссылку
+        {{ t('ticket.ref.add') }}
       </button>
     </div>
 
@@ -209,9 +210,9 @@ const urgencyLabels: Record<string, string> = {
     <!-- Actions -->
     <div class="form-actions">
       <button type="button" class="primary" :disabled="submitting" @click="handleSubmit">
-        {{ submitting ? 'Отправка…' : 'Подать в ТОиР' }}
+        {{ submitting ? t('ticket.submitting') : t('ticket.submit') }}
       </button>
-      <button type="button" :disabled="submitting" @click="emit('close')">Отмена</button>
+      <button type="button" :disabled="submitting" @click="emit('close')">{{ t('ticket.cancel') }}</button>
     </div>
   </form>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, nextTick, watch } from 'vue'
+import { ref, nextTick, watch, computed } from 'vue'
 import type { TicketDraftEvent, ChatMessage, DiagnosticResult } from '../types'
+import { t } from '../i18n'
 import { createSseChat } from '../composables/useSseChat'
 import { resetChat } from '../api'
 import StatusCard from '../components/StatusCard.vue'
@@ -91,11 +92,11 @@ watch(
   { flush: 'post' },
 )
 
-const quickActions = [
-  { label: 'Получить диагностику', text: 'Получить результат диагностики' },
-  { label: 'Можно ли перегнать?', text: 'Можно ли перегнать машину своим ходом на базу?' },
-  { label: 'Создать заявку', text: 'Создай заявку на дефектовку' },
-]
+const quickActions = computed(() => [
+  { label: t('chat.quick.diagnostic.label'), text: t('chat.quick.diagnostic.text') },
+  { label: t('chat.quick.can_move.label'), text: t('chat.quick.can_move.text') },
+  { label: t('chat.quick.ticket.label'), text: t('chat.quick.ticket.text') },
+])
 
 type PanelTab = 'history' | 'doc'
 const rightPanelTab = ref<PanelTab>('history')
@@ -157,7 +158,7 @@ function sessionBadgeClass(status: string | null): string {
 }
 
 function sessionLabel(status: string | null): string {
-  switch (status) { case 'normal': return 'Норма'; case 'anomaly': return 'Отклонение'; case 'check_failed': return 'Сбой записи'; default: return '\u2014' }
+  switch (status) { case 'normal': return t('status.label.normal'); case 'anomaly': return t('status.label.anomaly'); case 'check_failed': return t('status.label.check_failed'); default: return '\u2014' }
 }
 
 function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }
@@ -166,7 +167,7 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
 <template>
   <div class="chat-page">
     <header class="chat-header panel">
-      <button class="back-btn" @click="emit('back')">← Назад</button>
+      <button class="back-btn" @click="emit('back')">← {{ t('chat.back') }}</button>
       <div class="header-info">
         <div class="header-main">
           <span class="garage-badge">{{ header.garageNo }}</span>
@@ -178,8 +179,8 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
         </div>
       </div>
       <div class="header-actions">
-        <button :disabled="streaming" @click="handleNewDialog">Новый диалог</button>
-        <button @click="toggleHistory">История</button>
+        <button :disabled="streaming" @click="handleNewDialog">{{ t('chat.new_dialog') }}</button>
+        <button @click="toggleHistory">{{ t('chat.history') }}</button>
       </div>
     </header>
 
@@ -205,7 +206,7 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
           </div>
 
           <div v-if="streaming" class="streaming-indicator">
-            <span class="spinner" /><span class="dim">ИИ печатает...</span>
+            <span class="spinner" /><span class="dim">{{ t('chat.streaming') }}</span>
           </div>
         </div>
 
@@ -214,23 +215,23 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
         </div>
 
         <div class="input-row">
-          <textarea v-model="messageInput" rows="1" placeholder="Введите сообщение..." :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
+          <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
           <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage">&rarr;</button>
-          <button v-else class="stop-btn danger-solid" @click="chat.stop">Стоп</button>
+          <button v-else class="stop-btn danger-solid" @click="chat.stop">{{ t('chat.stop') }}</button>
         </div>
       </div>
 
       <div class="right-panel">
         <div class="panel-tabs">
-          <button :class="['tab-btn', { active: rightPanelTab === 'history' }]" @click="rightPanelTab = 'history'">История</button>
-          <button :class="['tab-btn', { active: rightPanelTab === 'doc' }]" @click="rightPanelTab = 'doc'">Документ</button>
+          <button :class="['tab-btn', { active: rightPanelTab === 'history' }]" @click="rightPanelTab = 'history'">{{ t('chat.history') }}</button>
+          <button :class="['tab-btn', { active: rightPanelTab === 'doc' }]" @click="rightPanelTab = 'doc'">{{ t('chat.document') }}</button>
         </div>
         <template v-if="rightPanelTab === 'history'">
           <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
         </template>
         <template v-else>
           <DocPanel v-if="activeDocId" :doc-id="activeDocId" :page="activePage" />
-          <div v-else class="panel-empty dim">Выберите документ из чата</div>
+          <div v-else class="panel-empty dim">{{ t('chat.select_doc') }}</div>
         </template>
       </div>
 

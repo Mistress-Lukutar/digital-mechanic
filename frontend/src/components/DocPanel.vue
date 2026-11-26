@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { getDocumentPage, apiUrl } from '../api'
+import { t } from '../i18n'
 
 const props = defineProps<{
   docId: string | null
@@ -22,20 +23,20 @@ async function loadPage(): Promise<void> {
 
   try {
     const data = await getDocumentPage(props.docId, props.page)
-    pageTitle.value = `${data.doc_title} — стр. ${props.page}`
+    pageTitle.value = data.doc_title
     pageText.value = data.text || ''
   } catch (e: unknown) {
     if (e instanceof Error && 'status' in e) {
       const status = (e as { status: number }).status
       if (status === 404) {
-        error.value = 'Страница недоступна на сервере'
+        error.value = t('doc.error.unavailable')
       } else {
-        error.value = `Ошибка: ${e.message}`
+        error.value = t('doc.error.generic', { msg: e.message })
       }
     } else if (e instanceof Error) {
       error.value = e.message
     } else {
-      error.value = 'Ошибка загрузки страницы'
+      error.value = t('doc.error.load')
     }
   } finally {
     loading.value = false
@@ -54,12 +55,12 @@ function openPdf(): void {
 <template>
   <div class="doc-panel panel">
     <!-- Header -->
-    <h3 v-if="pageTitle" class="doc-title">{{ pageTitle }}</h3>
+    <h3 v-if="pageTitle" class="doc-title">{{ pageTitle }} — {{ t('doc.page.title', { n: String(props.page) }) }}</h3>
 
     <!-- Loading -->
     <div v-if="loading" class="doc-loading">
       <span class="spinner" />
-      <span class="dim">Загрузка…</span>
+      <span class="dim">{{ t('doc.loading') }}</span>
     </div>
 
     <!-- Error -->
@@ -71,10 +72,10 @@ function openPdf(): void {
     <template v-else>
       <pre v-if="pageText" class="doc-text">{{ pageText }}</pre>
 
-      <p v-else class="dim">Текст страницы недоступен — откройте PDF</p>
+      <p v-else class="dim">{{ t('doc.empty') }}</p>
 
       <button v-if="docId && page !== null" class="primary mt-8" @click="openPdf">
-        Открыть PDF (стр. {{ page }})
+        {{ t('doc.open_pdf', { n: String(page) }) }}
       </button>
     </template>
   </div>
