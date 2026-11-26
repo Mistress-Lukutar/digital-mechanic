@@ -96,6 +96,8 @@ const kk = {
   'chat.quick.ticket.label': 'Өтініш жасау',
   'chat.quick.ticket.text': 'Ақаулық туралы өтініш жасаңыз',
   'chat.error.connection': 'Байланыс қатесі',
+  'chat.mic.label': 'Дауыспен енгізу',
+  'chat.mic.listening': 'Тыңдау…',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map

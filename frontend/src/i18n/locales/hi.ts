@@ -96,6 +96,8 @@ const hi = {
   'chat.quick.ticket.label': 'टिकट बनाएँ',
   'chat.quick.ticket.text': 'खराबी के लिए टिकट बनाएँ',
   'chat.error.connection': 'कनेक्शन त्रुटि',
+  'chat.mic.label': 'वॉइस इनपुट',
+  'chat.mic.listening': 'सुन रहा हूँ…',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map

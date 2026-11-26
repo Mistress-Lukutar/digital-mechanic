@@ -96,6 +96,8 @@ const uz = {
   'chat.quick.ticket.label': 'Ariza yaratish',
   'chat.quick.ticket.text': 'Nuqson haqida ariza yarating',
   'chat.error.connection': 'Ulanish xatosi',
+  'chat.mic.label': 'Ovozli kiritish',
+  'chat.mic.listening': 'Tinglayapman…',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map

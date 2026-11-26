@@ -94,6 +94,8 @@ const ru = {
   'chat.quick.ticket.label': 'Создать заявку',
   'chat.quick.ticket.text': 'Создай заявку на дефектовку',
   'chat.error.connection': 'Ошибка соединения',
+  'chat.mic.label': 'Голосовой ввод',
+  'chat.mic.listening': 'Слушаю…',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map
