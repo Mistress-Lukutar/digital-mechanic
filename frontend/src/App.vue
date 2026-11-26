@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import type { VehicleItem, FleetStats } from './types'
 import { auth } from './composables/useAuth'
+import { apiUrl } from './api'
 import LoginView from './pages/LoginView.vue'
 import GarageView from './pages/GarageView.vue'
 import ChatView from './pages/ChatView.vue'
@@ -92,12 +93,14 @@ async function fetchGarageData(): Promise<void> {
 
 async function fetchVehicles(): Promise<void> {
   // We'll use a simple GET with query params; the parent component handles filtering.
-  const url = new URL('/api/vehicles', window.location.origin)
-  if (searchQuery.value) url.searchParams.set('query', searchQuery.value)
-  if (groupFilter.value !== 'all') url.searchParams.set('group', groupFilter.value)
+  const params = new URLSearchParams()
+  if (searchQuery.value) params.set('query', searchQuery.value)
+  if (groupFilter.value !== 'all') params.set('group', groupFilter.value)
+  const query = params.toString()
+  const url = apiUrl('/api/vehicles') + (query ? `?${query}` : '')
 
   try {
-    const data = await fetch(url.toString(), {
+    const data = await fetch(url, {
       headers: { Authorization: `Bearer ${auth.token.value}` },
     }).then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -111,7 +114,7 @@ async function fetchVehicles(): Promise<void> {
 
 async function fetchFleetStats(): Promise<void> {
   try {
-    const data = await fetch('/api/fleet/stats', {
+    const data = await fetch(apiUrl('/api/fleet/stats'), {
       headers: { Authorization: `Bearer ${auth.token.value}` },
     }).then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`)

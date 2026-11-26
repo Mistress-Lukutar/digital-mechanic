@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { getAuthToken } from '../api'
+import { getAuthToken, apiUrl } from '../api'
 import type {
   AgentStepT,
   ChatMessage,
@@ -132,7 +132,7 @@ export function createSseChat(options: SseChatOptions) {
 
     abortCtrl = new AbortController()
 
-    const url = `/api/chat/${encodeURIComponent(vehicleId)}`
+    const url = apiUrl(`/api/chat/${encodeURIComponent(vehicleId)}`)
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
     let buffer = ''
 

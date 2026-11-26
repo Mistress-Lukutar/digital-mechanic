@@ -14,6 +14,15 @@ import type {
   VehicleItem,
 } from './types'
 
+// Base path of the app: '/' under the dev server, './' in the built bundle.
+// All request URLs go through apiUrl() so a subpath reverse proxy works.
+export const API_BASE: string = import.meta.env.BASE_URL
+
+/** Build an app-relative request URL from an absolute-app path like '/api/x'. */
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path.replace(/^\/+/, '')}`
+}
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -124,7 +133,7 @@ export async function apiSend<T>(
 /** Login: send creds unauthenticated, store returned token. */
 export async function login(username: string, password: string): Promise<AuthTokenResponse> {
   const result = await apiSendAuthless<AuthTokenResponse>(
-    '/api/auth/login',
+    apiUrl('/api/auth/login'),
     'POST',
     { username, password },
   )
@@ -134,13 +143,13 @@ export async function login(username: string, password: string): Promise<AuthTok
 
 /** GET /api/auth/me with current token; returns profile. */
 export async function getMe(): Promise<AuthMeResponse> {
-  return apiGet<AuthMeResponse>('/api/auth/me')
+  return apiGet<AuthMeResponse>(apiUrl('/api/auth/me'))
 }
 
 /** Change password — needs old + new, uses current token. */
 export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
   await apiSend<void>(
-    '/api/auth/change_password',
+    apiUrl('/api/auth/change_password'),
     'POST',
     { old_password: oldPassword, new_password: newPassword },
   )
@@ -168,13 +177,13 @@ export function formatIso(value: string | null | undefined): string {
 
 /** GET /api/vehicles/{vehicle_id} — vehicle detail with sessions & tickets. */
 export async function getVehicleDetail(vehicleId: string): Promise<VehicleDetail> {
-  return apiGet<VehicleDetail>(`/api/vehicles/${encodeURIComponent(vehicleId)}`)
+  return apiGet<VehicleDetail>(apiUrl(`/api/vehicles/${encodeURIComponent(vehicleId)}`))
 }
 
 /** POST /api/chat/{vehicle_id}/reset */
 export async function resetChat(vehicleId: string): Promise<{ status: string }> {
   return apiSend<{ status: string }>(
-    `/api/chat/${encodeURIComponent(vehicleId)}/reset`,
+    apiUrl(`/api/chat/${encodeURIComponent(vehicleId)}/reset`),
     'POST',
   )
 }
@@ -184,7 +193,7 @@ export async function createTicket(
   payload: Record<string, unknown>,
 ): Promise<{ ticket_id: string; status: string; ticket_record: Record<string, unknown> }> {
   return apiSend<{ ticket_id: string; status: string; ticket_record: Record<string, unknown> }>(
-    '/api/tickets',
+    apiUrl('/api/tickets'),
     'POST',
     payload,
   )
@@ -192,7 +201,7 @@ export async function createTicket(
 
 /** GET /api/documents — list all documents. */
 export async function listDocuments(): Promise<DocumentInfo[]> {
-  return apiGet<DocumentInfo[]>('/api/documents')
+  return apiGet<DocumentInfo[]>(apiUrl('/api/documents'))
 }
 
 /** GET /api/documents/{doc_id}/page/{page_pdf} */
@@ -201,7 +210,7 @@ export async function getDocumentPage(
   pagePdf: number,
 ): Promise<DocumentPage> {
   return apiGet<DocumentPage>(
-    `/api/documents/${encodeURIComponent(docId)}/page/${pagePdf}`,
+    apiUrl(`/api/documents/${encodeURIComponent(docId)}/page/${pagePdf}`),
   )
 }
 
@@ -211,12 +220,12 @@ export async function getDocumentPage(
 
 /** GET /api/fleet/stats */
 export async function getFleetStats(): Promise<FleetStats> {
-  return apiGet<FleetStats>('/api/fleet/stats')
+  return apiGet<FleetStats>(apiUrl('/api/fleet/stats'))
 }
 
 /** GET /api/fleet/priority — quarantine vehicles sorted by anomaly_score desc */
 export async function getFleetPriority(): Promise<VehicleItem[]> {
-  return apiGet<VehicleItem[]>('/api/fleet/priority')
+  return apiGet<VehicleItem[]>(apiUrl('/api/fleet/priority'))
 }
 
 // ---------------------------------------------------------------------------
@@ -225,14 +234,13 @@ export async function getFleetPriority(): Promise<VehicleItem[]> {
 
 /** GET /api/admin/usage/totals */
 export async function getAdminUsageTotals(): Promise<UsageTotalsType> {
-  return apiGet<UsageTotalsType>('/api/admin/usage/totals')
+  return apiGet<UsageTotalsType>(apiUrl('/api/admin/usage/totals'))
 }
 
 /** GET /api/admin/usage/recent?limit=N */
 export async function getAdminUsageRecent(limit: number = 50): Promise<UsageRowItem[]> {
-  const url = new URL('/api/admin/usage/recent', window.location.origin)
-  url.searchParams.set('limit', String(Math.min(200, Math.max(1, limit))))
-  return apiGet<UsageRowItem[]>(url.toString())
+  const limit_ = String(Math.min(200, Math.max(1, limit)))
+  return apiGet<UsageRowItem[]>(`${apiUrl('/api/admin/usage/recent')}?limit=${limit_}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -241,7 +249,7 @@ export async function getAdminUsageRecent(limit: number = 50): Promise<UsageRowI
 
 /** GET /api/admin/users */
 export async function getAdminUsers(): Promise<AdminUserItem[]> {
-  return apiGet<AdminUserItem[]>('/api/admin/users')
+  return apiGet<AdminUserItem[]>(apiUrl('/api/admin/users'))
 }
 
 /** POST /api/admin/users */
@@ -251,7 +259,7 @@ export async function createAdminUser(
   role: string,
 ): Promise<{ status: string }> {
   return apiSend<{ status: string }>(
-    '/api/admin/users',
+    apiUrl('/api/admin/users'),
     'POST',
     { username, password, role },
   )
@@ -260,7 +268,7 @@ export async function createAdminUser(
 /** DELETE /api/admin/users/{username} */
 export async function deleteAdminUser(username: string): Promise<{ status: string }> {
   return apiSend<{ status: string }>(
-    `/api/admin/users/${encodeURIComponent(username)}`,
+    apiUrl(`/api/admin/users/${encodeURIComponent(username)}`),
     'DELETE',
   )
 }
@@ -271,7 +279,7 @@ export async function resetAdminPassword(
   newPassword: string,
 ): Promise<{ status: string }> {
   return apiSend<{ status: string }>(
-    `/api/admin/users/${encodeURIComponent(username)}/password`,
+    apiUrl(`/api/admin/users/${encodeURIComponent(username)}/password`),
     'POST',
     { new_password: newPassword },
   )
@@ -283,7 +291,7 @@ export async function resetAdminPassword(
 
 /** GET /api/admin/settings/llm */
 export async function getLlmSettings(): Promise<LlmSettingsView> {
-  return apiGet<LlmSettingsView>('/api/admin/settings/llm')
+  return apiGet<LlmSettingsView>(apiUrl('/api/admin/settings/llm'))
 }
 
 /** PUT /api/admin/settings/llm */
@@ -296,7 +304,7 @@ export async function updateLlmSettings(params: {
   max_output_tokens?: number | null
 }): Promise<LlmSettingsView> {
   return apiSend<LlmSettingsView>(
-    '/api/admin/settings/llm',
+    apiUrl('/api/admin/settings/llm'),
     'PUT',
     params,
   )

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { getDocumentPage } from '../api'
+import { getDocumentPage, apiUrl } from '../api'
 
 const props = defineProps<{
   docId: string | null
@@ -46,7 +46,7 @@ watch(() => [props.docId, props.page], loadPage, { immediate: true })
 
 function openPdf(): void {
   if (!props.docId || props.page === null) return
-  const url = `/api/documents/${encodeURIComponent(props.docId)}/file#page=${props.page}`
+  const url = apiUrl(`/api/documents/${encodeURIComponent(props.docId)}/file`) + `#page=${props.page}`
   window.open(url, '_blank')
 }
 </script>

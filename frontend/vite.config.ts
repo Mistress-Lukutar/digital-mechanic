@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [vue()],
+  base: command === 'build' ? './' : '/',
   build: {
     outDir: '../static/dist',
     emptyOutDir: true,
@@ -14,4 +15,4 @@ export default defineConfig({
       '/health': 'http://127.0.0.1:8000',
     },
   },
-})
+}))
