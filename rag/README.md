@@ -110,3 +110,18 @@ python -m rag.eval --set all   # hit@1/hit@5 (+1 page), MRR, refusal rate
 Eval sets in `data/eval/` (see its README): golden values verified against
 rendered page images, section-lookup questions with gold pages, and
 must-refuse questions for the verified "no instructions" cells.
+
+Current numbers (index built with the classic table detector —
+`pymupdf._layout_enabled = False`, see `rag/ingest.py`; the bundled neural
+layout runs ~64 ONNX threads per page and finds fewer tables on these
+manuals):
+
+| set | cases | hit@1 | hit@5 | MRR | note |
+|---|---|---|---|---|---|
+| manual | 46 | 0.457 | **0.870** | 0.632 | target ≥ 0.85 |
+| golden | 10 | 0.700 | 0.800 | 0.725 | values confirmed 7/10 |
+| negative | 10 | — | — | — | refusal rate **1.0** |
+
+Hybrid (bge-m3 + RRF on top of BM25). A BM25-only build of the same
+index scores manual hit@5 0.717 (independently reproduced by participant
+A); the dense part adds roughly +0.15.
