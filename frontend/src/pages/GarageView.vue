@@ -1,8 +1,20 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import type { VehicleItem, FleetStats, VehicleGroup } from '../types'
-import { formatIso } from '../api'
+import { apiGet, apiUrl, formatIso } from '../api'
 import { t } from '../i18n'
+
+interface ConfigCheckItem {
+  check: string
+  ok: boolean
+  detail: string
+  hint: string
+}
+
+interface ConfigStatusResponse {
+  overall: boolean
+  checks: ConfigCheckItem[]
+}
 
 defineProps<{
   vehicles: VehicleItem[]
@@ -58,10 +70,47 @@ function groupClass(group: VehicleItem['group']): string {
 
 // Skeleton row count for loading state
 const skeletonCount = Array.from({ length: 6 }, (_, i) => i)
+
+// Config-status warning banner (session-scoped, local ref only).
+const showConfigWarning = ref(false)
+
+let _lastChecks: ConfigCheckItem[] = []
+
+function getFailedChecks(): ConfigCheckItem[] {
+  return _lastChecks.filter((c: ConfigCheckItem) => !c.ok)
+}
+
+onMounted(async (): Promise<void> => {
+  try {
+    const data = await apiGet<ConfigStatusResponse>(apiUrl('/api/config-status'))
+    if (!data.overall && Array.isArray(data.checks)) {
+      _lastChecks = data.checks
+      showConfigWarning.value = true
+    }
+  } catch {
+    // Fetch failure → silently ignore, no banner.
+  }
+})
 </script>
 
 <template>
   <div class="garage-page">
+    <!-- Config-status warning banner -->
+    <div v-if="showConfigWarning" class="config-warning-strip panel">
+      <strong>{{ t('config.warning_title') }}</strong>
+      <span
+        v-for="c in (getFailedChecks() as { check: string; ok: boolean; detail: string; hint: string }[])"
+        :key="c.check"
+        class="warning-line"
+      >{{ c.check }} — {{ c.detail }}. {{ c.hint }}</span>
+      <button
+        class="dismiss-btn"
+        :aria-label="t('config.dismiss')"
+        title="Скрыть"
+        @click="showConfigWarning = false"
+      >×</button>
+    </div>
+
     <!-- Search + filter bar -->
     <div class="search-row">
       <input
@@ -344,5 +393,42 @@ const skeletonCount = Array.from({ length: 6 }, (_, i) => i)
 @keyframes skeleton-pulse {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* Config warning strip */
+.config-warning-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  background: #3b2e0a;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: #f5c542;
+}
+
+.config-warning-strip strong {
+  font-size: 14px;
+}
+
+.warning-line {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #e0b830;
+}
+
+.dismiss-btn {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  color: #f5c542;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.dismiss-btn:hover {
+  color: #fff;
 }
 </style>

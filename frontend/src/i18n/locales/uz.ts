@@ -233,6 +233,12 @@ const uz = {
   // ---------------------------------------------------------------------------
   'confirm.ok': 'Tasdiqlash',
   'confirm.cancel': 'Bekor qilish',
+
+  // ---------------------------------------------------------------------------
+  // config.* — config-status warning banner
+  // ---------------------------------------------------------------------------
+  'config.warning_title': 'Tizim sozlamalarida muammolar bor',
+  'config.dismiss': 'Yashirish',
 } satisfies Messages
 
 export default uz
