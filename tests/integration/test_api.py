@@ -606,3 +606,39 @@ async def test_chat_invalid_language_422(app_client: httpx.AsyncClient) -> None:
         headers={"Authorization": f"Bearer {mech_token}"},
     )
     assert resp.status_code == 422
+
+
+async def test_config_status_requires_auth(app_client: httpx.AsyncClient) -> None:
+    """GET /api/config-status without token returns 401."""
+    resp = await app_client.get("/api/config-status")
+    assert resp.status_code == 401
+
+
+async def test_config_status_structure(app_client: httpx.AsyncClient) -> None:
+    """GET /api/config-status with valid token → 200, correct JSON structure."""
+    token = await _admin_login(app_client)
+
+    resp = await app_client.get(
+        "/api/config-status", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    # Top-level keys.
+    assert "overall" in data
+    assert isinstance(data["overall"], bool)
+    assert "checks" in data
+    assert isinstance(data["checks"], list)
+    assert len(data["checks"]) >= 3
+
+    # Every check has the required shape.
+    for item in data["checks"]:
+        assert "check" in item
+        assert "ok" in item
+        assert isinstance(item["ok"], bool)
+        assert "detail" in item
+        assert "hint" in item
+
+    # At least the rag_service check must be present.
+    check_names = [c["check"] for c in data["checks"]]
+    assert "rag_service" in check_names, f"Missing rag_service check: {check_names}"
