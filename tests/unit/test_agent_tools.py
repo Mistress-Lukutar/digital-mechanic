@@ -340,7 +340,7 @@ class TestSearchManuals:
         result = await tool_def.executor({"query": "топливо"}, context)
 
         assert isinstance(result, str)
-        assert "[\u00ab236.01.01 РК\u00bb, стр. 112]" in result
+        assert "[236.01.01 РК, стр. 112]" in result
 
 
 class TestGetVehicleInfo:

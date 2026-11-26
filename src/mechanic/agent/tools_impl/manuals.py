@@ -70,7 +70,7 @@ async def _execute_search_manuals(
         tier_label = hit.tier if hit.tier else "tier ?"
         text_snippet = (hit.text or "")[:800]
         line = (
-            f"{i}. [\u00ab{hit.doc_id}\u00bb, стр. {hit.page_pdf}] "
+            f"{i}. [{hit.doc_id}, стр. {hit.page_pdf}] "
             f"({tier_label}, score={hit.score})\n{text_snippet}"
         )
         lines.append(line)
