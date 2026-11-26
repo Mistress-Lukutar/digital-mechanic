@@ -25,6 +25,7 @@ const header = ref<VehicleHeader>({
 })
 
 async function fetchVehicleInfo(): Promise<void> {
+  if (!props.vehicleId) return
   try {
     const detail = await import('../api').then(m => m.getVehicleDetail(props.vehicleId))
     header.value.garageNo = detail.garage_no || ''
@@ -60,6 +61,7 @@ function autoGrow(e: Event): void {
 async function sendMessage(): Promise<void> {
   const text = messageInput.value.trim()
   if (!text || streaming.value) return
+  if (!props.vehicleId) return
   messageInput.value = ''
   await chat.send(props.vehicleId, text)
   await nextTick()
@@ -130,6 +132,7 @@ function handleTicketSubmitted(_ticketId: string): void {
 function handleTicketClose(): void { showTicketModal.value = false; ticketDraft.value = null }
 
 async function handleNewDialog(): Promise<void> {
+  if (!props.vehicleId) return
   try { await resetChat(props.vehicleId) } catch { /* ignore */ }
   chat.resetLocal()
 }
@@ -211,8 +214,8 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
         </div>
 
         <div class="input-row">
-          <textarea v-model="messageInput" rows="1" placeholder="Введите сообщение..." :disabled="streaming" @keydown="onKeydown" @input="autoGrow" />
-          <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim()" @click="sendMessage">&rarr;</button>
+          <textarea v-model="messageInput" rows="1" placeholder="Введите сообщение..." :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
+          <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage">&rarr;</button>
           <button v-else class="stop-btn danger-solid" @click="chat.stop">Стоп</button>
         </div>
       </div>
