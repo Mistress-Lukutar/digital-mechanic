@@ -181,10 +181,9 @@ function dismissError(): void {
 }
 
 .locale-switcher {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
 .login-hint {

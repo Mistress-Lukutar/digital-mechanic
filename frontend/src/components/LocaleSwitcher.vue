@@ -53,6 +53,7 @@ function isActive(opt: (typeof LOCALE_OPTIONS)[number]): boolean {
 <style scoped>
 .locale-switcher {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
 }
