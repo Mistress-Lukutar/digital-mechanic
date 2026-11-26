@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AgentStepT } from '../types'
+import { t } from '../i18n'
 
 defineProps<{
   step: AgentStepT
@@ -19,14 +20,15 @@ function toolIcon(name: string): string {
 function displayName(name: string): string {
   // Convert snake_case to readable Russian-ish label
   const map: Record<string, string> = {
-    get_diagnostic_result: 'Диагностика',
-    get_vehicle_info: 'Информация ТС',
-    search_rag: 'Поиск в базе',
-    create_ticket: 'Создание заявки',
-    check_signal_quality: 'Качество сигнала',
-    analyze_signals: 'Анализ сигналов',
+    get_diagnostic_result: 'tools.get_diagnostic_result',
+    get_vehicle_info: 'tools.get_vehicle_info',
+    search_rag: 'tools.search_rag',
+    create_ticket: 'tools.create_ticket',
+    check_signal_quality: 'tools.check_signal_quality',
+    analyze_signals: 'tools.analyze_signals',
   }
-  return map[name] || name.replace(/_/g, ' ')
+  const key = map[name] ?? null
+  return key ? t(key as any) : name.replace(/_/g, ' ')
 }
 </script>
 

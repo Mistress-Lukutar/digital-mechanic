@@ -74,6 +74,75 @@ const ru = {
   'chart.title': 'anomaly_score по последним проверкам',
   'chart.no_data': 'Недостаточно данных для графика',
   'chart.caption': 'Отображение истории; прогноз не выполняется.',
+
+  // ---------------------------------------------------------------------------
+  // chat.* — ChatView
+  // ---------------------------------------------------------------------------
+  'chat.back': 'Назад',
+  'chat.new_dialog': 'Новый диалог',
+  'chat.history': 'История',
+  'chat.document': 'Документ',
+  'chat.select_doc': 'Выберите документ из чата',
+  'chat.streaming': 'ИИ печатает...',
+  'chat.input.placeholder': 'Введите сообщение...',
+  'chat.stop': 'Стоп',
+  'chat.quick.diagnostic.label': 'Получить диагностику',
+  'chat.quick.diagnostic.text': 'Получить результат диагностики',
+  'chat.quick.can_move.label': 'Можно ли перегнать?',
+  'chat.quick.can_move.text': 'Можно ли перегнать машину своим ходом на базу?',
+  'chat.quick.ticket.label': 'Создать заявку',
+  'chat.quick.ticket.text': 'Создай заявку на дефектовку',
+  'chat.error.connection': 'Ошибка соединения',
+
+  // ---------------------------------------------------------------------------
+  // tools.* — AgentStep tool-name display map
+  // ---------------------------------------------------------------------------
+  'tools.get_diagnostic_result': 'Диагностика',
+  'tools.get_vehicle_info': 'Информация ТС',
+  'tools.search_rag': 'Поиск в базе',
+  'tools.create_ticket': 'Создание заявки',
+  'tools.check_signal_quality': 'Качество сигнала',
+  'tools.analyze_signals': 'Анализ сигналов',
+
+  // ---------------------------------------------------------------------------
+  // ticket.* — TicketForm
+  // ---------------------------------------------------------------------------
+  'ticket.conclusion.label': 'Заключение',
+  'ticket.conclusion.placeholder': 'Опишите заключение...',
+  'ticket.urgency.label': 'Приоритет',
+  'ticket.urgency.low': 'Низкий',
+  'ticket.urgency.medium': 'Средний',
+  'ticket.urgency.high': 'Высокий',
+  'ticket.ops.label': 'Операции (по одной на строку)',
+  'ticket.ops.placeholder': 'Замена масла\nПроверка ремня',
+  'ticket.parts.label': 'Запчасти (необязательно, по одной на строку)',
+  'ticket.parts.placeholder': 'Фильтр масляный, Фильтр воздушный',
+  'ticket.refs.label': 'Ссылки на руководство',
+  'ticket.ref.manual_placeholder': 'Название руководства',
+  'ticket.ref.page_placeholder': 'Стр.',
+  'ticket.ref.remove_title': 'Удалить',
+  'ticket.ref.add': '+ Добавить ссылку',
+  'ticket.submit': 'Подать в ТОиР',
+  'ticket.submitting': 'Отправка…',
+  'ticket.cancel': 'Отмена',
+  'ticket.success': 'Заявка {id} создана',
+  'ticket.close': 'Закрыть',
+  'ticket.validation.conclusion': 'Введите заключение',
+  'ticket.validation.ops': 'Укажите хотя бы одну операцию',
+  'ticket.validation.ref_manual': 'Ссылка #{n}: укажите руководство',
+  'ticket.validation.ref_page': 'Ссылка #{n}: страница должна быть ≥ 1',
+  'ticket.error.create': 'Ошибка создания заявки',
+
+  // ---------------------------------------------------------------------------
+  // doc.* — DocPanel
+  // ---------------------------------------------------------------------------
+  'doc.page.title': 'стр. {n}',
+  'doc.loading': 'Загрузка…',
+  'doc.error.unavailable': 'Страница недоступна на сервере',
+  'doc.error.generic': 'Ошибка: {msg}',
+  'doc.error.load': 'Ошибка загрузки страницы',
+  'doc.empty': 'Текст страницы недоступен — откройте PDF',
+  'doc.open_pdf': 'Открыть PDF (стр. {n})',
 } satisfies Record<string, string>
 
 export default ru

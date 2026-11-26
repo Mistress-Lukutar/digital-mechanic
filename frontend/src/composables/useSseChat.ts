@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { getAuthToken, apiUrl, formatApiDetail } from '../api'
+import { t } from '../i18n'
 import type {
   AgentStepT,
   ChatMessage,
@@ -195,7 +196,7 @@ export function createSseChat(options: SseChatOptions) {
           pendingStepMap.clear()
         }
       } else {
-        error.value = e instanceof Error ? e.message : 'Ошибка соединения'
+        error.value = e instanceof Error ? e.message : t('chat.error.connection')
       }
     } finally {
       if (reader) {
