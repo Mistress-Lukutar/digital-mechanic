@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SessionRecord } from '../types'
+import { t } from '../i18n'
 
 // B2 display-only chart: anomaly_score over the last checks (no prediction).
 const props = defineProps<{
@@ -56,10 +57,10 @@ const rotateLabels = points.length > 4
 
 <template>
   <div class="anomaly-chart">
-    <h4 class="chart-title">anomaly_score по последним проверкам</h4>
+    <h4 class="chart-title">{{ t('chart.title') }}</h4>
 
     <div v-if="points.length < 2" class="chart-empty dim">
-      Недостаточно данных для графика
+      {{ t('chart.no_data') }}
     </div>
 
     <svg
@@ -145,7 +146,7 @@ const rotateLabels = points.length > 4
       </template>
     </svg>
 
-    <p class="chart-caption dim">Отображение истории; прогноз не выполняется.</p>
+    <p class="chart-caption dim">{{ t('chart.caption') }}</p>
   </div>
 </template>
 
