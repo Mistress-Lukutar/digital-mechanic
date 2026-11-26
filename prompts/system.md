@@ -133,13 +133,6 @@ are where the jury catches the agent.
 
 <!-- ==================== MANUAL-SPECIFIC (participant B) ==================== -->
 
-## 11. Карта руководств и типовые разделы
-
-_(Заполняется участником B: краткая карта разделов каждого документа с
-номерами страниц — «где что искать».)_
-
-## 12. Примеры вопрос → ответ
-
-_(Заполняется участником B: 2–3 пары с цитатами из тестового набора.)_
+(Manual-specific content -- the manual map with quoted normative values and the answer examples -- lives in an external file connected via PROMPT_MANUAL_FILE; it quotes the copyrighted manuals and is never committed to the repository. See .env.example.)
 
 <!-- ==================== END MANUAL-SPECIFIC ==================== -->

@@ -73,11 +73,128 @@ def _join_spaced(line: str) -> str:
     return " ".join(out)
 
 
-def normalize_page_text(text: str) -> str:
+def glue_broken_words(
+    text: str,
+    wordforms: dict[str, int] | None = None,
+    fragment_forms: dict[str, int] | None = None,
+) -> str:
+    '''Join space-broken word fragments using the corpus dictionary.
+
+    The layer splits words mid-string with real spaces ("по дшипнико в").
+    Adjacent tokens are merged when their concatenation is a known word
+    form and the right-hand fragment is not one itself (or is a stub of
+    one or two letters). Sums of two and three fragments are tried, per
+    plan-B rule 5.3. Words that are ALWAYS broken ("динамометр ических"
+    — the whole form never appears) merge instead when the right-hand
+    piece is a frequent fragment and not a word.
+
+    Args:
+        text: Page text with ``\\n`` line breaks.
+        wordforms: Corpus word-form dictionary; None disables the glue.
+        fragment_forms: Frequent fragment table for the always-broken rule.
+
+    Returns:
+        Text with broken words joined.
+    '''
+    if not wordforms and not fragment_forms:
+        return text
+    out_lines: list[str] = []
+    for line in text.split("\n"):
+        tokens = line.split()
+        if len(tokens) >= 2:
+            merged: list[str] = []
+            i = 0
+            while i < len(tokens):
+                joined = _try_merge(
+                    tokens, i, wordforms or {}, fragment_forms or {}
+                )
+                if joined is not None:
+                    word, consumed = joined
+                    merged.append(word)
+                    i += consumed
+                else:
+                    merged.append(tokens[i])
+                    i += 1
+            line = " ".join(merged)
+        out_lines.append(line)
+    return "\n".join(out_lines)
+
+
+def _try_merge(
+    tokens: list[str],
+    start: int,
+    wordforms: dict[str, int],
+    fragment_forms: dict[str, int],
+) -> tuple[str, int] | None:
+    '''Return (merged word, fragments consumed) when 2-3 fragments form one.
+
+    Args:
+        tokens: Line tokens.
+        start: Index of the first fragment.
+        wordforms: Whole-word dictionary.
+        fragment_forms: Frequent-fragment table.
+
+    Returns:
+        (merged token including trailing punctuation, tokens consumed),
+        or None.
+    '''
+    for take in (3, 2):
+        if start + take > len(tokens):
+            continue
+        parts = tokens[start : start + take]
+        cores = [_strip_tail(p) for p in parts]
+        if any(not core for core in cores):
+            continue
+        # The right-hand fragments must not be full words themselves,
+        # unless they are tiny stubs ("в", "ко").
+        for core in cores[1:]:
+            if len(core) > 2 and core in wordforms:
+                break
+        else:
+            candidate = "".join(cores)
+            if len(candidate) <= 30 and _strip_tail(candidate) in wordforms:
+                _head, tail = _split_tail(parts[-1])
+                return candidate + tail, take
+            # Always-broken words: the right piece is a frequent fragment
+            # but never a whole word ("динамометр ических"), both pieces
+            # are substantial.
+            if take == 2 and fragment_forms:
+                left, right = cores
+                if (
+                    len(left) >= 4
+                    and len(right) >= 4
+                    and right not in wordforms
+                    and right in fragment_forms
+                    and left in fragment_forms
+                ):
+                    _head, tail = _split_tail(parts[-1])
+                    return candidate + tail, take
+    return None
+
+
+def _strip_tail(token: str) -> str:
+    '''Strip trailing punctuation from a token (":", ",", ".").'''
+    return token.rstrip(".,:;!)(")
+
+
+def _split_tail(token: str) -> tuple[str, str]:
+    '''Split a token into (head without trailing punctuation, punctuation).'''
+    stripped = token.rstrip(".,:;!)(")
+    return stripped, token[len(stripped) :]
+
+
+def normalize_page_text(
+    text: str,
+    wordforms: dict[str, int] | None = None,
+    fragment_forms: dict[str, int] | None = None,
+) -> str:
     '''Apply all line-break and range normalisations to page text.
 
     Args:
         text: Page text with ``\\n`` line breaks, as assembled by layout.
+        wordforms: Optional corpus dictionary for the broken-word glue.
+        fragment_forms: Optional frequent-fragment table (always-broken
+            words).
 
     Returns:
         Normalised text with the same line structure.
@@ -94,6 +211,8 @@ def normalize_page_text(text: str) -> str:
     # Letter spacing is a per-line property.
     lines = [_join_spaced(line) for line in text.split("\n")]
     text = "\n".join(lines)
+    # Broken-word glue needs the dictionary; cheap no-op without it.
+    text = glue_broken_words(text, wordforms, fragment_forms)
     # Range normalisation: one canonical form "***REMOVED***", "***REMOVED***".
     text = _RANGE_SPACES.sub("-", text)
     text = _RANGE_DASH.sub("-", text)
