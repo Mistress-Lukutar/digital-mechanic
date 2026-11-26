@@ -9,6 +9,7 @@ import TicketForm from '../components/TicketForm.vue'
 import HistoryPanel from '../components/HistoryPanel.vue'
 import DocPanel from '../components/DocPanel.vue'
 import AppModal from '../components/AppModal.vue'
+import { renderAssistantHtml } from '../lib/markdown'
 
 const props = defineProps<{ vehicleId: string }>()
 const emit = defineEmits<{ back: [] }>()
@@ -101,22 +102,13 @@ async function handleNewDialog(): Promise<void> {
   chat.resetLocal()
 }
 
-interface CitationPart { type: 'text' | 'link'; content: string; docId?: string; page?: number }
-const citationRegex = /\[([^,\[\]]+), стр\. (\d+)\]/g
-
-function renderCitations(text: string): CitationPart[] {
-  const parts: CitationPart[] = []
-  let lastIndex = 0
-  let match: RegExpExecArray | null
-  while ((match = citationRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) parts.push({ type: 'text', content: text.slice(lastIndex, match.index) })
-    const docId = match[1]
-    const pageNum = parseInt(match[2], 10)
-    parts.push({ type: 'link', content: '[' + docId + ', стр. ' + pageNum + ']', docId, page: pageNum })
-    lastIndex = match.index + match[0].length
-  }
-  if (lastIndex < text.length) parts.push({ type: 'text', content: text.slice(lastIndex) })
-  return parts
+function handleMdClick(e: MouseEvent): void {
+  const el = (e.target as HTMLElement).closest('a[data-doc-id]')
+  if (!el) return
+  e.preventDefault()
+  activeDocId.value = el.getAttribute('data-doc-id')
+  activePage.value = Number(el.getAttribute('data-page'))
+  rightPanelTab.value = 'doc'
 }
 
 function getDiagFromMsg(msg: ChatMessage): DiagnosticResult | null {
@@ -168,12 +160,7 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
               <div class="bubble assistant-bubble">
                 <StatusCard v-if="getDiagFromMsg(msg)" :diag="getDiagFromMsg(msg)" />
                 <AgentStep v-for="(step, sIdx) in msg.steps" :key="sIdx" :step="step" />
-                <p v-if="msg.text" class="message-text">
-                  <template v-for="(part, nIdx) in renderCitations(msg.text)" :key="nIdx">
-                    <span v-if="part.type === 'text'">{{ part.content }}</span>
-                    <a v-else href="#" class="citation-link" @click.prevent="() => { activeDocId = part.docId!; activePage = part.page!; rightPanelTab = 'doc' }">{{ part.content }}</a>
-                  </template>
-                </p>
+                <div v-if="msg.text" class="message-text md-body" v-html="renderAssistantHtml(msg.text)" @click="handleMdClick"></div>
               </div>
             </template>
             <template v-else>
@@ -246,10 +233,27 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
 .message-row.assistant { justify-content: flex-start; }
 .bubble { max-width: 85%; padding: 10px 14px; border-radius: var(--radius-lg); font-size: 13px; line-height: 1.5; }
 .assistant-bubble { background: var(--bg-panel); border: 1px solid var(--border); border-top-left-radius: 4px; }
-.user-bubble { background: var(--accent-dim); color: var(--text-on-accent); border-top-right-radius: 4px; }
-.message-text { margin: 8px 0 0; white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.5; }
-.citation-link { color: var(--accent); text-decoration: underline dotted; cursor: pointer; font-size: 12px; padding: 0 2px; }
-.citation-link:hover { color: var(--accent); text-decoration: underline; }
+.user-bubble { background: var(--accent-dim); color: var(--text-on-accent); border-top-right-radius: 4px; white-space: pre-wrap; }
+.message-text { margin: 8px 0 0; word-break: break-word; font-size: 13px; line-height: 1.5; }
+.md-body :deep(.citation-link) { color: var(--accent); text-decoration: underline dotted; cursor: pointer; font-size: 12px; padding: 0 2px; }
+.md-body :deep(.citation-link:hover) { color: var(--accent); text-decoration: underline; }
+.md-body :deep(p) { margin: 0 0 8px; }
+.md-body :deep(p:last-child) { margin-bottom: 0; }
+.md-body :deep(ul), .md-body :deep(ol) { margin: 4px 0 8px; padding-left: 20px; }
+.md-body :deep(li) { margin: 2px 0; }
+.md-body :deep(li > p) { margin: 0; }
+.md-body :deep(code) { background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 12px; font-family: ui-monospace, monospace; }
+.md-body :deep(pre) { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; overflow-x: auto; margin: 6px 0; }
+.md-body :deep(pre code) { background: transparent; border: 0; padding: 0; }
+.md-body :deep(blockquote) { border-left: 3px solid var(--border); margin: 6px 0; padding: 2px 10px; color: var(--text-dim); }
+.md-body :deep(h1) { font-size: 15px; margin: 10px 0 4px; }
+.md-body :deep(h2) { font-size: 14px; margin: 10px 0 4px; }
+.md-body :deep(h3), .md-body :deep(h4) { font-size: 13px; margin: 10px 0 4px; }
+.md-body :deep(h1:first-child), .md-body :deep(h2:first-child), .md-body :deep(h3:first-child), .md-body :deep(h4:first-child) { margin-top: 0; }
+.md-body :deep(table) { border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+.md-body :deep(th), .md-body :deep(td) { border: 1px solid var(--border); padding: 4px 8px; }
+.md-body :deep(a) { color: var(--accent); }
+.md-body :deep(hr) { border: 0; border-top: 1px solid var(--border); margin: 8px 0; }
 .streaming-indicator { display: flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 12px; }
 .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
