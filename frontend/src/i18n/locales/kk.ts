@@ -98,6 +98,7 @@ const kk = {
   'chat.error.connection': 'Байланыс қатесі',
   'chat.mic.label': 'Дауыспен енгізу',
   'chat.mic.listening': 'Тыңдау…',
+  'chat.empty_vehicle': 'Парктен өтінішті таңдаңыз немесе тарихтан чатты ашыңыз',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map

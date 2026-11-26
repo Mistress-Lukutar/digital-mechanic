@@ -98,6 +98,7 @@ const hi = {
   'chat.error.connection': 'कनेक्शन त्रुटि',
   'chat.mic.label': 'वॉइस इनपुट',
   'chat.mic.listening': 'सुन रहा हूँ…',
+  'chat.empty_vehicle': 'फ़्लीट से अनुरोध चुनें या इतिहास से चैट खोलें',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map
