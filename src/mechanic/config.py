@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     app_port: int = 8000
     app_data_dir: Path = Path("data")
     manuals_dir: Path = Path("data/manuals")
+    # Built frontend served by the API process when the directory exists
+    # (single-process deployment; dev without a build is unaffected).
+    static_dir: Path = Path("static/dist")
     # Explicit DB file override (tests point it at a tmp dir); when unset the
     # DB lives inside app_data_dir.
     db_file: Path | None = None

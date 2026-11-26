@@ -16,9 +16,10 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from mechanic.api.admin_api import router as admin_router
 from mechanic.api.auth_api import router as auth_router
@@ -27,7 +28,7 @@ from mechanic.api.deps import get_hub, init_app_settings, init_hub
 from mechanic.api.documents_api import router as documents_router
 from mechanic.api.tickets_api import router as tickets_router
 from mechanic.api.vehicles_api import router as vehicles_router
-from mechanic.config import get_settings
+from mechanic.config import Settings, get_settings
 from mechanic.errors import MechanicError
 
 logger = logging.getLogger(__name__)
@@ -59,12 +60,17 @@ def _get_hub() -> object:  # ServiceHub
     return _gh()
 
 
-def create_app() -> FastAPI:
+def create_app(settings: Settings | None = None) -> FastAPI:
     """Construct and configure the ``FastAPI`` application.
+
+    Args:
+        settings: Application settings; ``None`` loads the process-wide
+            instance (tests pass their own isolated settings).
 
     Returns:
         Configured :class:`FastAPI` instance ready for serving.
     """
+    settings = settings or get_settings()
     app = FastAPI(
         title="Digital Mechanic API",
         lifespan=lifespan,
@@ -90,6 +96,12 @@ def create_app() -> FastAPI:
             content={"detail": str(exc)},
         )
 
+    # Liveness probe for reverse-proxy upstream checks.
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        """Report service liveness."""
+        return {"status": "ok"}
+
     # Register routers.
     app.include_router(auth_router)
     app.include_router(vehicles_router)
@@ -97,6 +109,30 @@ def create_app() -> FastAPI:
     app.include_router(tickets_router)
     app.include_router(documents_router)
     app.include_router(admin_router)
+
+    # Serve the built frontend when the dist directory exists. Registered
+    # last so API routes (and /docs) always match first. The catch-all
+    # falls back to index.html, which makes client-side SPA routes work.
+    if settings.static_dir.is_dir():
+        static_root = settings.static_dir.resolve()
+        assets_dir = static_root / "assets"
+        if assets_dir.is_dir():
+            app.mount(
+                "/assets",
+                StaticFiles(directory=assets_dir),
+                name="assets",
+            )
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def spa_fallback(full_path: str) -> FileResponse:
+            """Serve static files, falling back to the SPA entry point."""
+            if full_path == "api" or full_path.startswith("api/"):
+                # Unknown API paths must not return HTML.
+                raise HTTPException(status_code=404, detail="Not Found")
+            candidate = (static_root / full_path).resolve()
+            if candidate.is_file() and candidate.is_relative_to(static_root):
+                return FileResponse(candidate)
+            return FileResponse(static_root / "index.html", media_type="text/html")
 
     return app
 
