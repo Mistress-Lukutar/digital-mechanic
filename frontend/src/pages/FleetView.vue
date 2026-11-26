@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import type { VehicleItem, FleetStats } from '../types'
-import { getFleetStats, getFleetPriority, apiGet } from '../api'
+import { getFleetStats, getFleetPriority, apiGet, apiUrl } from '../api'
 
 const emit = defineEmits<{
   'open-vehicle': [id: string]
@@ -45,7 +45,7 @@ async function fetchPriority(): Promise<void> {
 
 async function fetchAllVehicles(): Promise<void> {
   try {
-    vehicles.value = await apiGet<VehicleItem[]>('/api/vehicles')
+    vehicles.value = await apiGet<VehicleItem[]>(apiUrl('/api/vehicles'))
   } catch (e) {
     if (e instanceof Error) error.value = e.message
   }

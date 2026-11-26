@@ -1,6 +1,6 @@
 import { ref, readonly } from 'vue'
 import type { UserRole } from '../types'
-import { login as apiLogin, getMe, changePassword as apiChangePassword, logoutToken } from '../api'
+import { login as apiLogin, getMe, changePassword as apiChangePassword, logoutToken, setAuthToken } from '../api'
 
 const STORAGE_KEY = 'dm_auth'
 
@@ -72,6 +72,7 @@ export function useAuth() {
   async function restore(): Promise<boolean> {
     const saved = store()
     if (!saved) return false
+    setAuthToken(saved.token)
     try {
       const me = await getMe()
       _token.value = saved.token

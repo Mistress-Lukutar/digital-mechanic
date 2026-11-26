@@ -277,7 +277,7 @@ function kindChipClass(kind: string): string {
         <form class="add-user-form" @submit.prevent="handleCreateUser">
           <div class="field-row">
             <input v-model="newUser.username" placeholder="Имя пользователя" required />
-            <input v-model="newUser.password" type="password" placeholder="Пароль (мин. 8)" required minlength="8" />
+            <input v-model="newUser.password" type="password" placeholder="Пароль (мин. 8)" required minlength="8" autocomplete="new-password" />
             <select v-model="newUser.role">
               <option value="user">пользователь</option>
               <option value="admin">админ</option>
@@ -320,6 +320,7 @@ function kindChipClass(kind: string): string {
                       v-model="newPasswords[u.username]"
                       type="password"
                       placeholder="Новый пароль"
+                      autocomplete="new-password"
                       style="width: 120px; padding: 3px 6px;"
                       @keydown.enter="handleResetPassword(u.username)"
                     />
@@ -369,6 +370,7 @@ function kindChipClass(kind: string): string {
           <input
             v-model="llmForm.api_key"
             type="password"
+            autocomplete="off"
             :placeholder="llmSettings.api_key || 'не задан'"
           />
           <span class="field-hint dim">Ключ хранится на сервере и не возвращается в открытом виде</span>

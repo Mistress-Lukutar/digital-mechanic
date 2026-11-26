@@ -21,6 +21,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 
 async function load(): Promise<void> {
+  if (!props.vehicleId) return
   loading.value = true
   try {
     const data = await getVehicleDetail(props.vehicleId)
