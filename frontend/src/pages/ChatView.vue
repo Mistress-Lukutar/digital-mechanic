@@ -59,6 +59,7 @@ const micListening = speech.listening
 const messages = chat.messages
 const streaming = chat.streaming
 const chatError = chat.error
+const expandedReasoning = ref<Record<number, boolean>>({})
 const messageInput = ref('')
 const inputEl = ref<HTMLTextAreaElement | null>(null)
 
@@ -217,6 +218,17 @@ function toggleMic(): void {
           <div v-for="(msg, idx) in messages" :key="idx" :class="['message-row', msg.role]">
             <template v-if="msg.role === 'assistant'">
               <div class="bubble assistant-bubble">
+                <template v-if="msg.reasoning && msg.reasoning.length > 0">
+                  <button
+                    class="reasoning-toggle"
+                    @click="expandedReasoning[idx] = !expandedReasoning[idx]"
+                    :aria-expanded="!!expandedReasoning[idx]"
+                  >
+                    <span :class="{ chevron: true, open: !!expandedReasoning[idx] }">▸</span>
+                    {{ t('chat.reasoning.toggle') }}
+                  </button>
+                  <div class="reasoning-body" v-show="expandedReasoning[idx]">{{ msg.reasoning }}</div>
+                </template>
                 <StatusCard v-if="getDiagFromMsg(msg)" :diag="getDiagFromMsg(msg)" />
                 <AgentStep v-for="(step, sIdx) in msg.steps" :key="sIdx" :step="step" />
                 <div v-if="msg.text" class="message-text md-body" v-html="renderAssistantHtml(msg.text)" @click="handleMdClick"></div>
@@ -376,4 +388,9 @@ function toggleMic(): void {
   .chat-header { flex-wrap: wrap; row-gap: 4px; }
   .header-info { order: -1; flex-basis: 100%; }
 }
+.reasoning-toggle { background: transparent; border: 0; color: var(--text-dim); font-size: 12px; cursor: pointer; padding: 2px 4px; line-height: 1; display: inline-flex; align-items: center; gap: 4px; }
+.reasoning-toggle:hover { color: var(--accent); }
+.chevron { display: inline-block; transition: transform 0.15s ease; font-size: 10px; }
+.chevron.open { transform: rotate(90deg); }
+.reasoning-body { color: var(--text-dim); font-size: 12px; white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin: 4px 0; line-height: 1.4; }
 </style>

@@ -99,6 +99,7 @@ const uz = {
   'chat.mic.label': 'Ovozli kiritish',
   'chat.mic.listening': 'Tinglayapman…',
   'chat.empty_vehicle': 'Parkdan arizani tanlang yoki tarixdan chatni oching',
+  'chat.reasoning.toggle': "Oʻylayapman…",
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map
