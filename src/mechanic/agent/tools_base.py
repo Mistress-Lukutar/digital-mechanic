@@ -16,8 +16,12 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from mechanic.llm import ToolSpec
+
+if TYPE_CHECKING:
+    from mechanic.services.hub import ServiceHub
 
 # Executor: sync or async; returns a string or a ToolOutcome.
 ToolExecutor = Callable[
@@ -32,11 +36,16 @@ class ToolError(Exception):
 
 @dataclass
 class ToolContext:
-    '''Per-turn context handed to every tool executor.'''
+    '''Per-turn context handed to every tool executor.
+
+    ``services`` carries the ServiceHub (fleet store, ML/TOiR/RAG clients,
+    ticket log) wired at application startup; tools pull what they need.
+    '''
 
     vehicle_id: str
     session_id: str | None = None
     username: str = "mechanic"
+    services: ServiceHub | None = None
 
 
 @dataclass
