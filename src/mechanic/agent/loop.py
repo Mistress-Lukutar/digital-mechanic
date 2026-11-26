@@ -74,6 +74,7 @@ class AgentLoop:
         temperature: float = 0.3,
         max_output_tokens: int | None = None,
         max_iterations: int = DEFAULT_MAX_TOOL_ITERATIONS,
+        tool_services: object | None = None,
     ) -> None:
         '''Create the loop.
 
@@ -87,6 +88,8 @@ class AgentLoop:
             temperature: Sampling temperature for the provider request.
             max_output_tokens: Output cap sent to the provider, if any.
             max_iterations: Safety cap on model turns per user message.
+            tool_services: ServiceHub handed to every tool executor via
+                ToolContext.services (live clients for fleet/ML/TOiR/RAG).
         '''
         self._client = client
         self._endpoint = endpoint
@@ -96,6 +99,7 @@ class AgentLoop:
         self._temperature = temperature
         self._max_output_tokens = max_output_tokens
         self._max_iterations = max_iterations
+        self._tool_services = tool_services
 
     # ------------------------------------------------------------------
     # Main entry point.
@@ -124,6 +128,7 @@ class AgentLoop:
             vehicle_id=vehicle_id,
             session_id=session_id,
             username=username,
+            services=self._tool_services,
         )
         self._store.add_user_message(vehicle_id, text)
 

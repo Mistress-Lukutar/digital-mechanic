@@ -123,6 +123,7 @@ async def _chat_events(
         system_prompt=system_prompt,
         temperature=llm_cfg.temperature,
         max_output_tokens=llm_cfg.max_output_tokens,
+        tool_services=hub,
     )
 
     async for name, payload in loop.run(vehicle_id, message, session_id, username):

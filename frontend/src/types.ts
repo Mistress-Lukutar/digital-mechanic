@@ -97,3 +97,128 @@ export interface FleetStats {
   attention: number
   quarantine: number
 }
+
+// ---------------------------------------------------------------------------
+// Chat / SSE
+// ---------------------------------------------------------------------------
+
+export interface AgentStepT {
+  call_id: string
+  name: string
+  summary: string | null
+  content: string | null
+  is_error: boolean
+  done: boolean
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  text: string
+  steps: AgentStepT[]
+}
+
+// ---------------------------------------------------------------------------
+// Ticket / TicketPayload
+// ---------------------------------------------------------------------------
+
+export interface ReferenceEntry {
+  manual: string
+  pdf_page: number
+}
+
+export interface TicketPayload {
+  vehicle_id: string
+  session_id: string
+  anomaly_type: string
+  conclusion: string
+  urgency: 'low' | 'medium' | 'high'
+  operations: string[]
+  spare_parts: string[]
+  references: ReferenceEntry[]
+}
+
+export interface TicketDraftEvent {
+  payload: TicketPayload
+  priority_rationale: string
+  urgency_source: 'agent' | 'rules'
+  session_id: string
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostic result (parsed from get_diagnostic_result tool_result content)
+// ---------------------------------------------------------------------------
+
+export interface DiagnosticResult {
+  status: 'normal' | 'anomaly' | 'check_failed' | string
+  anomaly_type: string | null
+  anomaly_title: string | null
+  anomaly_score: number | null
+  confidence: number | null
+  signal_quality: 'good' | 'warning' | 'bad' | string
+  description: string
+  session_id: string
+  model_version: string
+}
+
+// ---------------------------------------------------------------------------
+// Document types
+// ---------------------------------------------------------------------------
+
+export interface DocumentInfo {
+  doc_id: string
+  doc_title: string
+  pages: number[]
+  engines: string[]
+  file: string
+}
+
+export interface DocumentPage {
+  doc_id: string
+  doc_title: string
+  page_pdf: number
+  text: string
+  pdf_path: string
+}
+
+// ---------------------------------------------------------------------------
+// SSE event shapes
+// ---------------------------------------------------------------------------
+
+export interface SseTokenEvent {
+  text: string
+}
+
+export interface SseReasoningEvent {
+  text: string
+}
+
+export interface SseToolStartEvent {
+  call_id: string
+  name: string
+  arguments: string
+}
+
+export interface SseToolResultEvent {
+  call_id: string
+  name: string
+  summary: string
+  content: string
+  is_error: boolean
+}
+
+export interface SseDocumentEvent {
+  doc_id: string
+  doc_title: string
+  page_pdf: number
+  pdf_path: string
+  has_text: boolean
+}
+
+export interface SseTurnDoneEvent {
+  stop_reason: string | null
+  usage: { input_tokens: number; output_tokens: number } | null
+}
+
+export interface SseErrorEvent {
+  message: string
+}

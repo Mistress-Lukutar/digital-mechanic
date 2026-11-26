@@ -4,7 +4,7 @@ import type { VehicleItem, FleetStats } from './types'
 import { auth } from './composables/useAuth'
 import LoginView from './pages/LoginView.vue'
 import GarageView from './pages/GarageView.vue'
-import AppModal from './components/AppModal.vue'
+import ChatView from './pages/ChatView.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 
 type Page = 'login' | 'garage' | 'chat' | 'fleet' | 'admin'
@@ -21,9 +21,8 @@ const garageLoading = ref(false)
 const searchQuery = ref('')
 const groupFilter = ref<'all' | 'normal' | 'attention' | 'quarantine'>('all')
 
-// Modal for vehicle click stub
-const modalText = ref('')
-const modalTitle = ref('')
+// Current vehicle (for chat navigation)
+let currentVehicleId = ''
 
 async function restoreAuth(): Promise<void> {
   const ok = await auth.restore()
@@ -123,8 +122,8 @@ async function fetchFleetStats(): Promise<void> {
 }
 
 function handleVehicleClick(id: string): void {
-  modalTitle.value = 'Чат по ТС'
-  modalText.value = `Чат по ТС ${id} появится в следующем этапе`
+  currentVehicleId = id
+  page.value = 'chat'
 }
 
 // Debounced search/filter on garage data
@@ -164,8 +163,11 @@ onMounted(restoreAuth)
         >
           Гараж
         </button>
-        <button class="nav-btn" disabled title="Скоро">
-          Чат <span class="soon-hint">скоро</span>
+        <button
+          :class="['nav-btn', { active: page === 'chat' }]"
+          @click="page = 'chat'"
+        >
+          Чат
         </button>
         <button class="nav-btn" disabled title="Скоро">
           Парк <span class="soon-hint">скоро</span>
@@ -209,20 +211,19 @@ onMounted(restoreAuth)
         @update-filter="onFilterUpdate"
       />
 
-      <!-- Stub pages (chat, fleet, admin) -->
+      <!-- Chat page -->
+      <ChatView
+        v-else-if="page === 'chat'"
+        :vehicle-id="currentVehicleId"
+        @back="() => { page = 'garage'; fetchGarageData() }"
+      />
+
+      <!-- Stub pages (fleet, admin) -->
       <div v-else class="stub-page panel">
         <h2>Раздел «{{ page }}»</h2>
         <p class="dim">Появится в следующем этапе.</p>
       </div>
     </main>
-
-    <!-- Stub modal for vehicle click -->
-    <AppModal v-if="modalText" :title="modalTitle" @close="modalText = ''">
-      <p>{{ modalText }}</p>
-      <template #footer>
-        <button class="primary" @click="modalText = ''">OK</button>
-      </template>
-    </AppModal>
 
     <!-- Confirm dialog (for future use) -->
     <ConfirmDialog />

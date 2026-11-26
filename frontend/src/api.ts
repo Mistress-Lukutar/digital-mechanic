@@ -1,6 +1,12 @@
 // Thin fetch helpers for the Digital Mechanic API.
 
-import type { AuthMeResponse, AuthTokenResponse } from './types'
+import type {
+  AuthMeResponse,
+  AuthTokenResponse,
+  DocumentInfo,
+  DocumentPage,
+  VehicleDetail,
+} from './types'
 
 export class ApiError extends Error {
   status: number
@@ -18,6 +24,11 @@ let _token: string | null = null
 
 export function setAuthToken(token: string | null): void {
   _token = token
+}
+
+/** Read the current stored token. */
+export function getAuthToken(): string | null {
+  return _token
 }
 
 // ---------------------------------------------------------------------------
@@ -143,4 +154,47 @@ export function formatIso(value: string | null | undefined): string {
   const iso = value.endsWith('Z') || value.includes('+') ? value : value + 'Z'
   const date = new Date(iso)
   return isNaN(date.getTime()) ? value : date.toLocaleString('ru-RU', { hour12: false })
+}
+
+// ---------------------------------------------------------------------------
+// Chat / Vehicle detail / Tickets / Documents helpers
+// ---------------------------------------------------------------------------
+
+/** GET /api/vehicles/{vehicle_id} — vehicle detail with sessions & tickets. */
+export async function getVehicleDetail(vehicleId: string): Promise<VehicleDetail> {
+  return apiGet<VehicleDetail>(`/api/vehicles/${encodeURIComponent(vehicleId)}`)
+}
+
+/** POST /api/chat/{vehicle_id}/reset */
+export async function resetChat(vehicleId: string): Promise<{ status: string }> {
+  return apiSend<{ status: string }>(
+    `/api/chat/${encodeURIComponent(vehicleId)}/reset`,
+    'POST',
+  )
+}
+
+/** POST /api/tickets — create a ticket. */
+export async function createTicket(
+  payload: Record<string, unknown>,
+): Promise<{ ticket_id: string; status: string; ticket_record: Record<string, unknown> }> {
+  return apiSend<{ ticket_id: string; status: string; ticket_record: Record<string, unknown> }>(
+    '/api/tickets',
+    'POST',
+    payload,
+  )
+}
+
+/** GET /api/documents — list all documents. */
+export async function listDocuments(): Promise<DocumentInfo[]> {
+  return apiGet<DocumentInfo[]>('/api/documents')
+}
+
+/** GET /api/documents/{doc_id}/page/{page_pdf} */
+export async function getDocumentPage(
+  docId: string,
+  pagePdf: number,
+): Promise<DocumentPage> {
+  return apiGet<DocumentPage>(
+    `/api/documents/${encodeURIComponent(docId)}/page/${pagePdf}`,
+  )
 }
