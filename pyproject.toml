@@ -20,6 +20,11 @@ dev = [
     "mypy>=1.10",
 ]
 
+e2e = [
+    "playwright>=1.45",
+    "pytest-playwright>=0.9",
+]
+
 [project.scripts]
 digital-mechanic = "mechanic.main:run"
 
@@ -45,7 +50,7 @@ asyncio_default_fixture_loop_scope = "session"
 
 [tool.ruff]
 line-length = 88
-src = ["src", "tests"]
+src = ["src", "tests", "e2e"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]

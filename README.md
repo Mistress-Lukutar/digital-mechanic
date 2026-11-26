@@ -117,6 +117,7 @@ cd frontend && npm run dev
 | `vendor/` | Комплектные заглушки: Mock ML (`POST /diagnose`), Mock ТОиР (`POST /tickets`), OpenAPI-спеки |
 | `prompts/` | Системный промпт агента (`{vehicle_block}` / `{docs_block}`) |
 | `tests/` | pytest-набор бэкенда |
+| `e2e/` | Playwright UI/UX-смоук: вход, навигация по всем страницам, админка, контроль ошибок консоли/сети |
 
 ## Проверки
 
@@ -125,3 +126,15 @@ cd frontend && npm run dev
 .venv/Scripts/python.exe -m ruff check src shared tests
 cd frontend && npm run build    # vue-tsc strict + vite build
 ```
+
+UI/UX-смоук (требует `pip install -e ".[e2e]"`; браузер — системный Edge/Chrome,
+без скачивания Playwright-браузеров; стенд — свои моки + API на случайных
+портах под `/mech/`, как за обратным прокси):
+
+```bash
+.venv/Scripts/python.exe -m pytest e2e -v
+```
+
+Сьюит после каждого теста проверяет, что на странице не было JS-ошибок,
+ошибок консоли и ответов 4xx/5xx (кроме ожидаемых 401 на `auth/login`/`auth/me`
+— семантика «не авторизован»).
