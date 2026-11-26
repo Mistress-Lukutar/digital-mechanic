@@ -1,0 +1,55 @@
+[project]
+name = "digital-mechanic"
+version = "0.1.0"
+description = "AI agent 'Digital Mechanic' for ICE diagnostics — NeuroDVS hackathon (AI Forge, 26-27.11.2026)"
+authors = [{ name = "Mistress-Lukutar" }]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+digital-mechanic = "mechanic.main:run"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["mechanic", "shared"]
+
+[tool.setuptools.package-dir]
+mechanic = "src/mechanic"
+shared = "shared"
+
+[tool.setuptools.package-data]
+mechanic = ["py.typed"]
+shared = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true

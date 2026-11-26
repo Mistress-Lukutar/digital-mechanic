@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+
+# Environment and secrets
+.env
+*.key
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Runtime artifacts (indexes, databases, logs)
+data/rag/
+data/summaries/
+*.db
+*.sqlite3
+logs/
+server.log
+
+# Copyrighted factory manuals: never commit PDFs or extracted-text indexes.
+# Place the issued PDFs locally (see data/manuals/README.md).
+data/manuals/*.pdf
+
+# OS noise
+Thumbs.db
+.DS_Store
