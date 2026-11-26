@@ -642,3 +642,18 @@ async def test_config_status_structure(app_client: httpx.AsyncClient) -> None:
     # At least the rag_service check must be present.
     check_names = [c["check"] for c in data["checks"]]
     assert "rag_service" in check_names, f"Missing rag_service check: {check_names}"
+
+
+async def test_chat_invalid_image_url_422(app_client: httpx.AsyncClient) -> None:
+    """POST /api/chat with image not starting with data:image/ returns 422."""
+    admin_token = await _admin_login(app_client)
+
+    resp = await app_client.post(
+        "/api/chat/M333YK47",
+        json={
+            "message": "hello",
+            "image": "https://example.com/photo.jpg",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422

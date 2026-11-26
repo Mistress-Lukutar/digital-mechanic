@@ -100,6 +100,8 @@ const hi = {
   'chat.mic.listening': 'सुन रहा हूँ…',
   'chat.empty_vehicle': 'फ़्लीट से अनुरोध चुनें या इतिहास से चैट खोलें',
   'chat.reasoning.toggle': 'सोच रहा हूँ…',
+  'chat.attach.label': 'छवि संलग्न करें',
+  'chat.attach.remove': 'छवि हटाएँ',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map

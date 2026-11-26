@@ -127,6 +127,7 @@ export function createSseChat(options: SseChatOptions) {
     vehicleId: string,
     message: string,
     sessionId: string | null = null,
+    image?: string,
   ): Promise<void> {
     if (streaming.value) return
 
@@ -134,7 +135,9 @@ export function createSseChat(options: SseChatOptions) {
     isStopped = false
 
     // Push user message
-    messages.value.push({ role: 'user', text: message, steps: [] })
+    const userMsg: ChatMessage = { role: 'user', text: message, steps: [] }
+    if (image) userMsg.image = image
+    messages.value.push(userMsg)
 
     streaming.value = true
     error.value = null
@@ -146,6 +149,13 @@ export function createSseChat(options: SseChatOptions) {
     let buffer = ''
 
     try {
+      const body: Record<string, unknown> = {
+        message,
+        session_id: sessionId,
+        language: locale.value,
+      }
+      if (image) body.image = image
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -153,11 +163,7 @@ export function createSseChat(options: SseChatOptions) {
           Accept: 'text/event-stream',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message,
-          session_id: sessionId,
-          language: locale.value,
-        }),
+        body: JSON.stringify(body),
         signal: abortCtrl.signal,
       })
 

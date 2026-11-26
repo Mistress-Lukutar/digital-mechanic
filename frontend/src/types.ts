@@ -116,6 +116,7 @@ export interface ChatMessage {
   text: string
   steps: AgentStepT[]
   reasoning?: string
+  image?: string
 }
 
 // ---------------------------------------------------------------------------

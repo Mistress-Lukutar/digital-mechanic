@@ -2,13 +2,16 @@
 File:   chat_api.py
 Brief:  Chat endpoint with SSE streaming, conversation reset, and language selection.
 Author: Mistress-Lukutar
-Date:   2026-11-26
-Version: v0.1.1
+Date:   2026-11-27
+Version: v0.1.2
 
 Provides the ``/api/chat`` router with a streaming chat endpoint that wraps
 the :class:`~mechanic.agent.loop.AgentLoop` and yields SSE-formatted events,
 plus a reset endpoint to clear a vehicle's conversation history. Supports an
 optional ``language`` field on ``ChatRequest`` for non-Russian responses.
+
+Multimodal support: ``ChatRequest`` accepts an optional ``image`` data-URL
+that is forwarded into the agent turn as a multimodal content part.
 '''
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from mechanic.agent.conversations import ConversationStore
 from mechanic.agent.loop import AgentLoop
@@ -38,6 +41,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
+# Maximum length for a data-URL image (~1.5 MB JPEG base64-encoded).
+_MAX_IMAGE_URL_LEN = 2_100_000
+
 
 class ChatRequest(BaseModel):
     """Chat message request body.
@@ -46,11 +52,40 @@ class ChatRequest(BaseModel):
         message: User message text.
         session_id: Optional session identifier for the vehicle check.
         language: Target response language (ru, kk, uz, hi); defaults to ru.
+        image: Optional data-URL image (``data:image/...``). Must be ≤ 2 100 000 chars.
     """
 
     message: str
     session_id: str | None = None
     language: Literal["ru", "kk", "uz", "hi"] | None = None
+    image: str | None = None
+
+    @field_validator("image")
+    @classmethod
+    def _validate_image(cls, value: str | None) -> str | None:
+        """Validate an optional data-URL image field.
+
+        Args:
+            value: The raw string from the request body.
+
+        Returns:
+            *value* unchanged if valid.
+
+        Raises:
+            ValueError: When the image is not a ``data:image/`` URL or exceeds
+                the length limit.
+        """
+        if value is None:
+            return None
+        if not value.startswith("data:image/"):
+            raise ValueError(
+                "Изображение: поддерживаются data-URL до 1.5 МБ"
+            )
+        if len(value) > _MAX_IMAGE_URL_LEN:
+            raise ValueError(
+                "Изображение: поддерживаются data-URL до 1.5 МБ"
+            )
+        return value
 
 
 async def _auth_user(request: Request) -> object:  # TokenUser
@@ -94,6 +129,7 @@ async def _chat_events(
     conversations: ConversationStore,
     llm_cfg: LlmConfig,
     language: Literal["ru", "kk", "uz", "hi"] | None = None,
+    image: str | None = None,
 ) -> object:  # AsyncIterator[tuple[str, dict]]
     """Generate SSE events from the agent loop.
 
@@ -106,6 +142,7 @@ async def _chat_events(
         conversations: Conversation store.
         llm_cfg: Effective LLM configuration.
         language: Target response language (ru/kk/uz/hi).
+        image: Optional data-URL image for multimodal input.
 
     Yields:
         (event_name, payload) tuples from the agent loop.
@@ -132,7 +169,9 @@ async def _chat_events(
         tool_services=hub,
     )
 
-    async for name, payload in loop.run(vehicle_id, message, session_id, username):
+    async for name, payload in loop.run(
+        vehicle_id, message, session_id, username, image=image
+    ):
         yield (name, payload)
 
 
@@ -166,6 +205,7 @@ async def chat(
             conversations,
             llm_cfg,
             language=body.language,
+            image=body.image,
         ):
             yield f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
