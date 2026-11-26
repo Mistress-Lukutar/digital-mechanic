@@ -15,6 +15,9 @@ import ConfirmDialog from './components/ConfirmDialog.vue'
 type Page = 'login' | 'garage' | 'chat' | 'fleet' | 'admin'
 const page = ref<Page>('login')
 
+// Splash guard — prevents flash of LoginView during auth restore on hard reload.
+const restoring = ref(true)
+
 // Auth state
 const loginError = ref<string | null>(null)
 const pwdChangeError = ref<string | null>(null)
@@ -31,6 +34,7 @@ let currentVehicleId = ''
 
 async function restoreAuth(): Promise<void> {
   const ok = await auth.restore()
+  restoring.value = false
   page.value = ok ? 'garage' : 'login'
   if (ok && !auth.mustChangePassword.value) fetchGarageData()
 }
@@ -200,8 +204,13 @@ onMounted(restoreAuth)
       </div>
     </header>
 
+    <!-- Splash screen while auth is being restored (prevents login flash) -->
+    <div v-if="restoring" class="splash">
+      <span class="spinner" />
+    </div>
+
     <!-- Page content -->
-    <main class="main-content">
+    <main v-else class="main-content">
       <!-- Login page -->
       <LoginView
         v-if="page === 'login'"
@@ -357,6 +366,13 @@ onMounted(restoreAuth)
 .main-content {
   flex: 1;
   padding: 16px;
+}
+
+.splash {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
 }
 
 .stub-page {
