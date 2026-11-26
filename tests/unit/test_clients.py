@@ -24,7 +24,7 @@ from shared.models import (
 
 from mechanic.errors import MockApiError, RagUnavailableError
 from mechanic.services.ml_client import MlClient
-from mechanic.services.rag_client import RagClient
+from mechanic.services.rag_client import RagClient, normalize_doc_id
 from mechanic.services.toir_client import ToirClient
 
 # ======================================================================
@@ -329,3 +329,61 @@ async def test_rag_get_page_from_service(ml_http: httpx.AsyncClient) -> None:
         assert result.text == "Page content here."
     finally:
         await ml_http.aclose()
+
+
+# ======================================================================
+# normalize_doc_id unit tests
+# ======================================================================
+
+
+def test_normalize_doc_id_strips_guillemets() -> None:
+    """normalize_doc_id removes « and » characters."""
+    assert normalize_doc_id("«ЗМЗ-409 РЭТОиР»") == "ЗМЗ-409 РЭТОиР"
+
+
+def test_normalize_doc_id_collapses_whitespace() -> None:
+    """normalize_doc_id collapses internal whitespace runs to a single space."""
+    assert normalize_doc_id(" 236.01.01  РК ") == "236.01.01 РК"
+
+
+def test_normalize_doc_id_clean_unchanged() -> None:
+    """normalize_doc_id returns clean ids unchanged."""
+    assert normalize_doc_id("236.01.01 РК") == "236.01.01 РК"
+
+
+# ======================================================================
+# get_page guillemets regression test
+# ======================================================================
+
+
+async def test_rag_get_page_clean_url_with_guillemets(
+    ml_http: httpx.AsyncClient,
+) -> None:
+    """RagClient.get_page() with «» in doc_id requests the clean URL."""
+    captured_path: list[str] = []
+
+    def _handler_capture(request: httpx.Request) -> httpx.Response:
+        captured_path.append(request.url.path)
+        return httpx.Response(200, json={
+            "doc_id": "236.01.01 РК",
+            "doc_title": "ЯМЗ-236. Руководство по ремонту 236.01.01 РК (2014)",
+            "page_pdf": 1,
+            "text": "Page content here.",
+            "pdf_path": "/data/manuals/yamz-236_rk_2014.pdf",
+        })
+
+    transport = httpx.MockTransport(_handler_capture)
+    client_obj = httpx.AsyncClient(transport=transport)
+    try:
+        rag = RagClient(
+            base_url="http://rag-service",
+            mock_chunks_path=None,
+            manuals_dir=Path("data/manuals"),
+            http=client_obj,
+        )
+        await rag.get_page("«236.01.01 РК»", 1)
+        # The path should contain the cleaned doc_id, not «236.01.01 РК»
+        assert len(captured_path) == 1
+        assert "/document/236.01.01 РК/page/1" in captured_path[0]
+    finally:
+        await client_obj.aclose()
