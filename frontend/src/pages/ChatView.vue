@@ -3,6 +3,7 @@ import { ref, nextTick, watch, computed } from 'vue'
 import type { TicketDraftEvent, ChatMessage, DiagnosticResult } from '../types'
 import { t } from '../i18n'
 import { createSseChat } from '../composables/useSseChat'
+import { useSpeech } from '../composables/useSpeech'
 import { resetChat } from '../api'
 import StatusCard from '../components/StatusCard.vue'
 import AgentStep from '../components/AgentStep.vue'
@@ -48,6 +49,12 @@ const chat = createSseChat({
   onTicketDraft(draft: TicketDraftEvent): void { ticketDraft.value = draft; showTicketModal.value = true },
   onDocument(docId: string, page: number): void { activeDocId.value = docId; activePage.value = page; rightPanelTab.value = 'doc' },
 })
+
+const speech = useSpeech()
+// Top-level aliases: nested refs inside a plain object are NOT auto-unwrapped
+// in templates, so the mic bindings must live at setup scope.
+const micSupported = speech.supported
+const micListening = speech.listening
 
 const messages = chat.messages
 const streaming = chat.streaming
@@ -162,6 +169,21 @@ function sessionLabel(status: string | null): string {
 }
 
 function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }
+
+function handleVoiceText(text: string): void {
+  const sep = messageInput.value.trim() ? ' ' : ''
+  messageInput.value += sep + text
+  autoGrow({ target: inputEl.value as unknown as EventTarget } as Event)
+  if (inputEl.value) inputEl.value.focus()
+}
+
+function toggleMic(): void {
+  if (speech.listening.value) {
+    speech.stop()
+  } else {
+    speech.start(handleVoiceText)
+  }
+}
 </script>
 
 <template>
@@ -216,6 +238,19 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
 
         <div class="input-row">
           <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
+          <button
+            v-if="micSupported && !streaming && vehicleId"
+            class="mic-btn"
+            :class="{ listening: micListening }"
+            :title="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
+            :aria-label="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
+            @click="toggleMic"
+          >
+            <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="9" y="2" width="6" height="12" rx="3"/>
+              <path d="M5 11a7 7 0 0 0 14 0H5z"/>
+            </svg>
+          </button>
           <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage">&rarr;</button>
           <button v-else class="stop-btn danger-solid" @click="chat.stop">{{ t('chat.stop') }}</button>
         </div>
@@ -309,6 +344,11 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
 .input-row textarea { flex: 1; resize: none; min-height: 36px; max-height: 120px; padding: 8px 12px; font-size: 14px; font-family: inherit; }
 .send-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; padding: 0; flex-shrink: 0; }
 .stop-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; padding: 0; flex-shrink: 0; }
+.mic-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); padding: 0; cursor: pointer; flex-shrink: 0; }
+.mic-btn:hover { border-color: var(--accent); color: var(--accent); }
+.mic-icon { width: 20px; height: 20px; }
+@keyframes mic-pulse { 0%, 100% { opacity: 1; box-shadow: none; } 50% { opacity: 0.6; box-shadow: 0 0 8px var(--accent); } }
+.mic-btn.listening .mic-icon { animation: mic-pulse 1s ease-in-out infinite; }
 .chat-error { position: relative; margin: 8px 16px 0; }
 .close-error { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--danger-text); font-size: 16px; padding: 4px; cursor: pointer; }
 .right-panel { width: 380px; flex-shrink: 0; border-left: 1px solid var(--border); background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; }
