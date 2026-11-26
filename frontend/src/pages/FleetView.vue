@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import type { VehicleItem, FleetStats } from '../types'
 import { getFleetStats, getFleetPriority, apiGet, apiUrl } from '../api'
+import { t } from '../i18n'
 
 const emit = defineEmits<{
   'open-vehicle': [id: string]
@@ -64,9 +65,9 @@ function groupClass(group: VehicleItem['group']): string {
 
 function groupLabel(group: VehicleItem['group']): string {
   switch (group) {
-    case 'normal': return 'Норма'
-    case 'attention': return 'Внимание'
-    case 'quarantine': return 'Карантин'
+    case 'normal': return t('fleet.group.normal')
+    case 'attention': return t('fleet.group.attention')
+    case 'quarantine': return t('fleet.group.quarantine')
     default: return ''
   }
 }
@@ -82,9 +83,9 @@ function statusBadgeClass(status: VehicleItem['latest_status']): string {
 
 function statusLabel(status: VehicleItem['latest_status']): string {
   switch (status) {
-    case 'normal': return 'Норма'
-    case 'anomaly': return 'Отклонение'
-    case 'check_failed': return 'Сбой записи'
+    case 'normal': return t('status.label.normal')
+    case 'anomaly': return t('status.label.anomaly')
+    case 'check_failed': return t('status.label.check_failed')
     default: return '—'
   }
 }
@@ -106,7 +107,7 @@ function openVehicle(id: string): void {
     <!-- Error strip -->
     <div v-if="error" class="error-strip">
       {{ error }}
-      <button class="retry-btn" @click="fetchData()">Повторить</button>
+      <button class="retry-btn" @click="fetchData()">{{ t('fleet.retry') }}</button>
     </div>
 
     <!-- Loading skeletons -->
@@ -127,22 +128,22 @@ function openVehicle(id: string): void {
       <!-- Group cards row -->
       <section class="group-cards">
         <div class="group-card card" :class="{ 'card-normal': true }">
-          <span class="group-label dim">Норма</span>
+          <span class="group-label dim">{{ t('fleet.group.normal') }}</span>
           <span class="group-num accent">{{ stats?.normal ?? 0 }}</span>
         </div>
         <div class="group-card card" :class="{ 'card-warning': true }">
-          <span class="group-label dim">Требует внимания</span>
+          <span class="group-label dim">{{ t('fleet.requires_attention') }}</span>
           <span class="group-num warning">{{ stats?.attention ?? 0 }}</span>
         </div>
         <div class="group-card card" :class="{ 'card-danger': true }">
-          <span class="group-label dim">Карантин</span>
+          <span class="group-label dim">{{ t('fleet.group.quarantine') }}</span>
           <span class="group-num danger">{{ stats?.quarantine ?? 0 }}</span>
         </div>
       </section>
 
       <!-- Priority list (quarantine vehicles) -->
       <section v-if="priorityList.length > 0" class="priority-section">
-        <h3 class="section-title">Приоритетный список</h3>
+        <h3 class="section-title">{{ t('fleet.priority_list') }}</h3>
         <div class="priority-list">
           <div
             v-for="v in priorityList" :key="v.vehicle_id"
@@ -156,7 +157,7 @@ function openVehicle(id: string): void {
             </div>
             <div class="priority-detail">
               <span v-if="v.latest_anomaly_title" class="anomaly-text">{{ v.latest_anomaly_title }}</span>
-              <span v-else class="dim">Без отклонений</span>
+              <span v-else class="dim">{{ t('fleet.no_anomalies') }}</span>
             </div>
             <div class="priority-meta">
               <span :class="['badge', statusBadgeClass(v.latest_status)]">{{ statusLabel(v.latest_status) }}</span>
@@ -164,7 +165,7 @@ function openVehicle(id: string): void {
                 {{ v.latest_anomaly_score.toFixed(2) }}
               </span>
               <span class="dim mono date">{{ formatShortDate(v.latest_checked_at) }}</span>
-              <button class="open-btn primary" @click="openVehicle(v.vehicle_id)">Открыть</button>
+              <button class="open-btn primary" @click="openVehicle(v.vehicle_id)">{{ t('fleet.open') }}</button>
             </div>
           </div>
         </div>
@@ -172,17 +173,17 @@ function openVehicle(id: string): void {
 
       <!-- Full fleet table (collapsible) -->
       <details class="fleet-details">
-        <summary class="fleet-summary">Весь парк ({{ vehicles.length }})</summary>
+        <summary class="fleet-summary">{{ t('fleet.all_fleet', { n: vehicles.length }) }}</summary>
         <div class="fleet-table-wrap">
           <table class="fleet-table">
             <thead>
               <tr>
-                <th>Гаражный №</th>
-                <th>ID ТС</th>
-                <th>Марка / модель</th>
-                <th>Двигатель</th>
-                <th>Группа</th>
-                <th>Статус</th>
+                <th>{{ t('fleet.table.garage_no') }}</th>
+                <th>{{ t('fleet.table.vehicle_id') }}</th>
+                <th>{{ t('fleet.table.make_model') }}</th>
+                <th>{{ t('fleet.table.engine') }}</th>
+                <th>{{ t('fleet.table.group') }}</th>
+                <th>{{ t('fleet.table.status') }}</th>
               </tr>
             </thead>
             <tbody>

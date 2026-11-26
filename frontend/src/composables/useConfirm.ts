@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { t } from '../i18n'
 
 export interface ConfirmOptions {
   title: string
@@ -23,8 +24,8 @@ const state = reactive<ConfirmState>({
   open: false,
   title: '',
   message: '',
-  confirmLabel: 'Подтвердить',
-  cancelLabel: 'Отмена',
+  confirmLabel: t('confirm.ok'),
+  cancelLabel: t('confirm.cancel'),
   danger: false,
 })
 
@@ -48,8 +49,8 @@ export function useConfirm(): {
     settle(false) // a second request cancels the pending dialog
     state.title = options.title
     state.message = options.message
-    state.confirmLabel = options.confirmLabel ?? 'Подтвердить'
-    state.cancelLabel = options.cancelLabel ?? 'Отмена'
+    state.confirmLabel = options.confirmLabel ?? t('confirm.ok')
+    state.cancelLabel = options.cancelLabel ?? t('confirm.cancel')
     state.danger = options.danger ?? false
     state.open = true
     return new Promise((resolve) => {

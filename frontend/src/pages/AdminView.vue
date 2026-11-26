@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import type { UsageTotals, UsageRowItem, AdminUserItem, LlmSettingsView } from '../types'
 import { getAdminUsageTotals, getAdminUsageRecent, getAdminUsers, createAdminUser, deleteAdminUser, resetAdminPassword, getLlmSettings, updateLlmSettings } from '../api'
 import { useConfirm } from '../composables/useConfirm'
+import { t } from '../i18n'
 
 const { confirm } = useConfirm()
 
@@ -67,9 +68,9 @@ async function handleCreateUser(): Promise<void> {
 
 async function handleDeleteUser(username: string): Promise<void> {
   const ok = await confirm({
-    title: 'Удалить пользователя',
-    message: `Удалить «${username}»?`,
-    confirmLabel: 'Удалить',
+    title: t('admin.delete_user_title'),
+    message: t('admin.delete_user_message', { username }),
+    confirmLabel: t('admin.delete'),
     danger: true,
   })
   if (!ok) return
@@ -85,7 +86,7 @@ async function handleDeleteUser(username: string): Promise<void> {
 async function handleResetPassword(username: string): Promise<void> {
   const pw = newPasswords.value[username]
   if (!pw || pw.length < 8) {
-    userError.value = 'Пароль должен содержать минимум 8 символов'
+    userError.value = t('admin.password_min_8')
     return
   }
   resettingPassword.value[username] = true
@@ -183,64 +184,64 @@ function kindChipClass(kind: string): string {
       <button
         :class="['chip', { active: activeTab === 'dashboard' }]"
         @click="activeTab = 'dashboard'"
-      >Дашборд</button>
+      >{{ t('admin.tab.dashboard') }}</button>
       <button
         :class="['chip', { active: activeTab === 'users' }]"
         @click="activeTab = 'users'"
-      >Пользователи</button>
+      >{{ t('admin.tab.users') }}</button>
       <button
         :class="['chip', { active: activeTab === 'llm' }]"
         @click="activeTab = 'llm'"
-      >Настройки LLM</button>
+      >{{ t('admin.tab.llm') }}</button>
     </div>
 
     <!-- Dashboard tab -->
     <section v-if="activeTab === 'dashboard'" class="tab-content">
-      <h3>Дашборд использования</h3>
+      <h3>{{ t('admin.dashboard.title') }}</h3>
 
       <!-- 4 stat cards -->
       <div class="stat-cards">
         <div class="stat-card panel">
-          <span class="stat-label dim">Запросов</span>
+          <span class="stat-label dim">{{ t('admin.stat.requests') }}</span>
           <span class="stat-num">{{ usageTotals?.requests_total ?? '—' }}</span>
         </div>
         <div class="stat-card panel">
-          <span class="stat-label dim">Ошибок</span>
+          <span class="stat-label dim">{{ t('admin.stat.errors') }}</span>
           <span class="stat-num stat-error">{{ usageTotals?.requests_error ?? '—' }}</span>
         </div>
         <div class="stat-card panel">
-          <span class="stat-label dim">Входящие токены</span>
+          <span class="stat-label dim">{{ t('admin.stat.input_tokens') }}</span>
           <span class="stat-num">{{ usageTotals?.input_tokens ?? '—' }}</span>
         </div>
         <div class="stat-card panel">
-          <span class="stat-label dim">Исходящие токены</span>
+          <span class="stat-label dim">{{ t('admin.stat.output_tokens') }}</span>
           <span class="stat-num">{{ usageTotals?.output_tokens ?? '—' }}</span>
         </div>
       </div>
 
       <!-- Recent requests table -->
-      <h4 class="section-title">Последние запросы</h4>
+      <h4 class="section-title">{{ t('admin.recent_requests') }}</h4>
       <div class="table-actions">
-        <button :disabled="loadingData" @click="loadDashboard()">Обновить</button>
+        <button :disabled="loadingData" @click="loadDashboard()">{{ t('admin.refresh') }}</button>
       </div>
 
       <div v-if="errorStrip" class="error-strip">{{ errorStrip }}</div>
 
-      <div v-if="loadingData" class="dim">Загрузка…</div>
+      <div v-if="loadingData" class="dim">{{ t('admin.loading') }}</div>
 
       <div v-else class="table-wrap">
         <table class="data-table">
           <thead>
             <tr>
-              <th>Время</th>
-              <th>Пользователь</th>
-              <th>Тип</th>
-              <th>Модель</th>
-              <th>ID ТС</th>
-              <th>Вх. токены</th>
-              <th>Исх. токены</th>
-              <th>Длительность (мс)</th>
-              <th>Статус</th>
+              <th>{{ t('admin.table.time') }}</th>
+              <th>{{ t('admin.table.user') }}</th>
+              <th>{{ t('admin.table.kind') }}</th>
+              <th>{{ t('admin.table.model') }}</th>
+              <th>{{ t('admin.table.vehicle_id') }}</th>
+              <th>{{ t('admin.table.input_tokens') }}</th>
+              <th>{{ t('admin.table.output_tokens') }}</th>
+              <th>{{ t('admin.table.duration') }}</th>
+              <th>{{ t('admin.table.status') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -255,34 +256,34 @@ function kindChipClass(kind: string): string {
               <td class="mono">{{ r.duration_ms }}</td>
               <td>
                 <span v-if="r.status === 'ok'" class="badge badge-ok">OK</span>
-                <span v-else class="badge badge-danger" :title="r.error || ''">Ошибка</span>
+                <span v-else class="badge badge-danger" :title="r.error || ''">{{ t('admin.error_label') }}</span>
               </td>
             </tr>
           </tbody>
         </table>
 
         <div v-if="recentUsage.length === 0" class="dim" style="padding: 16px; text-align: center;">
-          Записей нет
+          {{ t('admin.no_records') }}
         </div>
       </div>
     </section>
 
     <!-- Users tab -->
     <section v-if="activeTab === 'users'" class="tab-content">
-      <h3>Пользователи</h3>
+      <h3>{{ t('admin.users.title') }}</h3>
 
       <!-- Add user form -->
       <details :open="addUserOpen" @toggle="addUserOpen = ($event.target as HTMLDetailsElement).open">
-        <summary class="add-user-summary">Добавить пользователя</summary>
+        <summary class="add-user-summary">{{ t('admin.add_user') }}</summary>
         <form class="add-user-form" @submit.prevent="handleCreateUser">
           <div class="field-row">
-            <input v-model="newUser.username" placeholder="Имя пользователя" required />
-            <input v-model="newUser.password" type="password" placeholder="Пароль (мин. 8)" required minlength="8" autocomplete="new-password" />
+            <input v-model="newUser.username" :placeholder="t('admin.username_placeholder')" required />
+            <input v-model="newUser.password" type="password" :placeholder="t('admin.password_placeholder')" required minlength="8" autocomplete="new-password" />
             <select v-model="newUser.role">
               <option value="user">пользователь</option>
               <option value="admin">админ</option>
             </select>
-            <button type="submit" class="primary">Создать</button>
+            <button type="submit" class="primary">{{ t('admin.create') }}</button>
           </div>
         </form>
       </details>
@@ -291,17 +292,17 @@ function kindChipClass(kind: string): string {
       <div v-if="userError" class="error-strip">{{ userError }}</div>
 
       <!-- Users table -->
-      <div v-if="loadingUsers" class="dim">Загрузка…</div>
+      <div v-if="loadingUsers" class="dim">{{ t('admin.loading') }}</div>
       <template v-else>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Имя</th>
-                <th>Роль</th>
-                <th>Смена пароля</th>
-                <th>Дата создания</th>
-                <th>Действия</th>
+                <th>{{ t('admin.table.name') }}</th>
+                <th>{{ t('admin.table.role') }}</th>
+                <th>{{ t('admin.table.change_password') }}</th>
+                <th>{{ t('admin.table.created_at') }}</th>
+                <th>{{ t('admin.table.actions') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -309,7 +310,7 @@ function kindChipClass(kind: string): string {
                 <td class="mono">{{ u.username }}</td>
                 <td><span :class="['chip', u.role === 'admin' ? '' : 'badge-ok']">{{ u.role }}</span></td>
                 <td>
-                  <span v-if="u.must_change_password" class="badge badge-warning">сменит пароль</span>
+                  <span v-if="u.must_change_password" class="badge badge-warning">{{ t('admin.must_change_pw') }}</span>
                   <span v-else class="dim">—</span>
                 </td>
                 <td class="mono dim">{{ formatIso(u.created_at) }}</td>
@@ -319,26 +320,26 @@ function kindChipClass(kind: string): string {
                     <input
                       v-model="newPasswords[u.username]"
                       type="password"
-                      placeholder="Новый пароль"
+                      :placeholder="t('admin.new_password_placeholder')"
                       autocomplete="new-password"
                       style="width: 120px; padding: 3px 6px;"
                       @keydown.enter="handleResetPassword(u.username)"
                     />
                     <button :disabled="!newPasswords[u.username]" class="primary" style="padding: 2px 8px; font-size: 12px; min-height: auto;" @click="handleResetPassword(u.username)">
-                      {{ resettingPassword[u.username] ? '…' : 'OK' }}
+                      {{ resettingPassword[u.username] ? t('admin.loading_indicator') : 'OK' }}
                     </button>
                   </template>
                   <template v-else>
-                    <button style="padding: 2px 8px; font-size: 12px; min-height: auto;" @click="newPasswords[u.username] = ''; resettingPassword[u.username] = true">Сбросить пароль</button>
+                    <button style="padding: 2px 8px; font-size: 12px; min-height: auto;" @click="newPasswords[u.username] = ''; resettingPassword[u.username] = true">{{ t('admin.reset_password') }}</button>
                   </template>
-                  <button class="danger-solid" style="padding: 2px 8px; font-size: 12px; min-height: auto;" @click="handleDeleteUser(u.username)">Удалить</button>
+                  <button class="danger-solid" style="padding: 2px 8px; font-size: 12px; min-height: auto;" @click="handleDeleteUser(u.username)">{{ t('admin.delete') }}</button>
                 </td>
               </tr>
             </tbody>
           </table>
 
           <div v-if="users.length === 0" class="dim" style="padding: 16px; text-align: center;">
-            Пользователей нет
+            {{ t('admin.no_users') }}
           </div>
         </div>
       </template>
@@ -346,13 +347,13 @@ function kindChipClass(kind: string): string {
 
     <!-- LLM settings tab -->
     <section v-if="activeTab === 'llm'" class="tab-content">
-      <h3>Настройки LLM</h3>
+      <h3>{{ t('admin.settings.title') }}</h3>
 
       <div v-if="llmError" class="error-strip">{{ llmError }}</div>
 
       <form v-if="!loadingLlm && llmSettings" class="llm-form" @submit.prevent="handleSaveLlm">
         <div class="field">
-          <label class="label">Протокол</label>
+          <label class="label">{{ t('admin.protocol_label') }}</label>
           <select v-model="llmForm.protocol">
             <option value="openai_compatible">openai_compatible</option>
             <option value="anthropic">anthropic</option>
@@ -361,56 +362,56 @@ function kindChipClass(kind: string): string {
         </div>
 
         <div class="field">
-          <label class="label">Base URL</label>
+          <label class="label">{{ t('admin.base_url_label') }}</label>
           <input v-model="llmForm.base_url" type="url" placeholder="https://api.example.com/v1" />
         </div>
 
         <div class="field">
-          <label class="label">API ключ</label>
+          <label class="label">{{ t('admin.api_key_label') }}</label>
           <input
             v-model="llmForm.api_key"
             type="password"
             autocomplete="off"
-            :placeholder="llmSettings.api_key || 'не задан'"
+            :placeholder="llmSettings.api_key || t('admin.not_set')"
           />
-          <span class="field-hint dim">Ключ хранится на сервере и не возвращается в открытом виде</span>
+          <span class="field-hint dim">{{ t('admin.api_key_hint') }}</span>
         </div>
 
         <div class="field">
-          <label class="label">Модель</label>
+          <label class="label">{{ t('admin.model_label') }}</label>
           <input v-model="llmForm.model" type="text" placeholder="model-name" />
         </div>
 
         <div class="field">
-          <label class="label">Temperature (0–1)</label>
+          <label class="label">{{ t('admin.temperature_label') }}</label>
           <input v-model.number="llmForm.temperature" type="number" min="0" max="1" step="0.1" />
         </div>
 
         <div class="field">
-          <label class="label">Max output tokens</label>
-          <input v-model.number="llmForm.max_output_tokens" type="number" placeholder="пусто = без лимита" />
+          <label class="label">{{ t('admin.max_output_tokens_label') }}</label>
+          <input v-model.number="llmForm.max_output_tokens" type="number" :placeholder="t('admin.empty_no_limit')" />
         </div>
 
         <div class="form-actions">
-          <button type="submit" :disabled="savingLlm" class="primary">Сохранить</button>
-          <span v-if="savingLlm" class="dim">Сохранение…</span>
+          <button type="submit" :disabled="savingLlm" class="primary">{{ t('admin.save') }}</button>
+          <span v-if="savingLlm" class="dim">{{ t('admin.saving') }}</span>
         </div>
       </form>
 
       <!-- Saved state display -->
       <div v-if="llmSettings && !savingLlm" class="llm-saved panel">
-        <h4>Текущие настройки</h4>
+        <h4>{{ t('admin.current_settings') }}</h4>
         <dl class="kv-grid">
-          <dt>Протокол</dt><dd>{{ llmSettings.protocol }}</dd>
-          <dt>Base URL</dt><dd>{{ llmSettings.base_url || '—' }}</dd>
-          <dt>API ключ</dt><dd class="mono">{{ llmSettings.api_key }}</dd>
-          <dt>Модель</dt><dd>{{ llmSettings.model || '—' }}</dd>
-          <dt>Temperature</dt><dd>{{ llmSettings.temperature ?? '—' }}</dd>
-          <dt>Max output tokens</dt><dd>{{ llmSettings.max_output_tokens ?? 'не задан' }}</dd>
+          <dt>{{ t('admin.protocol_label') }}</dt><dd>{{ llmSettings.protocol }}</dd>
+          <dt>{{ t('admin.base_url_label') }}</dt><dd>{{ llmSettings.base_url || '—' }}</dd>
+          <dt>{{ t('admin.api_key_label') }}</dt><dd class="mono">{{ llmSettings.api_key }}</dd>
+          <dt>{{ t('admin.model_label') }}</dt><dd>{{ llmSettings.model || '—' }}</dd>
+          <dt>{{ t('admin.temperature_label') }}</dt><dd>{{ llmSettings.temperature ?? '—' }}</dd>
+          <dt>{{ t('admin.max_output_tokens_label') }}</dt><dd>{{ llmSettings.max_output_tokens ?? t('admin.not_set') }}</dd>
         </dl>
       </div>
 
-      <div v-if="loadingLlm" class="dim">Загрузка…</div>
+      <div v-if="loadingLlm" class="dim">{{ t('admin.loading') }}</div>
     </section>
   </div>
 </template>
