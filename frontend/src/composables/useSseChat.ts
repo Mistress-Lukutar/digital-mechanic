@@ -246,7 +246,7 @@ export function createSseChat(options: SseChatOptions) {
       case 'token': {
         const text = String(json.text ?? '')
         if (!currentMsg) {
-          currentMsg = { role: 'assistant', text: '', steps: [] }
+          currentMsg = { role: 'assistant', text: '', steps: [], reasoning: '' }
           messages.value.push(currentMsg)
         }
         currentMsg.text += text
@@ -254,7 +254,12 @@ export function createSseChat(options: SseChatOptions) {
       }
 
       case 'reasoning': {
-        // Ignore reasoning (subtle "thinking" — not rendered)
+        const delta = String(json.text ?? '')
+        if (!currentMsg) {
+          currentMsg = { role: 'assistant', text: '', steps: [], reasoning: '' }
+          messages.value.push(currentMsg)
+        }
+        currentMsg.reasoning += delta
         break
       }
 
@@ -262,7 +267,7 @@ export function createSseChat(options: SseChatOptions) {
         const callId = String(json.call_id ?? '')
         const name = String(json.name ?? '')
         if (!currentMsg) {
-          currentMsg = { role: 'assistant', text: '', steps: [] }
+          currentMsg = { role: 'assistant', text: '', steps: [], reasoning: '' }
           messages.value.push(currentMsg)
         }
         const step: AgentStepT = {
@@ -289,7 +294,7 @@ export function createSseChat(options: SseChatOptions) {
         let stepIdx = pendingStepMap.get(callId)
         if (stepIdx === undefined) {
           if (!currentMsg) {
-            currentMsg = { role: 'assistant', text: '', steps: [] }
+            currentMsg = { role: 'assistant', text: '', steps: [], reasoning: '' }
             messages.value.push(currentMsg)
           }
           const step: AgentStepT = {

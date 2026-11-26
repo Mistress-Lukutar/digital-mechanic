@@ -99,6 +99,7 @@ const kk = {
   'chat.mic.label': 'Дауыспен енгізу',
   'chat.mic.listening': 'Тыңдау…',
   'chat.empty_vehicle': 'Парктен өтінішті таңдаңыз немесе тарихтан чатты ашыңыз',
+  'chat.reasoning.toggle': 'Ойлану…',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map

@@ -99,6 +99,7 @@ const hi = {
   'chat.mic.label': 'वॉइस इनपुट',
   'chat.mic.listening': 'सुन रहा हूँ…',
   'chat.empty_vehicle': 'फ़्लीट से अनुरोध चुनें या इतिहास से चैट खोलें',
+  'chat.reasoning.toggle': 'सोच रहा हूँ…',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map

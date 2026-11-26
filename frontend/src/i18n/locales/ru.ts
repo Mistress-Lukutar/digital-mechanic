@@ -97,6 +97,7 @@ const ru = {
   'chat.mic.label': 'Голосовой ввод',
   'chat.mic.listening': 'Слушаю…',
   'chat.empty_vehicle': 'Выберите заявку в парке или откройте чат из истории',
+  'chat.reasoning.toggle': 'Думаю…',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map
