@@ -224,6 +224,7 @@ export async function getDocumentPage(
   docId: string,
   pagePdf: number,
 ): Promise<DocumentPage> {
+  docId = docId.replace(/[«»]/g, '').trim()
   return apiGet<DocumentPage>(
     apiUrl(`/api/documents/${encodeURIComponent(docId)}/page/${pagePdf}`),
   )
