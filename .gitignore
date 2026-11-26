@@ -17,6 +17,7 @@ build/
 # Frontend
 node_modules/
 frontend/dist/
+static/
 
 # Runtime artifacts (indexes, databases, logs)
 data/rag/

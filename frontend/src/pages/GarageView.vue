@@ -1,0 +1,347 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import type { VehicleItem, FleetStats, VehicleGroup } from '../types'
+import { formatIso } from '../api'
+
+defineProps<{
+  vehicles: VehicleItem[]
+  stats: FleetStats | null
+  loading: boolean
+}>()
+
+const emit = defineEmits<{
+  'open-vehicle': [id: string]
+  'update-search': [query: string]
+  'update-filter': [group: 'all' | VehicleGroup]
+}>()
+
+// Search + debounce
+const searchQuery = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+function onSearchInput(): void {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    // Parent watches the query prop — we emit a debounced update.
+    emit('update-search', searchQuery.value.trim())
+  }, 250)
+}
+
+// Filter chips
+type GroupFilter = 'all' | VehicleGroup
+const activeFilter = ref<GroupFilter>('all')
+
+function setFilter(group: GroupFilter): void {
+  activeFilter.value = group
+  emit('update-filter', group)
+}
+
+// Status badge helpers
+function statusLabel(status: VehicleItem['latest_status']): string {
+  switch (status) {
+    case 'normal': return 'Норма'
+    case 'anomaly': return 'Отклонение'
+    case 'check_failed': return 'Сбой записи'
+    default: return '—'
+  }
+}
+
+function groupClass(group: VehicleItem['group']): string {
+  switch (group) {
+    case 'normal': return 'badge-ok'
+    case 'attention': return 'badge-warning'
+    case 'quarantine': return 'badge-danger'
+    default: return ''
+  }
+}
+
+// Skeleton row count for loading state
+const skeletonCount = Array.from({ length: 6 }, (_, i) => i)
+</script>
+
+<template>
+  <div class="garage-page">
+    <!-- Search + filter bar -->
+    <div class="search-row">
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Госномер, гаражный №, марка, модель…"
+        class="search-input"
+        @input="onSearchInput"
+      />
+
+      <div class="filter-chips">
+        <button
+          :class="['chip', { active: activeFilter === 'all' }]"
+          @click="setFilter('all')"
+        >
+          Все
+          <span v-if="stats?.total" class="chip-count">{{ stats.total }}</span>
+        </button>
+        <button
+          :class="['chip', { active: activeFilter === 'normal' }]"
+          @click="setFilter('normal')"
+        >
+          В норме
+          <span v-if="stats?.normal" class="chip-count">{{ stats.normal }}</span>
+        </button>
+        <button
+          :class="['chip', { active: activeFilter === 'attention' }]"
+          @click="setFilter('attention')"
+        >
+          Требует внимания
+          <span v-if="stats?.attention" class="chip-count">{{ stats.attention }}</span>
+        </button>
+        <button
+          :class="['chip', { active: activeFilter === 'quarantine' }]"
+          @click="setFilter('quarantine')"
+        >
+          Карантин
+          <span v-if="stats?.quarantine" class="chip-count">{{ stats.quarantine }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Vehicle cards grid -->
+    <div v-if="loading" class="grid-cards">
+      <div v-for="i in skeletonCount" :key="i" class="skeleton-card panel">
+        <div class="skeleton-line skeleton-line-lg"></div>
+        <div class="skeleton-line skeleton-line-md"></div>
+        <div class="skeleton-row">
+          <span class="skeleton-line skeleton-chip"></span>
+          <span class="skeleton-line skeleton-chip"></span>
+        </div>
+        <div class="skeleton-line skeleton-line-sm"></div>
+      </div>
+    </div>
+
+    <div v-else-if="vehicles.length === 0" class="empty-state">
+      Ничего не найдено
+    </div>
+
+    <div v-else class="grid-cards">
+      <div
+        v-for="v in vehicles" :key="v.vehicle_id"
+        class="vehicle-card panel card"
+        @click="emit('open-vehicle', v.vehicle_id)"
+      >
+        <div class="card-header">
+          <span class="vehicle-id">{{ v.garage_no }}</span>
+          <span class="badge" :class="groupClass(v.group)">{{ statusLabel(v.latest_status) }}</span>
+        </div>
+
+        <div class="card-body">
+          <p class="make-model">
+            {{ v.make }} {{ v.model }}
+          </p>
+          <div class="chips-row">
+            <span v-if="v.engine_model" class="chip">{{ v.engine_model }}</span>
+            <span v-if="v.fuel" class="chip">{{ v.fuel }}</span>
+          </div>
+
+          <div class="meta-row">
+            <span v-if="v.latest_checked_at" class="dim mono">
+              {{ formatIso(v.latest_checked_at) }}
+            </span>
+          </div>
+
+          <div class="counts-row">
+            <span class="count-line">
+              Отклонений: {{ v.anomaly_count }} &nbsp;|&nbsp; Проверок: {{ v.check_count }}
+            </span>
+          </div>
+
+          <p v-if="v.latest_anomaly_title" class="anomaly-title error-text">
+            {{ v.latest_anomaly_title }}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.garage-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.search-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .search-row {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  font-size: 14px;
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-count {
+  margin-left: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.grid-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .grid-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Vehicle card */
+.card {
+  border: 1px solid var(--border);
+  transition: border-color 0.15s;
+  cursor: pointer;
+}
+
+.card:hover {
+  border-color: var(--accent-dim);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.vehicle-id {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.make-model {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.meta-row {
+  margin-top: 8px;
+}
+
+.counts-row {
+  margin-top: 6px;
+}
+
+.count-line {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.anomaly-title {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+/* Skeleton loading */
+.skeleton-card {
+  min-height: 120px;
+}
+
+.skeleton-line {
+  background: linear-gradient(90deg, var(--bg-input) 25%, var(--border) 50%, var(--bg-input) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-line-lg {
+  height: 18px;
+  width: 60%;
+  margin-bottom: 10px;
+}
+
+.skeleton-line-md {
+  height: 14px;
+  width: 80%;
+  margin-bottom: 8px;
+}
+
+.skeleton-line-sm {
+  height: 12px;
+  width: 40%;
+}
+
+.skeleton-chip {
+  height: 16px;
+  width: 70px;
+  border-radius: 999px;
+}
+
+.skeleton-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+</style>
