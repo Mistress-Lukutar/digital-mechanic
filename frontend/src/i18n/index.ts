@@ -1,5 +1,8 @@
 import { ref } from 'vue'
 import ru from './locales/ru'
+import kk from './locales/kk'
+import uz from './locales/uz'
+import hi from './locales/hi'
 
 export type Locale = 'ru' | 'kk' | 'uz' | 'hi'
 
@@ -13,10 +16,10 @@ export type MessageKey = keyof Messages
 export const locale = ref<Locale>('ru')
 
 // ---------------------------------------------------------------------------
-// Dictionaries — kk/uz/hi will be added later; t() falls back to ru.
+// Dictionaries — all four locales fully populated.
 // ---------------------------------------------------------------------------
 
-const dictionaries: Partial<Record<Locale, Messages>> = { ru }
+const dictionaries: Record<Locale, Messages> = { ru, kk, uz, hi }
 
 // ---------------------------------------------------------------------------
 // Translation lookup with placeholder replacement
