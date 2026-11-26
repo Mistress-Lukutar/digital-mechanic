@@ -111,6 +111,7 @@ class AgentLoop:
         text: str,
         session_id: str | None = None,
         username: str = "mechanic",
+        image: str | None = None,
     ) -> AsyncIterator[tuple[str, dict]]:
         '''Run one user message through the loop, yielding events.
 
@@ -120,6 +121,7 @@ class AgentLoop:
             session_id: Session the message refers to (e.g. a check being
                 discussed); passed to tool executors via ToolContext.
             username: Authenticated user, for tool context.
+            image: Optional data-URL image for multimodal input.
 
         Yields:
             (event_name, payload) tuples; see module docstring.
@@ -130,7 +132,7 @@ class AgentLoop:
             username=username,
             services=self._tool_services,
         )
-        self._store.add_user_message(vehicle_id, text)
+        self._store.add_user_message(vehicle_id, text, image=image)
 
         usage_input = 0
         usage_output = 0

@@ -62,9 +62,40 @@ const chatError = chat.error
 const expandedReasoning = ref<Record<number, boolean>>({})
 const messageInput = ref('')
 const inputEl = ref<HTMLTextAreaElement | null>(null)
+const attachedImage = ref<string | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 function autoGrow(e: Event): void {
   const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'
+}
+
+function onFileSelected(e: Event): void {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (): void => {
+    const dataUrl = reader.result as string
+    // Downscale with canvas to max 1024px side, JPEG 0.85 quality
+    const img = new Image()
+    img.onload = (): void => {
+      const canvas = document.createElement('canvas')
+      let w = img.width
+      let h = img.height
+      if (w > 1024 || h > 1024) {
+        if (w > h) { h = (h * 1024) / w; w = 1024 }
+        else { w = (w * 1024) / h; h = 1024 }
+      }
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, w, h)
+      attachedImage.value = canvas.toDataURL('image/jpeg', 0.85)
+    }
+    img.src = dataUrl
+  }
+  reader.readAsDataURL(file)
+  // Reset input so same file can be re-selected
+  ;(e.target as HTMLInputElement).value = ''
 }
 
 async function sendMessage(): Promise<void> {
@@ -72,7 +103,9 @@ async function sendMessage(): Promise<void> {
   if (!text || streaming.value) return
   if (!props.vehicleId) return
   messageInput.value = ''
-  await chat.send(props.vehicleId, text)
+  const img = attachedImage.value
+  attachedImage.value = null
+  await chat.send(props.vehicleId, text, null, img ?? undefined)
   await nextTick()
   if (inputEl.value) inputEl.value.style.height = 'auto'
   scrollToBottom()
@@ -235,7 +268,10 @@ function toggleMic(): void {
               </div>
             </template>
             <template v-else>
-              <div class="bubble user-bubble">{{ msg.text }}</div>
+              <div class="bubble user-bubble">
+                <img v-if="msg.image" :src="msg.image" class="user-image-thumb" />
+                {{ msg.text }}
+              </div>
             </template>
           </div>
 
@@ -257,8 +293,24 @@ function toggleMic(): void {
           </div>
         </div>
 
+        <div v-if="attachedImage && vehicleId" class="image-preview-chip">
+          <img :src="attachedImage" alt="" class="preview-thumb" />
+          <button class="remove-btn" @click="attachedImage = null" :title="t('chat.attach.remove')">&times;</button>
+        </div>
         <div class="input-row" v-if="vehicleId">
           <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
+          <input type="file" accept="image/*" ref="fileInput" style="display:none" @change="onFileSelected" />
+          <button
+            v-if="!streaming && vehicleId"
+            class="attach-btn"
+            :title="t('chat.attach.label')"
+            aria-label="Прикрепить изображение"
+            @click="fileInput?.click()"
+          >
+            <svg class="attach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
           <button
             v-if="micSupported && !streaming && vehicleId"
             class="mic-btn"
@@ -367,10 +419,17 @@ function toggleMic(): void {
 .input-row textarea { flex: 1; resize: none; min-height: 36px; max-height: 120px; padding: 8px 12px; font-size: 14px; font-family: inherit; }
 .send-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; padding: 0; flex-shrink: 0; }
 .stop-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; padding: 0; flex-shrink: 0; }
+.attach-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); padding: 0; cursor: pointer; flex-shrink: 0; }
+.attach-btn:hover { border-color: var(--accent); color: var(--accent); }
+.attach-icon { width: 20px; height: 20px; }
 .mic-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); padding: 0; cursor: pointer; flex-shrink: 0; }
 .mic-btn:hover { border-color: var(--accent); color: var(--accent); }
 .mic-icon { width: 20px; height: 20px; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; box-shadow: none; } 50% { opacity: 0.6; box-shadow: 0 0 8px var(--accent); } }
+.image-preview-chip { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--bg-panel); border-top: 1px solid var(--border); flex-shrink: 0; }
+.preview-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.remove-btn { background: transparent; border: none; color: var(--danger-text); font-size: 20px; line-height: 1; cursor: pointer; padding: 4px 8px; flex-shrink: 0; }
+.user-image-thumb { max-width: 100%; max-height: 160px; border-radius: var(--radius-sm); margin-bottom: 8px; display: block; object-fit: contain; }
 .mic-btn.listening .mic-icon { animation: mic-pulse 1s ease-in-out infinite; }
 .chat-error { position: relative; margin: 8px 16px 0; }
 .close-error { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--danger-text); font-size: 16px; padding: 4px; cursor: pointer; }

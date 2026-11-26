@@ -18,10 +18,12 @@ from mechanic.llm.types import (
     AiProtocol,
     ChatRequest,
     Endpoint,
+    ImagePart,
     ReasoningDelta,
     StopReason,
     StreamError,
     TextDelta,
+    TextPart,
     ToolCall,
     ToolCallsReady,
     TurnComplete,
@@ -644,3 +646,52 @@ async def test_long_tool_result_truncated() -> None:
     tr_payload = events[1][1]
     assert len(tr_payload["content"]) <= 4100
     assert "[truncated" in tr_payload["content"]
+
+
+# ======================================================================
+# Test 13 — multimodal_user_turn_with_image
+# ======================================================================
+
+
+async def test_multimodal_user_turn_with_image() -> None:
+    """A loop turn with an image builds a multimodal content list for the user
+    message: first part is text, second part is an image_url dict."""
+    client = FakeLLMClient([
+        FakeLLMClient.text_turn("ok", stop=StopReason.END_TURN),
+    ])
+
+    data_url = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQE="
+
+    loop = make_loop(client)
+    events = await collect(loop.run("V1", "What is in this image?", image=data_url))
+
+    assert events[-1][0] == "turn_done"
+
+    # Conversation history: user turn must have multimodal parts.
+    history = loop._store.history("V1")
+    assert len(history) == 2  # user + assistant turns
+    user_turn = history[0]
+    assert user_turn.role == "user"
+    parts = user_turn.parts
+    assert len(parts) == 2
+
+    # First part: text.
+    first_part = parts[0]
+    assert isinstance(first_part, TextPart)
+    assert first_part.text == "What is in this image?"
+
+    # Second part: image_url (ImagePart).
+    second_part = parts[1]
+    assert isinstance(second_part, ImagePart)
+    assert second_part.mime_type == "jpeg"
+    assert second_part.data_b64 == "/9j/4AAQSkZJRgABAQE="
+
+    # ChatRequest recorded by the loop must carry the multimodal turn.
+    req = client.requests[0]
+    assert len(req.turns) == 1
+    msg_turn = req.turns[0]
+    assert msg_turn.role == "user"
+    msg_parts = msg_turn.parts
+    assert len(msg_parts) == 2
+    assert isinstance(msg_parts[0], TextPart)
+    assert isinstance(msg_parts[1], ImagePart)

@@ -98,6 +98,8 @@ const ru = {
   'chat.mic.listening': 'Слушаю…',
   'chat.empty_vehicle': 'Выберите заявку в парке или откройте чат из истории',
   'chat.reasoning.toggle': 'Думаю…',
+  'chat.attach.label': 'Прикрепить изображение',
+  'chat.attach.remove': 'Убрать изображение',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map
