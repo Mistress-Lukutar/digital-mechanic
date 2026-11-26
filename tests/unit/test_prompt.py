@@ -145,3 +145,61 @@ class TestChatRequestValidation:
         """language=None is accepted (default)."""
         req = ChatRequest(message="hello")
         assert req.language is None
+
+
+class TestSystemPromptContent:
+    """Verify textual content of prompts/system.md after manual edits."""
+
+    def test_ladder_separates_warning_from_low_confidence(
+        self, monkeypatch: Any
+    ) -> None:
+        """The warning bullet and the low-confidence bullet are distinct."""
+        from mechanic.agent.prompt import PROMPTS_DIR
+
+        prompt_file = PROMPTS_DIR / "system.md"
+        if not prompt_file.exists():
+            pytest.skip("prompts/system.md not found")
+
+        content = prompt_file.read_text(encoding="utf-8")
+
+        # The low-confidence bullet must contain all three markers.
+        low_conf_bullet_ok = (
+            "пониженной `confidence`" in content
+            and "чек-лист" in content
+            and "Повторная запись НЕ нужна" in content
+        )
+        assert low_conf_bullet_ok, (
+            "Low-confidence bullet must contain 'пониженной confidence', "
+            "'чек-лист' and 'Повторная запись НЕ нужна'"
+        )
+
+        # The original warning bullet must still mention повторную запись.
+        assert (
+            "порекомендуй повторную запись" in content
+        ), "Warning bullet must still contain 'порекомендуй повторную запись'"
+
+    def test_ticket_only_after_mechanic_confirms(self) -> None:
+        """The low-confidence bullet contains the confirmation phrase."""
+        from mechanic.agent.prompt import PROMPTS_DIR
+
+        prompt_file = PROMPTS_DIR / "system.md"
+        if not prompt_file.exists():
+            pytest.skip("prompts/system.md not found")
+
+        content = prompt_file.read_text(encoding="utf-8")
+        assert (
+            "подтвердит или опровергнет" in content
+        ), "Low-confidence bullet must contain 'подтвердит или опровергнет'"
+
+    def test_bylo_stalo_rule_present(self) -> None:
+        """The 'было — стало' format rule is present in the prompt."""
+        from mechanic.agent.prompt import PROMPTS_DIR
+
+        prompt_file = PROMPTS_DIR / "system.md"
+        if not prompt_file.exists():
+            pytest.skip("prompts/system.md not found")
+
+        content = prompt_file.read_text(encoding="utf-8")
+        assert (
+            "было — стало" in content
+        ), "The 'было — стало' comparison rule must be present"
