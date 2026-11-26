@@ -5,8 +5,9 @@ Author: Mistress-Lukutar
 Date:   2026-11-26
 Version: v0.1.0
 
-Seven tests covering login, navigation, user CRUD, role-based visibility,
-session restore, and logout. Russian UI text in selectors is expected.
+Eight tests covering login, consent checkbox state, navigation, user CRUD,
+role-based visibility, session restore, and logout. Russian UI text in selectors
+is expected.
 
 Expected failures against current code:
 - test_admin_navigation_no_console_errors: monitor catches 404s from ChatView
@@ -32,6 +33,7 @@ def login(
     page.goto(stand.base_url)
     page.fill("#login-user", username)
     page.fill("#login-pass", password)
+    page.locator("#login-consent").check()
     page.get_by_role("button", name="Войти").click()
     # Wait for the authenticated topbar to appear.
     page.wait_for_selector('button:has-text("Гараж")')
@@ -76,6 +78,7 @@ def test_login_rejects_wrong_password(page: Page, stand: Any) -> None:
     page.goto(stand.base_url)
     page.fill("#login-user", "admin")
     page.fill("#login-pass", "totally-wrong-pass")
+    page.locator("#login-consent").check()
     page.get_by_role("button", name="Войти").click()
 
     # The auth/login 401 is allowlisted by the error monitor.
@@ -87,7 +90,33 @@ def test_login_rejects_wrong_password(page: Page, stand: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 3: Admin navigation -- no console errors (may fail due to known bugs)
+# Test 3: Consent checkbox controls submit button disabled state
+# ---------------------------------------------------------------------------
+
+
+def test_login_consent_checkbox_disabled(page: Page, stand: Any) -> None:
+    """Assert submit button is disabled before consent checked and enabled after."""
+    page.goto(stand.base_url)
+
+    page.wait_for_selector("#login-user", state="visible")
+    page.fill("#login-user", "admin")
+    page.fill("#login-pass", "admin")
+
+    # Submit button should be disabled before checkbox is checked.
+    submit_btn = page.get_by_role("button", name="Войти")
+    assert submit_btn.is_disabled(), "Submit button must be disabled without consent"
+
+    # Check the consent checkbox.
+    page.locator("#login-consent").check()
+
+    # After checking, submit button should become enabled.
+    assert not submit_btn.is_disabled(), (
+        "Submit button must be enabled after consent is checked"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 4: Admin navigation -- no console errors (may fail due to known bugs)
 # ---------------------------------------------------------------------------
 
 
@@ -143,7 +172,7 @@ def test_admin_navigation_no_console_errors(
 
 
 # ---------------------------------------------------------------------------
-# Test 4: Admin users CRUD (may fail -- missing autocomplete attrs)
+# Test 5: Admin users CRUD (may fail -- missing autocomplete attrs)
 # ---------------------------------------------------------------------------
 
 
@@ -195,7 +224,7 @@ def test_admin_users_crud(page: Page, stand: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 5: Regular user hides admin tab
+# Test 6: Regular user hides admin tab
 # ---------------------------------------------------------------------------
 
 

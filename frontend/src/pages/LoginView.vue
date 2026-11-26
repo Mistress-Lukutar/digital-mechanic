@@ -18,6 +18,7 @@ const emit = defineEmits<{
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
+const consent = ref(false)
 
 // Password change form state
 const oldPwd = ref('')
@@ -97,7 +98,12 @@ function dismissError(): void {
           />
         </div>
 
-        <button class="primary" type="submit" :disabled="loading" style="width: 100%; margin-top: 12px;">
+        <div class="field consent-field">
+          <input id="login-consent" type="checkbox" v-model="consent" required />
+          <label class="label" for="login-consent">{{ t('login.consent') }}</label>
+        </div>
+
+        <button class="primary" type="submit" :disabled="loading || !consent" style="width: 100%; margin-top: 12px;">
           {{ loading ? t('login.submitting') : t('login.submit') }}
         </button>
       </form>
