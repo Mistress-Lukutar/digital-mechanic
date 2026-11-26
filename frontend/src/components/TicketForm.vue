@@ -93,6 +93,7 @@ async function handleSubmit(): Promise<void> {
 
     const result = await createTicket(payload)
     successId.value = result.ticket_id
+    emit('submitted', result.ticket_id)
   } catch (e: unknown) {
     if (e instanceof Error && 'status' in e) {
       submitError.value = e.message || `HTTP ${e.status}`

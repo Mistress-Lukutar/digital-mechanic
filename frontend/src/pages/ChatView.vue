@@ -125,8 +125,6 @@ const ticketDraft = ref<TicketDraftEvent | null>(null)
 const historyRefreshKey = ref(0)
 
 function handleTicketSubmitted(_ticketId: string): void {
-  showTicketModal.value = false
-  ticketDraft.value = null
   historyRefreshKey.value++
 }
 function handleTicketClose(): void { showTicketModal.value = false; ticketDraft.value = null }
@@ -319,4 +317,8 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
 .close-btn { background: none; border: 0; color: var(--text-dim); font-size: 24px; padding: 0 4px; cursor: pointer; }
 @media (max-width: 1023px) { .right-panel { display: none; } }
 @media (min-width: 1024px) { .mobile-overlay { display: none; } }
+@media (max-width: 640px) {
+  .chat-header { flex-wrap: wrap; row-gap: 4px; }
+  .header-info { order: -1; flex-basis: 100%; }
+}
 </style>
