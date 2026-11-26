@@ -31,8 +31,10 @@ COLUMN_GAP_RATIO = 1.5
 LINE_OVERLAP = 0.55
 # A word this much taller than wide is written vertically (defect-map
 # labels in the 236 RK manual are rotated 90° inside an upright page).
-_VERTICAL_ASPECT = 1.8
-_VERTICAL_MAX_WIDTH = 15.0
+# The minimum height keeps narrow one-letter words ("р", "4", "(") in the
+# horizontal flow — real rotated labels are long.
+_VERTICAL_ASPECT = 2.2
+_VERTICAL_MIN_HEIGHT = 15.0
 
 
 @dataclass
@@ -160,9 +162,9 @@ def _is_vertical(word: Word) -> bool:
     Returns:
         True for vertical (rotated) text words.
     '''
-    width = word.x1 - word.x0
+    width = max(word.x1 - word.x0, 0.5)
     height = word.y1 - word.y0
-    return height > _VERTICAL_ASPECT * width and width < _VERTICAL_MAX_WIDTH
+    return height >= _VERTICAL_MIN_HEIGHT and height > _VERTICAL_ASPECT * width
 
 
 def _vertical_columns(words: list[Word]) -> list[Line]:

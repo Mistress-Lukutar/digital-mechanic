@@ -42,6 +42,8 @@ from rag.extract.structure import (
 )
 from rag.extract.tables import page_with_tables
 from rag.extract.textnorm import normalize_page_text
+from rag.extract.wordforms import build_wordforms, prune
+from rag.extract.wordforms import save as save_wordforms
 from rag.index.bm25 import BM25Index
 from rag.index.dense import DenseIndex
 from rag.index.store import write_version
@@ -70,6 +72,8 @@ def extract_document(
     toc_hint_pages: list[int],
     toc_hint_offset: int | None,
     toc_hint_source: str = "auto",
+    wordforms: dict[str, int] | None = None,
+    fragment_forms: dict[str, int] | None = None,
 ) -> tuple[list[PageRecord], list[dict]]:
     '''Run the full extraction pipeline for one document.
 
@@ -82,6 +86,9 @@ def extract_document(
         settings: RAG settings.
         toc_hint_pages: Printed-TOC page hint from docs.yaml (may be empty).
         toc_hint_offset: Printed→PDF offset hint (None → auto-detect).
+        toc_hint_source: auto | printed | modules.
+        wordforms: Corpus word-form dictionary (broken-word glue).
+        fragment_forms: Frequent-fragment table (always-broken words).
 
     Returns:
         (page records, sections payload for diagnostics).
@@ -152,7 +159,7 @@ def extract_document(
             if text in running or (page_pdf, text) in printed_by_page:
                 continue
             filtered.append(line.text)
-        text = normalize_page_text("\n".join(filtered))
+        text = normalize_page_text("\n".join(filtered), wordforms, fragment_forms)
         struct = page_struct.get(page_pdf)
         page_records.append(
             PageRecord(
@@ -288,6 +295,9 @@ def run_ingest(
     all_pages: list[dict] = []
     quality_report: dict[str, list] = {}
     docs_summary: dict[str, dict[str, int]] = {}
+    # Phase 0: resolve every manual's file, then build the corpus
+    # word-form dictionary (used to glue space-broken words).
+    resolved: list[tuple[dict, object]] = []
     for entry in manifest.get("documents", []):
         doc_id = entry["doc_id"]
         if only and doc_id != only:
@@ -303,6 +313,20 @@ def run_ingest(
                 "%s: manual file not found (%s) — skipped", doc_id, file_name
             )
             continue
+        resolved.append((entry, path))
+
+    dictionary_path = data_dir / "wordforms.json"
+    raw_counts = build_wordforms([p for _e, p in resolved])
+    wordforms = prune(raw_counts)
+    fragment_forms = prune(raw_counts)
+    save_wordforms(wordforms, dictionary_path)
+    logger.info(
+        "word-form dictionary: %d words", len(wordforms),
+    )
+
+    for entry, path in resolved:
+        doc_id = entry["doc_id"]
+        info = knowledge.docs.get(doc_id)
         # Engines are stored normalised so query-side matching is exact.
         engines = [normalize_engine(e) for e in entry["engines"]]
         toc_pages_hint = info.toc_pages if info else []
@@ -318,6 +342,8 @@ def run_ingest(
             toc_hint_pages=toc_pages_hint,
             toc_hint_offset=toc_offset_hint,
             toc_hint_source=toc_source_hint,
+            wordforms=wordforms,
+            fragment_forms=fragment_forms,
         )
         chunks: list = []
         for page in page_records:

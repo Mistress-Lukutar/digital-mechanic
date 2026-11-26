@@ -79,16 +79,21 @@ class DenseIndex:
             self._cache_vectors = None
 
     def _save_cache(self) -> None:
-        '''Persist the cache atomically enough for a hackathon wall.'''
+        '''Persist the cache atomically enough for a hackathon wall.
+
+        numpy appends ".npz" to a filename that lacks it, so the archive
+        is written through an open file handle instead of a path.
+        '''
         if self._cache_hashes is None or self._cache_vectors is None:
             return
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.cache_path.with_suffix(".npz.tmp")
-        np.savez_compressed(
-            tmp,
-            hashes=self._cache_hashes,
-            vectors=self._cache_vectors,
-        )
+        tmp = self.cache_path.with_name(self.cache_path.name + ".tmp")
+        with open(tmp, "wb") as handle:
+            np.savez_compressed(
+                handle,
+                hashes=self._cache_hashes,
+                vectors=self._cache_vectors,
+            )
         tmp.replace(self.cache_path)
 
     def embed_texts(

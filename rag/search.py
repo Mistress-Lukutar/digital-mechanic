@@ -23,11 +23,20 @@ from rag.config import RagSettings
 from rag.index.dense import DenseIndex
 from rag.index.fusion import fuse
 from rag.index.store import StoredIndex
+from rag.index.tokenizer import tokenize
 from rag.knowledge.expand import coverage_for, detect_fault, expand_query
 from rag.knowledge.loader import Knowledge
 
 # Candidates kept per query variant before fusion.
-CANDIDATES_PER_VARIANT = 50
+CANDIDATES_PER_VARIANT = 100
+# Minimum cosine for a dense candidate to enter fusion.
+DENSE_MIN_COSINE = 0.15
+
+# Section-title boost: when most of the query's content stems appear in
+# the chunk's section title, the chunk gains a small comparable-score bump
+# ("техническое обслуживание двигателя" should lift the ТО section page).
+SECTION_BOOST = 0.08
+SECTION_OVERLAP = 0.5
 
 # Latin look-alikes → Cyrillic for engine model normalisation.
 _HOMOGLYPHS = str.maketrans(
@@ -157,6 +166,7 @@ class SearchEngine:
         if not fused:
             return SearchResponse(results=[], no_instruction=True)
         comparable = cos_best if cos_best else bm25_best
+        comparable = self._boost_sections(query, fused, comparable)
         candidates = sorted(fused, key=lambda idx: fused[idx], reverse=True)
 
         results: list[SearchHit] = []
@@ -250,13 +260,43 @@ class SearchEngine:
             chunk_order: list[int] = []
             for pos in order:
                 score = float(sims[qi][pos])
-                if score <= 0.2:
+                if score <= DENSE_MIN_COSINE:
                     break
                 row = int(rows[pos])
                 chunk_order.append(row)
                 best[row] = max(best.get(row, 0.0), score)
             ranked.append(chunk_order)
         return best, ranked
+
+    def _boost_sections(
+        self,
+        query: str,
+        fused: dict[int, float],
+        comparable: dict[int, float],
+    ) -> dict[int, float]:
+        '''Bump chunks whose section title matches the query's content.
+
+        Args:
+            query: Original query text.
+            fused: Candidate chunk indices with RRF scores.
+            comparable: Chunk → comparable score (cosine or BM25 coverage).
+
+        Returns:
+            The adjusted comparable-score mapping.
+        '''
+        query_stems = {t for t in tokenize(query) if len(t) >= 4}
+        if not query_stems:
+            return comparable
+        boosted = dict(comparable)
+        for idx in fused:
+            chunk = self.index.chunks[idx]
+            if not chunk.section:
+                continue
+            section_stems = set(tokenize(chunk.section))
+            overlap = len(query_stems & section_stems) / len(query_stems)
+            if overlap >= SECTION_OVERLAP:
+                boosted[idx] = min(1.0, boosted.get(idx, 0.0) + SECTION_BOOST)
+        return boosted
 
     def _tier(self, score: float) -> str | None:
         '''Map a comparable score to high/med/None (low is dropped).
