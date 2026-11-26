@@ -77,6 +77,19 @@ class ManualManifest:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def normalize_doc_id(doc_id: str) -> str:
+    """Strip surrounding whitespace, remove guillemets, collapse internal whitespace."""
+    doc_id = doc_id.strip()
+    doc_id = doc_id.replace("«", "").replace("»", "")
+    doc_id = " ".join(doc_id.split())
+    return doc_id.strip()
+
+
+# ---------------------------------------------------------------------------
 # RagClient — async RAG search with mock chunks fallback.
 # ---------------------------------------------------------------------------
 
@@ -237,6 +250,7 @@ class RagClient:
             MockApiError: On authoritative HTTP errors from the RAG service.
             RagUnavailableError: When neither remote nor local data is available.
         """
+        doc_id = normalize_doc_id(doc_id)
         url = f"{self._base_url}/document/{doc_id}/page/{page_pdf}"
 
         try:
