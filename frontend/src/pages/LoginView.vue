@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { t } from '../i18n'
+import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 
 defineProps<{
   mustChangePassword: boolean
@@ -37,15 +39,15 @@ function handleChangePassword(): void {
   const nc = newPwdConfirm.value
 
   if (!op || !np || !nc) {
-    pwdError.value = 'Заполните все поля'
+    pwdError.value = t('login.error.fillAll')
     return
   }
   if (np.length < 8) {
-    pwdError.value = 'Новый пароль: минимум 8 символов'
+    pwdError.value = t('login.error.min8')
     return
   }
   if (np !== nc) {
-    pwdError.value = 'Пароли не совпадают'
+    pwdError.value = t('login.error.mismatch')
     return
   }
   pwdLoading.value = true
@@ -60,7 +62,9 @@ function dismissError(): void {
 <template>
   <div class="login-page">
     <div class="login-card panel">
-      <h1>Цифровой механик</h1>
+      <LocaleSwitcher />
+
+      <h1>{{ t('app.title') }}</h1>
 
       <!-- Error strip -->
       <div v-if="error" class="error-strip" @click="dismissError" role="alert">
@@ -70,43 +74,43 @@ function dismissError(): void {
       <!-- Login form (always visible) -->
       <form v-if="!mustChangePassword" class="login-form" @submit.prevent="handleLogin">
         <div class="field">
-          <label class="label" for="login-user">Имя пользователя</label>
+          <label class="label" for="login-user">{{ t('login.username') }}</label>
           <input
             id="login-user"
             v-model="username"
             type="text"
             autocomplete="username"
             required
-            placeholder="Введите имя"
+            :placeholder="t('login.placeholder.username')"
           />
         </div>
 
         <div class="field">
-          <label class="label" for="login-pass">Пароль</label>
+          <label class="label" for="login-pass">{{ t('login.password') }}</label>
           <input
             id="login-pass"
             v-model="password"
             type="password"
             autocomplete="current-password"
             required
-            placeholder="Введите пароль"
+            :placeholder="t('login.placeholder.password')"
           />
         </div>
 
         <button class="primary" type="submit" :disabled="loading" style="width: 100%; margin-top: 12px;">
-          {{ loading ? 'Вход…' : 'Войти' }}
+          {{ loading ? t('login.submitting') : t('login.submit') }}
         </button>
       </form>
 
       <!-- Password change form (shown after login when must_change_password) -->
       <form v-else class="pwd-change-form" @submit.prevent="handleChangePassword">
-        <h2>Смените пароль</h2>
+        <h2>{{ t('login.change.title') }}</h2>
         <p class="field-hint" style="margin-bottom: 12px;">
-          Для продолжения установите новый пароль.
+          {{ t('login.change.hint') }}
         </p>
 
         <div class="field">
-          <label class="label" for="pwd-old">Старый пароль</label>
+          <label class="label" for="pwd-old">{{ t('login.change.old') }}</label>
           <input
             id="pwd-old"
             v-model="oldPwd"
@@ -117,19 +121,19 @@ function dismissError(): void {
         </div>
 
         <div class="field">
-          <label class="label" for="pwd-new">Новый пароль</label>
+          <label class="label" for="pwd-new">{{ t('login.change.new') }}</label>
           <input
             id="pwd-new"
             v-model="newPwd"
             type="password"
             required
             autocomplete="new-password"
-            placeholder="Минимум 8 символов"
+            :placeholder="t('login.change.new.min')"
           />
         </div>
 
         <div class="field">
-          <label class="label" for="pwd-confirm">Повторите новый пароль</label>
+          <label class="label" for="pwd-confirm">{{ t('login.change.repeat') }}</label>
           <input
             id="pwd-confirm"
             v-model="newPwdConfirm"
@@ -144,12 +148,12 @@ function dismissError(): void {
         </p>
 
         <button class="primary" type="submit" :disabled="pwdLoading" style="width: 100%; margin-top: 12px;">
-          {{ pwdLoading ? 'Сохранение…' : 'Сохранить пароль' }}
+          {{ pwdLoading ? t('login.change.saving') : t('login.change.save') }}
         </button>
       </form>
 
       <p class="field-hint login-hint">
-        Стартовый пароль admin печатается в консоль сервера при первом запуске.
+        {{ t('login.adminHint') }}
       </p>
     </div>
   </div>
@@ -167,12 +171,20 @@ function dismissError(): void {
 .login-card {
   width: 100%;
   max-width: 400px;
+  position: relative;
 }
 
 .login-form,
 .pwd-change-form {
   display: flex;
   flex-direction: column;
+}
+
+.locale-switcher {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
 }
 
 .login-hint {

@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue'
 import type { VehicleItem, FleetStats } from './types'
 import { auth } from './composables/useAuth'
 import { apiUrl } from './api'
+import { t } from './i18n'
+import LocaleSwitcher from './components/LocaleSwitcher.vue'
 import LoginView from './pages/LoginView.vue'
 import GarageView from './pages/GarageView.vue'
 import ChatView from './pages/ChatView.vue'
@@ -11,7 +13,7 @@ import AdminView from './pages/AdminView.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 
 type Page = 'login' | 'garage' | 'chat' | 'fleet' | 'admin'
-let page = ref<Page>('login')
+const page = ref<Page>('login')
 
 // Auth state
 const loginError = ref<string | null>(null)
@@ -47,9 +49,9 @@ async function handleLogin(username: string, password: string): Promise<void> {
     fetchGarageData()
   } catch (e) {
     if (e instanceof Error) {
-      loginError.value = e.message || 'Ошибка входа'
+      loginError.value = e.message || t('login.error.password')
     } else {
-      loginError.value = 'Ошибка входа'
+      loginError.value = t('login.error.password')
     }
   }
 }
@@ -62,9 +64,9 @@ async function handlePasswordChange(oldP: string, newP: string): Promise<void> {
     fetchGarageData()
   } catch (e) {
     if (e instanceof Error) {
-      pwdChangeError.value = e.message || 'Ошибка смены пароля'
+      pwdChangeError.value = e.message || t('login.error.change')
     } else {
-      pwdChangeError.value = 'Ошибка смены пароля'
+      pwdChangeError.value = t('login.error.change')
     }
   }
 }
@@ -158,7 +160,7 @@ onMounted(restoreAuth)
     <!-- Top bar (only when authenticated) -->
     <header v-if="page !== 'login'" class="topbar">
       <div class="topbar-brand">
-        <span class="brand-title">Цифровой механик</span>
+        <span class="brand-title">{{ t('app.title') }}</span>
       </div>
 
       <nav class="topbar-nav">
@@ -166,33 +168,35 @@ onMounted(restoreAuth)
           :class="['nav-btn', { active: page === 'garage' }]"
           @click="page = 'garage'"
         >
-          Гараж
+          {{ t('app.nav.garage') }}
         </button>
         <button
           :class="['nav-btn', { active: page === 'chat' }]"
           @click="page = 'chat'"
         >
-          Чат
+          {{ t('app.nav.chat') }}
         </button>
         <button
           :class="['nav-btn', { active: page === 'fleet' }]"
           @click="page = 'fleet'"
         >
-          Парк
+          {{ t('app.nav.fleet') }}
         </button>
         <button
           v-if="auth.role.value === 'admin'"
           :class="['nav-btn', { active: page === 'admin' }]"
           @click="page = 'admin'"
         >
-          Админ
+          {{ t('app.nav.admin') }}
         </button>
       </nav>
 
+      <LocaleSwitcher />
+
       <div class="topbar-user">
         <span class="username">{{ auth.username.value }}</span>
-        <span class="role-chip">{{ auth.role.value === 'admin' ? 'админ' : 'пользователь' }}</span>
-        <button class="logout-btn" @click="handleLogout">Выйти</button>
+        <span class="role-chip">{{ auth.role.value === 'admin' ? t('app.role.admin') : t('app.role.user') }}</span>
+        <button class="logout-btn" @click="handleLogout">{{ t('app.logout') }}</button>
       </div>
     </header>
 
@@ -239,8 +243,8 @@ onMounted(restoreAuth)
 
       <!-- Stub fallback -->
       <div v-else class="stub-page panel">
-        <h2>Раздел «{{ page }}»</h2>
-        <p class="dim">Появится в следующем этапе.</p>
+        <h2>{{ t('app.stub.title', { page }) }}</h2>
+        <p class="dim">{{ t('app.stub.body') }}</p>
       </div>
     </main>
 
