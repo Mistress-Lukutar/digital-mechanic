@@ -30,6 +30,9 @@ server.log
 # Place the issued PDFs locally (see data/manuals/README.md).
 data/manuals/*.pdf
 
+# Internal planning docs stay local, never published.
+.agents/
+
 # OS noise
 Thumbs.db
 .DS_Store

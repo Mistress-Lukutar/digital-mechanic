@@ -5,7 +5,7 @@ Author: Mistress-Lukutar
 Date:   2026-11-26
 Version: v0.1.0
 
-ToolDef pattern (JSON Schema + executor).
+ToolDef pattern: a JSON Schema for the model plus an executor.
 Every executor receives the parsed arguments dict plus a ToolContext
 (the selected vehicle / session / user) and returns plain text for the
 model or a ToolOutcome that may carry an extra UI event (ticket draft,

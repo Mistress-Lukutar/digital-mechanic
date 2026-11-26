@@ -5,10 +5,10 @@ Author: Mistress-Lukutar
 Date:   2026-11-26
 Version: v0.1.0
 
-A bare streaming loop,
-stripped of project-specific persistence: the loop streams LLM output,
-executes the model's tool calls through the registry, feeds results back
-and repeats until the model ends the turn or an iteration cap trips.
+A bare streaming loop: streams LLM output, executes the model's tool
+calls through the registry, feeds results back and repeats until the
+model ends the turn or an iteration cap trips. Persistence is kept
+out of the loop on purpose; the conversation store is injected.
 
 Events yielded as (name, payload) tuples:
     ("token",       {"text": ...})                     incremental answer text
