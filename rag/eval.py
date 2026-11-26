@@ -85,21 +85,28 @@ def _page_hit(
     results: list,
     gold_pages: list[dict],
 ) -> int | None:
-    '''1-based rank of the first result within ±1 page of a gold page.
+    '''1-based rank of the first result inside a gold page (or its range).
+
+    Gold entries are {"doc_id", "page"} or {"doc_id", "page", "page_end"}
+    for sections spanning many pages (the fault tables run 50 pages in
+    536 RE): any page of the section is a correct answer, ±1 more.
 
     Args:
         results: SearchHit list, best first.
-        gold_pages: Gold [{doc_id, page}] entries.
+        gold_pages: Gold entries.
 
     Returns:
         Rank or None.
     '''
-    gold = {(g["doc_id"], int(g["page"])) for g in gold_pages}
     for rank, hit in enumerate(results, start=1):
-        for doc_id, page in gold:
+        for gold in gold_pages:
+            page = int(gold["page"])
+            page_end = int(gold.get("page_end", page))
             if (
-                hit.doc_id == doc_id
-                and abs(hit.page_pdf - page) <= PAGE_TOLERANCE
+                hit.doc_id == gold["doc_id"]
+                and page - PAGE_TOLERANCE
+                <= hit.page_pdf
+                <= page_end + PAGE_TOLERANCE
             ):
                 return rank
     return None
@@ -238,22 +245,29 @@ def _run_set(
             print(f"  {case.qid}: rank={rank} {' '.join(top)}")
         if set_name == "golden" and case.value:
             values_checked += 1
-            found_on = None
+            # Any cited page carrying the value counts; check every match.
+            value_ok = False
+            matched: list[tuple[str, int]] = []
             for hit in response.results:
                 for gold in case.gold_pages:
-                    if hit.doc_id == gold["doc_id"] and abs(
-                        hit.page_pdf - int(gold["page"])
-                    ) <= PAGE_TOLERANCE:
-                        found_on = (gold["doc_id"], int(gold["page"]))
-                        break
-                if found_on:
-                    break
-            if found_on is not None:
-                page_text = engine.index.page_text.get(found_on, "")
+                    page = int(gold["page"])
+                    page_end = int(gold.get("page_end", page))
+                    if (
+                        hit.doc_id == gold["doc_id"]
+                        and page - PAGE_TOLERANCE
+                        <= hit.page_pdf
+                        <= page_end + PAGE_TOLERANCE
+                    ):
+                        matched.append((hit.doc_id, hit.page_pdf))
+            for doc_id, page_pdf in matched:
+                page_text = engine.index.page_text.get((doc_id, page_pdf), "")
                 if _value_present(case.value, page_text):
-                    values_ok += 1
-                else:
-                    failures.append(f"{case.qid}: value not on page {found_on}")
+                    value_ok = True
+                    break
+            if value_ok:
+                values_ok += 1
+            elif matched:
+                failures.append(f"{case.qid}: value not on {matched}")
             else:
                 failures.append(f"{case.qid}: value unchecked (page missed)")
 
