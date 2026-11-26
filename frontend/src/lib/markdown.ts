@@ -20,10 +20,13 @@ export function renderMarkdown(source: string): string {
 }
 
 export function renderAssistantHtml(source: string): string {
+  // Unwrap backtick-wrapped citations before markdown rendering
+  source = source.replace(/`([^\n`]*, стр\. \d+\])/g, '$1')
   const html = renderMarkdown(source)
   const citationRegex = /\[([^<>,\[\]]+), стр\. (\d+)\]/g
   const result = html.replace(citationRegex, (_match, docId, page) => {
-    return '<a href="#" class="citation-link" data-doc-id="' + escapeHtml(docId) + '" data-page="' + page + '">' + '[' + escapeHtml(docId) + ', стр. ' + page + ']</a>'
+    const cleanDocId = docId.replace(/[«»]/g, '').trim()
+    return '<a href="#" class="citation-link" data-doc-id="' + escapeHtml(cleanDocId) + '" data-page="' + page + '">' + '[' + escapeHtml(cleanDocId) + ', стр. ' + page + ']</a>'
   })
   return result
 }
