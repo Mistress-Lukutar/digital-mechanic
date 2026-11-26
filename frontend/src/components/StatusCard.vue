@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DiagnosticResult } from '../types'
+import { t } from '../i18n'
 
 defineProps<{
   diag: DiagnosticResult | null
@@ -7,9 +8,9 @@ defineProps<{
 
 function statusLabel(status: string): string {
   switch (status) {
-    case 'normal': return 'Норма'
-    case 'anomaly': return 'Отклонение'
-    case 'check_failed': return 'Сбой записи'
+    case 'normal': return t('status.label.normal')
+    case 'anomaly': return t('status.label.anomaly')
+    case 'check_failed': return t('status.label.check_failed')
     default: return status || '—'
   }
 }
@@ -25,9 +26,9 @@ function statusBadgeClass(status: string): string {
 
 function signalLabel(q: string): string {
   switch (q) {
-    case 'good': return 'Надёжная запись'
-    case 'warning': return 'Помехи'
-    case 'bad': return 'Запись непригодна'
+    case 'good': return t('status.signal.good')
+    case 'warning': return t('status.signal.warning')
+    case 'bad': return t('status.signal.bad')
     default: return q || '—'
   }
 }
@@ -66,7 +67,7 @@ function clamp(v: number | null, min = 0, max = 100): number {
     <!-- Score bars -->
     <div class="score-bars">
       <div class="score-row">
-        <span class="score-label">Балл</span>
+        <span class="score-label">{{ t('status.score.label') }}</span>
         <div class="progress-track">
           <div
             class="progress-fill"
@@ -78,7 +79,7 @@ function clamp(v: number | null, min = 0, max = 100): number {
       </div>
 
       <div class="score-row">
-        <span class="score-label">Уверенность</span>
+        <span class="score-label">{{ t('status.confidence.label') }}</span>
         <div class="progress-track">
           <div
             class="progress-fill"
@@ -92,7 +93,7 @@ function clamp(v: number | null, min = 0, max = 100): number {
 
     <!-- Signal quality -->
     <div class="signal-row">
-      <span class="dim">Качество сигнала:</span>
+      <span class="dim">{{ t('status.signal.label') }}</span>
       <span :class="['badge', signalBadgeClass(diag.signal_quality)]">
         {{ signalLabel(diag.signal_quality) }}
       </span>
@@ -100,7 +101,7 @@ function clamp(v: number | null, min = 0, max = 100): number {
 
     <!-- Check failed warning -->
     <div v-if="diag.status === 'check_failed'" class="info-strip check-failed-warn">
-      Запись непригодна — диагноз не ставится, повторите запись
+      {{ t('status.check_failed_warning') }}
     </div>
 
     <!-- Description -->

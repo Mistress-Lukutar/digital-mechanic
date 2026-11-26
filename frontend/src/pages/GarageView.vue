@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { VehicleItem, FleetStats, VehicleGroup } from '../types'
 import { formatIso } from '../api'
+import { t } from '../i18n'
 
 defineProps<{
   vehicles: VehicleItem[]
@@ -39,9 +40,9 @@ function setFilter(group: GroupFilter): void {
 // Status badge helpers
 function statusLabel(status: VehicleItem['latest_status']): string {
   switch (status) {
-    case 'normal': return 'Норма'
-    case 'anomaly': return 'Отклонение'
-    case 'check_failed': return 'Сбой записи'
+    case 'normal': return t('status.label.normal')
+    case 'anomaly': return t('status.label.anomaly')
+    case 'check_failed': return t('status.label.check_failed')
     default: return '—'
   }
 }
@@ -66,7 +67,7 @@ const skeletonCount = Array.from({ length: 6 }, (_, i) => i)
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="Госномер, гаражный №, марка, модель…"
+        :placeholder="t('garage.search.placeholder')"
         class="search-input"
         @input="onSearchInput"
       />
@@ -76,28 +77,28 @@ const skeletonCount = Array.from({ length: 6 }, (_, i) => i)
           :class="['chip', { active: activeFilter === 'all' }]"
           @click="setFilter('all')"
         >
-          Все
+          {{ t('garage.filter.all') }}
           <span v-if="stats?.total" class="chip-count">{{ stats.total }}</span>
         </button>
         <button
           :class="['chip', { active: activeFilter === 'normal' }]"
           @click="setFilter('normal')"
         >
-          В норме
+          {{ t('garage.filter.normal') }}
           <span v-if="stats?.normal" class="chip-count">{{ stats.normal }}</span>
         </button>
         <button
           :class="['chip', { active: activeFilter === 'attention' }]"
           @click="setFilter('attention')"
         >
-          Требует внимания
+          {{ t('garage.filter.attention') }}
           <span v-if="stats?.attention" class="chip-count">{{ stats.attention }}</span>
         </button>
         <button
           :class="['chip', { active: activeFilter === 'quarantine' }]"
           @click="setFilter('quarantine')"
         >
-          Карантин
+          {{ t('garage.filter.quarantine') }}
           <span v-if="stats?.quarantine" class="chip-count">{{ stats.quarantine }}</span>
         </button>
       </div>
@@ -117,7 +118,7 @@ const skeletonCount = Array.from({ length: 6 }, (_, i) => i)
     </div>
 
     <div v-else-if="vehicles.length === 0" class="empty-state">
-      Ничего не найдено
+      {{ t('garage.empty') }}
     </div>
 
     <div v-else class="grid-cards">
@@ -148,7 +149,7 @@ const skeletonCount = Array.from({ length: 6 }, (_, i) => i)
 
           <div class="counts-row">
             <span class="count-line">
-              Отклонений: {{ v.anomaly_count }} &nbsp;|&nbsp; Проверок: {{ v.check_count }}
+              {{ t('garage.counts_anomalies', { n: v.anomaly_count }) }} &nbsp;|&nbsp; {{ t('garage.counts_checks', { m: v.check_count }) }}
             </span>
           </div>
 

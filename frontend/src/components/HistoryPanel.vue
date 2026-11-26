@@ -4,6 +4,7 @@ import type { SessionRecord, TicketRecord } from '../types'
 import { getVehicleDetail } from '../api'
 import { formatIso } from '../api'
 import AnomalyChart from './AnomalyChart.vue'
+import { t } from '../i18n'
 
 const props = defineProps<{
   vehicleId: string
@@ -55,9 +56,9 @@ function sessionBadgeClass(status: SessionRecord['status']): string {
 
 function sessionLabel(status: SessionRecord['status']): string {
   switch (status) {
-    case 'normal': return 'Норма'
-    case 'anomaly': return 'Отклонение'
-    case 'check_failed': return 'Сбой записи'
+    case 'normal': return t('status.label.normal')
+    case 'anomaly': return t('status.label.anomaly')
+    case 'check_failed': return t('status.label.check_failed')
     default: return status || '—'
   }
 }
@@ -73,9 +74,9 @@ function urgencyChipClass(urgency: string): string {
 
 function urgencyLabel(urgency: string): string {
   switch (urgency) {
-    case 'high': return 'Высокий'
-    case 'medium': return 'Средний'
-    case 'low': return 'Низкий'
+    case 'high': return t('history.urgency.high')
+    case 'medium': return t('history.urgency.medium')
+    case 'low': return t('history.urgency.low')
     default: return urgency
   }
 }
@@ -93,7 +94,7 @@ function getUrgency(payload: Record<string, unknown>): string {
 
 <template>
   <div class="history-panel panel">
-    <h3>История ТС</h3>
+    <h3>{{ t('history.title') }}</h3>
 
     <!-- Loading -->
     <div v-if="loading" class="history-loading">
@@ -111,10 +112,10 @@ function getUrgency(payload: Record<string, unknown>): string {
       <AnomalyChart :sessions="sessions" />
 
       <section class="history-section">
-        <h4 class="section-title">Проверки</h4>
+        <h4 class="section-title">{{ t('history.checks_section') }}</h4>
 
         <div v-if="sessions.length === 0" class="empty-hint dim">
-          Проверок ещё не было
+          {{ t('history.no_checks') }}
         </div>
 
         <div v-else class="session-list">
@@ -142,10 +143,10 @@ function getUrgency(payload: Record<string, unknown>): string {
 
       <!-- Tickets section -->
       <section class="history-section">
-        <h4 class="section-title">Заявки</h4>
+        <h4 class="section-title">{{ t('history.tickets_section') }}</h4>
 
         <div v-if="tickets.length === 0" class="empty-hint dim">
-          Заявок нет
+          {{ t('history.no_tickets') }}
         </div>
 
         <div v-else class="ticket-list">
