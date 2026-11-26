@@ -59,7 +59,7 @@ def build_service_hub(settings: Settings) -> ServiceHub:
             manuals_dir=settings.manuals_dir,
         ),
         manifest=ManualManifest(settings.manuals_dir),
-        ticket_log=TicketLog(settings.db_path),
-        usage=UsageLog(settings.db_path),
-        auth=AuthService(settings.db_path),
+        ticket_log=TicketLog(settings.resolve_db_path()),
+        usage=UsageLog(settings.resolve_db_path()),
+        auth=AuthService(settings.resolve_db_path()),
     )

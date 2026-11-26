@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     app_port: int = 8000
     app_data_dir: Path = Path("data")
     manuals_dir: Path = Path("data/manuals")
+    # Explicit DB file override (tests point it at a tmp dir); when unset the
+    # DB lives inside app_data_dir.
+    db_file: Path | None = None
 
     @property
     def vehicles_path(self) -> Path:
@@ -61,9 +64,10 @@ class Settings(BaseSettings):
         '''Optional dev-only chunks file consumed by the mock RAG search.'''
         return self.app_data_dir / "rag" / "mock_chunks.jsonl"
 
-    @property
-    def db_path(self) -> Path:
+    def resolve_db_path(self) -> Path:
         '''Path of the application SQLite database (auth, ticket log, usage).'''
+        if self.db_file is not None:
+            return self.db_file
         return self.app_data_dir / "app.db"
 
 

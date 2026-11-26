@@ -84,8 +84,9 @@ class TicketLog:
         Returns:
             The stored :class:`~shared.models.TicketRecord`.
 
-        Raises:
-            sqlite3.IntegrityError: If *ticket_id* already exists.
+        Re-submission with an existing *ticket_id* replaces the stored row:
+        the TOiR stub restarts its numbering (TKT-0001...) on every process
+        restart, so collisions across restarts are expected.
         """
         if created_at is None:
             created_at = datetime.now(UTC)
@@ -102,8 +103,8 @@ class TicketLog:
         with self._lock:
             self._conn.execute(
                 """
-                INSERT INTO tickets (ticket_id, created_at, vehicle_id, session_id,
-                                     username, payload_json)
+                INSERT OR REPLACE INTO tickets (ticket_id, created_at, vehicle_id,
+                                                session_id, username, payload_json)
                 VALUES (:ticket_id, :created_at, :vehicle_id, :session_id,
                         :username, :payload_json)
                 """,
