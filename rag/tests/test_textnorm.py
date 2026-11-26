@@ -50,3 +50,35 @@ def test_letter_spacing_leaves_words_alone() -> None:
     '''ordinary text is untouched; short runs stay apart.'''
     text = "М10 гайка и 4 болта"
     assert normalize_page_text(text) == text
+
+
+def test_glue_broken_words() -> None:
+    '''space-broken fragments join when the sum is a corpus word.'''
+    wordforms = {"подшипников": 40, "динамометрических": 12, "затяжки": 90}
+    text = "по дшипнико в: затяжка динамометр ических ключей"
+    glued = normalize_page_text(text, wordforms)
+    assert "подшипников:" in glued
+    assert "динамометрических" in glued
+
+
+def test_glue_leaves_real_words_alone() -> None:
+    '''two real words whose concatenation is not a word stay apart.'''
+    wordforms = {"подшипников": 40, "коренных": 55, "подшипниковкоренных": 0}
+    text = "крышек коренных подшипников"
+    assert normalize_page_text(text, wordforms) == text
+
+
+def test_glue_always_broken_words() -> None:
+    '''words that never appear intact merge from frequent fragments.'''
+    wordforms = {"динамометр": 5}  # only the nominative is intact
+    fragments = {"динамометр": 20, "ических": 30}
+    glued = normalize_page_text(
+        "ключей динамометр ических", wordforms, fragments
+    )
+    assert "динамометрических" in glued
+
+
+def test_glue_disabled_without_dictionary() -> None:
+    '''no dictionary → no glue (plain normalisation).'''
+    text = "по дшипнико в"
+    assert normalize_page_text(text, None) == text
