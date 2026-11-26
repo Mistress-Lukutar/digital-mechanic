@@ -1,11 +1,17 @@
 // Thin fetch helpers for the Digital Mechanic API.
 
 import type {
+  AdminUserItem,
   AuthMeResponse,
   AuthTokenResponse,
   DocumentInfo,
   DocumentPage,
+  FleetStats,
+  LlmSettingsView,
+  UsageRowItem,
+  UsageTotals as UsageTotalsType,
   VehicleDetail,
+  VehicleItem,
 } from './types'
 
 export class ApiError extends Error {
@@ -196,5 +202,102 @@ export async function getDocumentPage(
 ): Promise<DocumentPage> {
   return apiGet<DocumentPage>(
     `/api/documents/${encodeURIComponent(docId)}/page/${pagePdf}`,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Fleet stats / priority (read by all users)
+// ---------------------------------------------------------------------------
+
+/** GET /api/fleet/stats */
+export async function getFleetStats(): Promise<FleetStats> {
+  return apiGet<FleetStats>('/api/fleet/stats')
+}
+
+/** GET /api/fleet/priority — quarantine vehicles sorted by anomaly_score desc */
+export async function getFleetPriority(): Promise<VehicleItem[]> {
+  return apiGet<VehicleItem[]>('/api/fleet/priority')
+}
+
+// ---------------------------------------------------------------------------
+// Admin — usage
+// ---------------------------------------------------------------------------
+
+/** GET /api/admin/usage/totals */
+export async function getAdminUsageTotals(): Promise<UsageTotalsType> {
+  return apiGet<UsageTotalsType>('/api/admin/usage/totals')
+}
+
+/** GET /api/admin/usage/recent?limit=N */
+export async function getAdminUsageRecent(limit: number = 50): Promise<UsageRowItem[]> {
+  const url = new URL('/api/admin/usage/recent', window.location.origin)
+  url.searchParams.set('limit', String(Math.min(200, Math.max(1, limit))))
+  return apiGet<UsageRowItem[]>(url.toString())
+}
+
+// ---------------------------------------------------------------------------
+// Admin — users CRUD
+// ---------------------------------------------------------------------------
+
+/** GET /api/admin/users */
+export async function getAdminUsers(): Promise<AdminUserItem[]> {
+  return apiGet<AdminUserItem[]>('/api/admin/users')
+}
+
+/** POST /api/admin/users */
+export async function createAdminUser(
+  username: string,
+  password: string,
+  role: string,
+): Promise<{ status: string }> {
+  return apiSend<{ status: string }>(
+    '/api/admin/users',
+    'POST',
+    { username, password, role },
+  )
+}
+
+/** DELETE /api/admin/users/{username} */
+export async function deleteAdminUser(username: string): Promise<{ status: string }> {
+  return apiSend<{ status: string }>(
+    `/api/admin/users/${encodeURIComponent(username)}`,
+    'DELETE',
+  )
+}
+
+/** POST /api/admin/users/{username}/password */
+export async function resetAdminPassword(
+  username: string,
+  newPassword: string,
+): Promise<{ status: string }> {
+  return apiSend<{ status: string }>(
+    `/api/admin/users/${encodeURIComponent(username)}/password`,
+    'POST',
+    { new_password: newPassword },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Admin — LLM settings
+// ---------------------------------------------------------------------------
+
+/** GET /api/admin/settings/llm */
+export async function getLlmSettings(): Promise<LlmSettingsView> {
+  return apiGet<LlmSettingsView>('/api/admin/settings/llm')
+}
+
+/** PUT /api/admin/settings/llm */
+export async function updateLlmSettings(params: {
+  protocol?: string
+  base_url?: string
+  api_key?: string
+  model?: string
+  temperature?: number | null
+  max_output_tokens?: number | null
+}): Promise<LlmSettingsView> {
+  return apiSend<LlmSettingsView>(
+    '/api/admin/settings/llm',
+    'PUT',
+    params,
   )
 }

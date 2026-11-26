@@ -5,6 +5,8 @@ import { auth } from './composables/useAuth'
 import LoginView from './pages/LoginView.vue'
 import GarageView from './pages/GarageView.vue'
 import ChatView from './pages/ChatView.vue'
+import FleetView from './pages/FleetView.vue'
+import AdminView from './pages/AdminView.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 
 type Page = 'login' | 'garage' | 'chat' | 'fleet' | 'admin'
@@ -169,8 +171,11 @@ onMounted(restoreAuth)
         >
           Чат
         </button>
-        <button class="nav-btn" disabled title="Скоро">
-          Парк <span class="soon-hint">скоро</span>
+        <button
+          :class="['nav-btn', { active: page === 'fleet' }]"
+          @click="page = 'fleet'"
+        >
+          Парк
         </button>
         <button
           v-if="auth.role.value === 'admin'"
@@ -218,7 +223,18 @@ onMounted(restoreAuth)
         @back="() => { page = 'garage'; fetchGarageData() }"
       />
 
-      <!-- Stub pages (fleet, admin) -->
+      <!-- Fleet page (all users) -->
+      <FleetView
+        v-else-if="page === 'fleet'"
+        @open-vehicle="(id: string) => { currentVehicleId = id; page = 'chat' }"
+      />
+
+      <!-- Admin page (admin only) -->
+      <AdminView
+        v-else-if="page === 'admin'"
+      />
+
+      <!-- Stub fallback -->
       <div v-else class="stub-page panel">
         <h2>Раздел «{{ page }}»</h2>
         <p class="dim">Появится в следующем этапе.</p>

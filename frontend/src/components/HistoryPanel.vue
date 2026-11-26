@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import type { SessionRecord, TicketRecord } from '../types'
 import { getVehicleDetail } from '../api'
 import { formatIso } from '../api'
+import AnomalyChart from './AnomalyChart.vue'
 
 const props = defineProps<{
   vehicleId: string
@@ -98,6 +99,8 @@ function getUrgency(payload: Record<string, unknown>): string {
 
     <!-- Sessions section -->
     <template v-else>
+      <AnomalyChart :sessions="sessions" />
+
       <section class="history-section">
         <h4 class="section-title">Проверки</h4>
 

@@ -222,3 +222,48 @@ export interface SseTurnDoneEvent {
 export interface SseErrorEvent {
   message: string
 }
+
+// ---------------------------------------------------------------------------
+// Admin — usage & users
+// ---------------------------------------------------------------------------
+
+export interface UsageTotals {
+  requests_total: number
+  requests_error: number
+  input_tokens: number
+  output_tokens: number
+}
+
+export interface UsageRowItem {
+  id: number
+  ts: string
+  username: string | null
+  vehicle_id: string | null
+  kind: string
+  model: string | null
+  input_tokens: number
+  output_tokens: number
+  duration_ms: number
+  status: string
+  error: string | null
+}
+
+export interface AdminUserItem {
+  username: string
+  role: string
+  must_change_password: boolean
+  created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Admin — LLM settings
+// ---------------------------------------------------------------------------
+
+export interface LlmSettingsView {
+  protocol: string
+  base_url: string
+  api_key: string
+  model: string
+  temperature: number | null
+  max_output_tokens: number | null
+}
