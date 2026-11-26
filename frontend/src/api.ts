@@ -35,6 +35,21 @@ export class ApiError extends Error {
 // Auth store — read by apiGet / apiSend to attach Bearer token.
 // ---------------------------------------------------------------------------
 
+/** Format a FastAPI ``detail`` (plain string or 422 validation list) for display. */
+export function formatApiDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        const entry = item as { msg?: unknown }
+        return typeof entry?.msg === 'string' ? entry.msg : JSON.stringify(item)
+      })
+      .join('; ')
+  }
+  if (detail !== undefined && detail !== null) return JSON.stringify(detail)
+  return ''
+}
+
 let _token: string | null = null
 
 export function setAuthToken(token: string | null): void {
@@ -81,7 +96,7 @@ async function apiSendInternal<T>(
     let message = `HTTP ${response.status}`
     try {
       const payload = await response.json()
-      if (payload.detail) message = String(payload.detail)
+      if (payload.detail) message = formatApiDetail(payload.detail)
     } catch {
       /* keep default message */
     }

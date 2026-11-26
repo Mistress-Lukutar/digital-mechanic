@@ -87,8 +87,13 @@ const activeDocId = ref<string | null>(null)
 const activePage = ref<number | null>(null)
 const showTicketModal = ref(false)
 const ticketDraft = ref<TicketDraftEvent | null>(null)
+const historyRefreshKey = ref(0)
 
-function handleTicketSubmitted(_ticketId: string): void { showTicketModal.value = false; ticketDraft.value = null }
+function handleTicketSubmitted(_ticketId: string): void {
+  showTicketModal.value = false
+  ticketDraft.value = null
+  historyRefreshKey.value++
+}
 function handleTicketClose(): void { showTicketModal.value = false; ticketDraft.value = null }
 
 async function handleNewDialog(): Promise<void> {
@@ -198,7 +203,7 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
           <button :class="['tab-btn', { active: rightPanelTab === 'doc' }]" @click="rightPanelTab = 'doc'">Документ</button>
         </div>
         <template v-if="rightPanelTab === 'history'">
-          <HistoryPanel :vehicle-id="props.vehicleId" />
+          <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
         </template>
         <template v-else>
           <DocPanel v-if="activeDocId" :doc-id="activeDocId" :page="activePage" />
@@ -211,7 +216,7 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
           <h3>История</h3>
           <button class="close-btn" @click="showHistoryPanel = false">&times;</button>
         </div>
-        <HistoryPanel :vehicle-id="props.vehicleId" />
+        <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
       </div>
     </div>
 

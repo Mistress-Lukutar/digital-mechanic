@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { getAuthToken, apiUrl } from '../api'
+import { getAuthToken, apiUrl, formatApiDetail } from '../api'
 import type {
   AgentStepT,
   ChatMessage,
@@ -142,6 +142,7 @@ export function createSseChat(options: SseChatOptions) {
         headers: {
           Authorization: `Bearer ${getAuthToken() ?? ''}`,
           Accept: 'text/event-stream',
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ message, session_id: sessionId }),
         signal: abortCtrl.signal,
@@ -152,7 +153,7 @@ export function createSseChat(options: SseChatOptions) {
         let errMsg = `HTTP ${response.status}`
         try {
           const errJson = await response.json()
-          if (errJson.detail) errMsg = String(errJson.detail)
+          if (errJson.detail) errMsg = formatApiDetail(errJson.detail)
         } catch {
           /* keep default */
         }

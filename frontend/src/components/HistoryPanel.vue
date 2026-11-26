@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import type { SessionRecord, TicketRecord } from '../types'
 import { getVehicleDetail } from '../api'
 import { formatIso } from '../api'
@@ -7,6 +7,8 @@ import AnomalyChart from './AnomalyChart.vue'
 
 const props = defineProps<{
   vehicleId: string
+  /** Bump to re-read the vehicle history (e.g. after a ticket is filed). */
+  refreshKey?: number
 }>()
 
 const emit = defineEmits<{
@@ -18,7 +20,7 @@ const tickets = ref<TicketRecord[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-onMounted(async () => {
+async function load(): Promise<void> {
   loading.value = true
   try {
     const data = await getVehicleDetail(props.vehicleId)
@@ -33,7 +35,13 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+watch(() => props.refreshKey, (key) => {
+  if (key) load()
 })
+
+onMounted(load)
 
 function sessionBadgeClass(status: SessionRecord['status']): string {
   switch (status) {
