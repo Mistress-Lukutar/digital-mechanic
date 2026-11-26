@@ -51,6 +51,11 @@ const messages = chat.messages
 const streaming = chat.streaming
 const chatError = chat.error
 const messageInput = ref('')
+const inputEl = ref<HTMLTextAreaElement | null>(null)
+
+function autoGrow(e: Event): void {
+  const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'
+}
 
 async function sendMessage(): Promise<void> {
   const text = messageInput.value.trim()
@@ -58,6 +63,7 @@ async function sendMessage(): Promise<void> {
   messageInput.value = ''
   await chat.send(props.vehicleId, text)
   await nextTick()
+  if (inputEl.value) inputEl.value.style.height = 'auto'
   scrollToBottom()
 }
 
@@ -68,6 +74,20 @@ function scrollToBottom(): void {
 
 watch(() => messages.value.length, () => { scrollToBottom() }, { flush: 'post' })
 watch(() => streaming.value, () => { if (!streaming.value) nextTick(scrollToBottom) })
+watch(
+  () => {
+    const last = messages.value[messages.value.length - 1]
+    if (!last) return 0
+    return last.text.length + last.steps.length * 1000
+  },
+  () => {
+    const el = document.querySelector('.chat-messages')
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    if (nearBottom) scrollToBottom()
+  },
+  { flush: 'post' },
+)
 
 const quickActions = [
   { label: 'Получить диагностику', text: 'Получить результат диагностики' },
@@ -78,10 +98,24 @@ const quickActions = [
 type PanelTab = 'history' | 'doc'
 const rightPanelTab = ref<PanelTab>('history')
 const showHistoryPanel = ref(false)
+const showDocPanel = ref(false)
+
+function isMobileLayout(): boolean {
+  return window.matchMedia('(max-width: 1023px)').matches
+}
 
 function toggleHistory(): void {
-  if (rightPanelTab.value === 'history') showHistoryPanel.value = !showHistoryPanel.value
-  else { rightPanelTab.value = 'history'; showHistoryPanel.value = true }
+  if (isMobileLayout()) {
+    if (rightPanelTab.value !== 'history') {
+      rightPanelTab.value = 'history'
+      showDocPanel.value = false
+      showHistoryPanel.value = true
+    } else {
+      showHistoryPanel.value = !showHistoryPanel.value
+    }
+  } else {
+    rightPanelTab.value = 'history'
+  }
 }
 
 const activeDocId = ref<string | null>(null)
@@ -109,6 +143,7 @@ function handleMdClick(e: MouseEvent): void {
   activeDocId.value = el.getAttribute('data-doc-id')
   activePage.value = Number(el.getAttribute('data-page'))
   rightPanelTab.value = 'doc'
+  if (isMobileLayout()) showDocPanel.value = true
 }
 
 function getDiagFromMsg(msg: ChatMessage): DiagnosticResult | null {
@@ -178,7 +213,7 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
         </div>
 
         <div class="input-row">
-          <textarea v-model="messageInput" rows="1" placeholder="Введите сообщение..." :disabled="streaming" @keydown="onKeydown" />
+          <textarea v-model="messageInput" rows="1" placeholder="Введите сообщение..." :disabled="streaming" @keydown="onKeydown" @input="autoGrow" />
           <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim()" @click="sendMessage">&rarr;</button>
           <button v-else class="stop-btn danger-solid" @click="chat.stop">Стоп</button>
         </div>
@@ -204,6 +239,14 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
           <button class="close-btn" @click="showHistoryPanel = false">&times;</button>
         </div>
         <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
+      </div>
+
+      <div v-if="showDocPanel && activeDocId" class="mobile-overlay" @click.self="showDocPanel = false">
+        <div class="mobile-panel-header">
+          <h3>Документ</h3>
+          <button class="close-btn" @click="showDocPanel = false">&times;</button>
+        </div>
+        <DocPanel :doc-id="activeDocId!" :page="activePage" />
       </div>
     </div>
 
@@ -263,8 +306,7 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
 .input-row { display: flex; align-items: flex-end; gap: 8px; padding: 12px 16px; background: var(--bg-panel); border-top: 1px solid var(--border); flex-shrink: 0; }
 .input-row textarea { flex: 1; resize: none; min-height: 36px; max-height: 120px; padding: 8px 12px; font-size: 14px; font-family: inherit; }
 .send-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; padding: 0; flex-shrink: 0; }
-.stop-btn { width: 40px; height: 4
-0; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; padding: 0; flex-shrink: 0; }
+.stop-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; padding: 0; flex-shrink: 0; }
 .chat-error { position: relative; margin: 8px 16px 0; }
 .close-error { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--danger-text); font-size: 16px; padding: 4px; cursor: pointer; }
 .right-panel { width: 380px; flex-shrink: 0; border-left: 1px solid var(--border); background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; }
@@ -276,4 +318,5 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
 .mobile-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
 .close-btn { background: none; border: 0; color: var(--text-dim); font-size: 24px; padding: 0 4px; cursor: pointer; }
 @media (max-width: 1023px) { .right-panel { display: none; } }
+@media (min-width: 1024px) { .mobile-overlay { display: none; } }
 </style>
