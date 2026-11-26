@@ -23,6 +23,8 @@ static/
 data/rag/
 data/summaries/
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 logs/
 server.log
