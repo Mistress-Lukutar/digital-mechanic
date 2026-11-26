@@ -230,13 +230,22 @@ function toggleMic(): void {
           <div v-if="streaming" class="streaming-indicator">
             <span class="spinner" /><span class="dim">{{ t('chat.streaming') }}</span>
           </div>
+
+          <!-- Quick actions: centered in the chat area when empty with vehicle -->
+          <div v-if="!streaming && messages.length === 0 && vehicleId" class="quick-actions">
+            <button v-for="action in quickActions" :key="action.label" class="quick-chip" @click="messageInput = action.text">{{ action.label }}</button>
+          </div>
+
+          <!-- Empty vehicle banner: centered when no vehicle selected -->
+          <div v-if="!vehicleId && !streaming" class="chat-empty-banner panel">
+            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>{{ t('chat.empty_vehicle') }}</span>
+          </div>
         </div>
 
-        <div v-if="!streaming && messages.length === 0" class="quick-actions">
-          <button v-for="action in quickActions" :key="action.label" class="quick-chip" @click="messageInput = action.text">{{ action.label }}</button>
-        </div>
-
-        <div class="input-row">
+        <div class="input-row" v-if="vehicleId">
           <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
           <button
             v-if="micSupported && !streaming && vehicleId"
@@ -294,7 +303,7 @@ function toggleMic(): void {
 </template>
 
 <style scoped>
-.chat-page { display: flex; flex-direction: column; height: calc(100vh - 60px); overflow: hidden; }
+.chat-page { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 .chat-header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; flex-shrink: 0; }
 .back-btn { background: transparent; border: 0; color: var(--text-dim); font-size: 13px; padding: 4px 8px; cursor: pointer; flex-shrink: 0; }
 .back-btn:hover { color: var(--accent); }
@@ -337,7 +346,9 @@ function toggleMic(): void {
 .streaming-indicator { display: flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 12px; }
 .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.quick-actions { display: flex; gap: 6px; padding: 8px 16px; flex-wrap: wrap; }
+.quick-actions { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; flex: 1; min-height: 0; padding: 8px 16px; }
+.chat-empty-banner { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; flex: 1; min-height: 0; padding: 24px; text-align: center; color: var(--text-dim); font-size: 15px; }
+.chat-empty-banner .empty-icon { width: 48px; height: 48px; opacity: 0.4; }
 .quick-chip { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim); padding: 4px 12px; font-size: 12px; border-radius: 999px; cursor: pointer; }
 .quick-chip:hover { border-color: var(--accent); color: var(--accent); }
 .input-row { display: flex; align-items: flex-end; gap: 8px; padding: 12px 16px; background: var(--bg-panel); border-top: 1px solid var(--border); flex-shrink: 0; }

@@ -98,6 +98,7 @@ const uz = {
   'chat.error.connection': 'Ulanish xatosi',
   'chat.mic.label': 'Ovozli kiritish',
   'chat.mic.listening': 'Tinglayapman…',
+  'chat.empty_vehicle': 'Parkdan arizani tanlang yoki tarixdan chatni oching',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map

@@ -96,6 +96,7 @@ const ru = {
   'chat.error.connection': 'Ошибка соединения',
   'chat.mic.label': 'Голосовой ввод',
   'chat.mic.listening': 'Слушаю…',
+  'chat.empty_vehicle': 'Выберите заявку в парке или откройте чат из истории',
 
   // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map
