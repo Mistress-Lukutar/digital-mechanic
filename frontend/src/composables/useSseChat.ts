@@ -89,6 +89,10 @@ export function createSseChat(options: SseChatOptions) {
   let currentMsg: ChatMessage | null = null
   let pendingStepMap = new Map<string, number>() // call_id → index in steps[]
 
+  // Local guard — prevents event handlers from mutating state after stop()
+  // and lets the reader loop exit immediately on abort.
+  let isStopped = false
+
   function resetLocal(): void {
     messages.value = []
     streaming.value = false
@@ -102,6 +106,7 @@ export function createSseChat(options: SseChatOptions) {
   }
 
   function stop(): void {
+    isStopped = true
     if (abortCtrl) {
       abortCtrl.abort()
       abortCtrl = null
@@ -124,6 +129,9 @@ export function createSseChat(options: SseChatOptions) {
     sessionId: string | null = null,
   ): Promise<void> {
     if (streaming.value) return
+
+    // Reset the stop guard at the start of each new send()
+    isStopped = false
 
     // Push user message
     messages.value.push({ role: 'user', text: message, steps: [] })
@@ -186,25 +194,32 @@ export function createSseChat(options: SseChatOptions) {
         }
 
         for (const frame of frames) {
+          if (isStopped) break
           await handleSseEvent(frame, vehicleId)
         }
+        if (isStopped) break
       }
     } catch (e: unknown) {
       if (e instanceof Error && e.name === 'AbortError') {
-        // Finalize current message on abort
-        if (currentMsg) {
-          for (const step of currentMsg.steps) {
-            step.done = true
-          }
-          currentMsg = null
-          pendingStepMap.clear()
-        }
+        // Abort — finalization happens in the finally block below.
       } else {
         error.value = e instanceof Error ? e.message : t('chat.error.connection')
       }
     } finally {
       if (reader) {
         try { reader.releaseLock() } catch { /* ignore */ }
+      }
+      // Mark any unfinished steps as done and clear streaming state
+      if (currentMsg) {
+        for (const step of currentMsg.steps) {
+          step.done = true
+        }
+        currentMsg = null
+        pendingStepMap.clear()
+      }
+      if (isStopped) {
+        // Abort is user-initiated, not an error
+        error.value = null
       }
       streaming.value = false
       abortCtrl = null
@@ -215,6 +230,10 @@ export function createSseChat(options: SseChatOptions) {
     frame: SseFrame,
     _vehicleId: string,
   ): Promise<void> {
+    // Guard: bail out immediately if stop() was called.
+    // This makes every event handler a no-op after abort.
+    if (isStopped) return
+
     // Parse JSON data
     let json: Record<string, unknown>
     try {
