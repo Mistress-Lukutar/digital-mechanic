@@ -1,0 +1,84 @@
+# Engine × fault-code coverage matrix, pre-filled from plan-B section 8
+# ("да" → covered, "част." → partial, "нет" → none, "?" → unknown).
+# "none" means: verified by search that the manuals for this engine have
+# no section for the fault. Refusals on these cells are the honest-refusal
+# jury case; keep them exactly as verified.
+# Both ЗМЗ-409 engines share one manual and one matrix row.
+version: 1
+default: unknown
+cells:
+  ЯМЗ-236М2:
+    F01: covered
+    F02: covered
+    F03: covered
+    F04: covered
+    F05: covered
+    F06: covered
+    F07: { status: covered, note: "дополнение к РЭ, коробка передач, стр. 126-137" }
+    F08: covered
+    F09: unknown
+    F10: { status: partial, note: "компрессор описан, насоса ГУР в руководстве нет" }
+    F11: { status: none, verified: search, note: "рециркуляции нет ни в РЭ, ни в РК" }
+    F12: unknown
+    F13: unknown
+    F14: { status: none, verified: search, note: "привод ГРМ шестерённый; цепь только электрическая" }
+  ЯМЗ-536:
+    F01: covered
+    F02: covered
+    F03: covered
+    F04: covered
+    F05: covered
+    F06: { status: partial, note: "только фрикционная поверхность маховика и применяемость" }
+    F07: unknown
+    F08: covered
+    F09: covered
+    F10: covered
+    F11: { status: partial, note: "EGR в характеристиках, строки в таблице неисправностей нет" }
+    F12: { status: none, verified: search, note: "зажигание упомянуто один раз, техника безопасности" }
+    F13: { status: none, verified: search, note: "карбюратор отсутствует" }
+    F14: { status: none, verified: search, note: "цепь только электрическая" }
+  ЗМЗ-5234.10:
+    F01: covered
+    F02: covered
+    F03: covered
+    F04: { status: partial, note: "ремень привода найден один раз, стр. 34" }
+    F05: { status: partial, note: "одна строка: подшипник генератора заменить, стр. 57" }
+    F06: covered
+    F07: unknown
+    F08: { status: none, verified: search, note: "ТНВД отсутствует; двигатель бензиновый" }
+    F09: { status: none, verified: search, note: "турбокомпрессор отсутствует" }
+    F10: unknown
+    F11: covered
+    F12: covered
+    F13: covered
+    F14: { status: none, verified: search, note: "привод ГРМ шестерённый, цепи нет" }
+  ЗМЗ-40904.10:
+    F01: covered
+    F02: covered
+    F03: covered
+    F04: covered
+    F05: covered
+    F06: covered
+    F07: unknown
+    F08: unknown
+    F09: { status: none, verified: search, note: "турбокомпрессор отсутствует" }
+    F10: unknown
+    F11: { status: none, verified: search, note: "рециркуляция отсутствует" }
+    F12: { status: partial, note: "раздела нет; свечи и катушки в таблице неисправностей, стр. 102-103" }
+    F13: covered
+    F14: covered
+  ЗМЗ-40905.10:
+    F01: covered
+    F02: covered
+    F03: covered
+    F04: covered
+    F05: covered
+    F06: covered
+    F07: unknown
+    F08: unknown
+    F09: { status: none, verified: search, note: "турбокомпрессор отсутствует" }
+    F10: unknown
+    F11: { status: none, verified: search, note: "рециркуляция отсутствует" }
+    F12: { status: partial, note: "раздела нет; свечи и катушки в таблице неисправностей, стр. 102-103" }
+    F13: covered
+    F14: covered

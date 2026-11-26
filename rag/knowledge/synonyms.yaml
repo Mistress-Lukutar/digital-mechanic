@@ -1,0 +1,15 @@
+# Mechanic slang → manual terminology; applied to every query.
+# From architecture-B section 4.6.
+version: 1
+synonyms:
+  - { slang: [башка, голова], term: головка блока цилиндров }
+  - { slang: [помпа], term: водяной насос }
+  - { slang: [коленвал, кв], term: коленчатый вал }
+  - { slang: [грм], term: газораспределительный механизм }
+  - { slang: [ткр, турбина], term: турбокомпрессор }
+  - { slang: [тнвд], term: топливный насос высокого давления }
+  - { slang: [сальник], term: манжета уплотнительная }
+  - { slang: [холостые, хх], term: холостой ход }
+  - { slang: [вкладыши], term: подшипники скольжения }
+  - { slang: [распредвал], term: распределительный вал }
+  - { slang: [бензонасос], term: топливный насос }

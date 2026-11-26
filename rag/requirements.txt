@@ -1,0 +1,18 @@
+# RAG module dependencies (participant B). Root pyproject.toml is owned by
+# participant A and is NOT extended here — this module installs separately:
+#   python -m venv .venv && .venv/Scripts/pip install -e ".[dev]"
+#   .venv/Scripts/pip install -r rag/requirements.txt
+# fastapi/pydantic/uvicorn/httpx/pytest already come from the root project;
+# the versions below match what the service was tested with.
+
+pymupdf>=2.2,<3
+numpy>=2.0
+scipy>=1.14
+PyStemmer>=3.1
+PyYAML>=6.0
+
+# Dense part (optional but recommended; downloads ~2.3 GB of weights on
+# first ingest). Remove/comment to run BM25-only.
+sentence-transformers>=6.3
+# On NVIDIA GPUs install the CUDA torch build instead of the default:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu130

@@ -1,0 +1,63 @@
+# B-side passport of the six issued manuals.
+# doc_id / file / title / pages / engines are A-owned facts and live in
+# data/manuals/manifest.json (single source); this file only adds what B
+# needs: alternative file names from the issued bundle, cover fingerprints
+# for recognition (rag/setup), printed-TOC hints and fallback sections.
+# Page numbers are PDF pages (1-based).
+version: 1
+docs:
+  "236-3902150-Б РЭ":
+    file: yamz-236_re_2010.pdf
+    aliases:
+      - "ЯМЗ_236_руководство по эксплуатации.pdf"
+    fingerprint: "236-3902150"
+    toc: { pages: [170, 172], offset: 0 }
+    fallback_sections:
+      - { page_pdf: 51, title: "Возможные неисправности двигателя и способы их устранения" }
+      - { page_pdf: 68, title: "Моменты затяжки основных резьбовых соединений" }
+      - { page_pdf: 31, title: "Регулировка клапанного механизма" }
+      - { page_pdf: 34, title: "Техническое обслуживание системы смазки" }
+  "236.01.01 РК":
+    file: yamz-236_rk_2014.pdf
+    aliases:
+      - "ЯМЗ_236_руководство по РЕМОНТУ.pdf"
+    fingerprint: "236\\.01\\.01"
+    toc: { pages: [2, 7], offset: 0 }
+    fallback_sections:
+      - { page_pdf: 31, title: "Общие технические требования к дефектации деталей и сборочных единиц" }
+      - { page_pdf: 286, title: "Приложение В - Моменты затяжки основных резьбовых соединений" }
+      - { page_pdf: 254, title: "Регулирование тепловых зазоров клапанов" }
+  "536.3902150 РЭ":
+    file: yamz-536_re_2016.pdf
+    aliases: []
+    fingerprint: "536\\.3902150"
+    toc: { pages: [282, 284], offset: 1 }
+    fallback_sections:
+      - { page_pdf: 186, title: "Возможные неисправности двигателя и способы их устранения" }
+      - { page_pdf: 271, title: "Моменты затяжки основных резьбовых соединений" }
+      - { page_pdf: 173, title: "Регулировка зазоров в клапанном механизме" }
+      - { page_pdf: 177, title: "Техническое обслуживание привода агрегатов" }
+  "536.01.02 РК":
+    file: yamz-536_rk_2013.pdf
+    aliases: []
+    fingerprint: "536\\.01\\.02"
+    toc: { source: modules, offset: null }   # no printed TOC; module registry at ingest
+    fallback_sections: []   # filled from the module registry once verified
+  "ЗМЗ-5234.10 РК":
+    file: zmz-5234_rk_2025.pdf
+    aliases: []
+    fingerprint: "ЗМЗ-5234"
+    toc: { pages: [135, 136], offset: 0 }
+    fallback_sections:
+      - { page_pdf: 52, title: "Возможные неисправности двигателя и методы их устранения" }
+      - { page_pdf: 137, title: "Приложение 1. Моменты затяжки основных резьбовых соединений" }
+      - { page_pdf: 154, title: "Приложение 6. Основные данные для регулировок и контроля" }
+  "ЗМЗ-409 РЭТОиР":
+    file: zmz-40904-40905_rk_2025.pdf
+    aliases: []
+    fingerprint: "ЗМЗ-4090"
+    toc: { pages: [3, 4], offset: 0 }
+    fallback_sections:
+      - { page_pdf: 102, title: "Возможные неисправности двигателя и способы их устранения" }
+      - { page_pdf: 230, title: "Приложение 5. Моменты затяжки основных резьбовых соединений" }
+      - { page_pdf: 94, title: "Техническое обслуживание двигателя" }
