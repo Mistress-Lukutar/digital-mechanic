@@ -114,6 +114,9 @@ const kk = {
   'chat.reasoning.toggle': 'Ойлану…',
   'chat.attach.label': 'Суретті тіркеп',
   'chat.attach.remove': 'Суретті алып тастау',
+  'chat.edit.label': 'Өңдеу',
+  'chat.edit.save': 'Жіберу',
+  'chat.edit.cancel': 'Болдырмау',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel

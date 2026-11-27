@@ -114,6 +114,9 @@ const uz = {
   'chat.reasoning.toggle': "Oʻylayapman…",
   'chat.attach.label': 'Rasmni biriktirish',
   'chat.attach.remove': 'Rasmni olib tashlash',
+  'chat.edit.label': 'Tahrirlash',
+  'chat.edit.save': 'Yuborish',
+  'chat.edit.cancel': 'Bekor qilish',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel
