@@ -3,8 +3,8 @@ File:   chat_api.py
 Brief:  Chat endpoint with SSE streaming, message-edit
         (branching), and language selection.
 Author: Mistress-Lukutar
-Date:   2026-11-27
-Version: v0.4.0
+Date:   2026-11-28
+Version: v0.5.0
 
 Provides the ``/api/chat`` router with a streaming chat endpoint that wraps
 the :class:`~mechanic.agent.loop.AgentLoop` and yields SSE-formatted events,
@@ -16,6 +16,10 @@ in :class:`~mechanic.services.chats.ChatStore`; the in-memory
 :class:`~mechanic.agent.conversations.ConversationStore` is hydrated from
 SQLite so that LLM context survives backend restarts.
 
+Agent turns run in background asyncio tasks so that client disconnect (e.g.
+mobile browser going to background) does not cancel the LLM cycle; the turn
+completes on the server and the answer is always persisted.
+
 Multimodal support: ``ChatRequest`` accepts an optional ``image`` data-URL
 that is forwarded into the agent turn as a multimodal content part.
 
@@ -26,6 +30,7 @@ branch and the assistant answer is regenerated from that point onward.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -118,6 +123,10 @@ def _hydrate_store(
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
+
+# Strong references keep background turn tasks alive until they finish;
+# without them a disconnected client's task could be garbage-collected.
+_turn_tasks: set[asyncio.Task] = set()
 
 # Maximum length for a data-URL image (~1.5 MB JPEG base64-encoded).
 _MAX_IMAGE_URL_LEN = 2_100_000
@@ -267,6 +276,157 @@ async def _chat_events(
         yield (name, payload)
 
 
+async def _run_turn(
+    queue: asyncio.Queue,
+    vehicle_id: str,
+    message: str,
+    session_id: str | None,
+    username: str,
+    hub: object,  # ServiceHub
+    conversations: ConversationStore,
+    llm_cfg: LlmConfig,
+    language: Literal["ru", "kk", "uz", "hi"] | None = None,
+    image: str | None = None,
+    store_key: str | None = None,
+    conversation_id: str | None = None,
+) -> None:
+    """Run the agent turn in a background task so a client disconnect cannot cancel it.
+
+    Relays events from :func:`_chat_events` into *queue* and persists the
+    answer/usage when the turn finishes.
+
+    Args:
+        queue: Queue to push (name, payload) tuples into for SSE relaying.
+        vehicle_id: Selected vehicle.
+        message: User message text.
+        session_id: Optional session identifier.
+        username: Authenticated user.
+        hub: ServiceHub instance.
+        conversations: Conversation store.
+        llm_cfg: Effective LLM configuration.
+        language: Target response language (ru/kk/uz/hi).
+        image: Optional data-URL image for multimodal input.
+        store_key: Key for conversation storage; defaults to vehicle_id.
+        conversation_id: Current conversation id, passed to the prompt builder
+            so past-discussion lookups can exclude it.
+
+    Notes:
+        The task is kept alive by a strong reference in ``_turn_tasks``.
+        A sentinel ``None`` is pushed after completion (or on error) so
+        the SSE relay loop can terminate cleanly.
+    """
+    t0 = time.perf_counter()
+    chats_store = hub.chats
+    answer_parts: list[str] = []
+    tools_used: list[str] = []
+    ticket_draft_info: dict | None = None
+    agent_steps: list[dict] = []
+    current_step: dict | None = None
+    step_started: float | None = None
+
+    try:
+        async for name, payload in _chat_events(
+            vehicle_id,
+            message,
+            session_id,
+            username,
+            hub,
+            conversations,
+            llm_cfg,
+            language=language,
+            image=image,
+            store_key=store_key,
+            conversation_id=conversation_id,
+        ):
+            queue.put_nowait((name, payload))
+
+            if name == "token":
+                answer_parts.append(payload.get("text", ""))
+            elif name == "tool_start":
+                tool_name = payload.get("name")
+                if tool_name is not None and tool_name not in tools_used:
+                    tools_used.append(tool_name)
+                step_started = time.perf_counter()
+                agent_steps.append(
+                    {
+                        "tool": tool_name,
+                        "arguments": _compact_args(payload.get("arguments")),
+                        "ok": None,
+                        "summary": "",
+                        "duration_ms": 0,
+                    }
+                )
+                current_step = agent_steps[-1]
+            elif name == "tool_result":
+                if current_step is not None:
+                    current_step["ok"] = not payload.get("is_error", False)
+                    current_step["summary"] = str(payload.get("summary", ""))[:200]
+                    if step_started is not None:
+                        current_step["duration_ms"] = int(
+                            (time.perf_counter() - step_started) * 1000
+                        )
+                    current_step = None
+            elif name == "ticket_draft":
+                ticket_draft_info = {
+                    "anomaly_type": payload.get("payload", {}).get("anomaly_type"),
+                    "urgency": payload.get("payload", {}).get("urgency"),
+                }
+            elif name == "turn_done":
+                answer_text = "".join(answer_parts)
+                usage = payload.get("usage", {}) or {}
+                detail = {
+                    "question": message[:4000],
+                    "answer": answer_text[:4000],
+                    "tools": tools_used,
+                    "citations": _extract_citations(answer_text),
+                    "ticket_draft": ticket_draft_info,
+                    "has_image": image is not None,
+                    "language": language,
+                    "steps": agent_steps[:20],
+                }
+                hub.usage.record(
+                    username=username,
+                    kind="chat",
+                    vehicle_id=vehicle_id,
+                    model=llm_cfg.model,
+                    input_tokens=usage.get("input_tokens") or 0,
+                    output_tokens=usage.get("output_tokens") or 0,
+                    duration_ms=int((time.perf_counter() - t0) * 1000),
+                    status="ok",
+                    detail=detail,
+                )
+                if answer_text:
+                    chats_store.add_message(conversation_id, "assistant", answer_text)
+            elif name == "error":
+                error_text = "".join(answer_parts)
+                if error_text:
+                    chats_store.add_message(conversation_id, "assistant", error_text)
+                hub.usage.record(
+                    username=username,
+                    kind="chat",
+                    vehicle_id=vehicle_id,
+                    model=llm_cfg.model,
+                    input_tokens=0,
+                    output_tokens=0,
+                    duration_ms=int((time.perf_counter() - t0) * 1000),
+                    status="error",
+                    error=payload.get("message", "")[:300],
+                    detail={
+                        "question": message[:4000],
+                        "tools": tools_used,
+                        "steps": agent_steps[:20],
+                        "language": language,
+                    },
+                )
+    except Exception:  # noqa: BLE001 — turn must never die silently
+        logger.exception("chat turn failed for conversation %s", conversation_id)
+        queue.put_nowait(
+            ("error", {"message": "Внутренняя ошибка сервера"})
+        )
+    finally:
+        queue.put_nowait(None)
+
+
 @router.post("/chat/{vehicle_id}")
 async def chat(
     vehicle_id: str,
@@ -343,112 +503,36 @@ async def chat(
 
     store_key = conversation_id
 
-    async def event_stream() -> object:  # AsyncIterator[str]
-        """SSE event stream."""
-        t0 = time.perf_counter()
-        answer_parts: list[str] = []
-        tools_used: list[str] = []
-        ticket_draft_info: dict | None = None
-        agent_steps: list[dict] = []
-        current_step: dict | None = None
-        step_started: float | None = None
-        conv_payload = json.dumps(
-            {"conversation_id": conversation_id}, ensure_ascii=False
-        )
-        yield f"event: conversation\ndata: {conv_payload}\n\n"
-        async for name, payload in _chat_events(
-            vehicle_id,
-            body.message,
-            body.session_id,
-            user.username,
-            hub,
-            conversations,
-            llm_cfg,
+    queue: asyncio.Queue = asyncio.Queue()
+    turn_task = asyncio.create_task(
+        _run_turn(
+            queue,
+            vehicle_id, body.message, body.session_id, user.username,
+            hub, conversations, llm_cfg,
             language=body.language or "ru",
             image=body.image,
             store_key=store_key,
             conversation_id=conversation_id,
-        ):
-            yield f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        )
+    )
+    _turn_tasks.add(turn_task)
+    turn_task.add_done_callback(_turn_tasks.discard)
 
-            if name == "token":
-                answer_parts.append(payload.get("text", ""))
-            elif name == "tool_start":
-                tool_name = payload.get("name")
-                if tool_name is not None and tool_name not in tools_used:
-                    tools_used.append(tool_name)
-                step_started = time.perf_counter()
-                agent_steps.append(
-                    {
-                        "tool": tool_name,
-                        "arguments": _compact_args(payload.get("arguments")),
-                        "ok": None,
-                        "summary": "",
-                        "duration_ms": 0,
-                    }
-                )
-                current_step = agent_steps[-1]
-            elif name == "tool_result":
-                if current_step is not None:
-                    current_step["ok"] = not payload.get("is_error", False)
-                    current_step["summary"] = str(payload.get("summary", ""))[:200]
-                    if step_started is not None:
-                        current_step["duration_ms"] = int(
-                            (time.perf_counter() - step_started) * 1000
-                        )
-                    current_step = None
-            elif name == "ticket_draft":
-                ticket_draft_info = {
-                    "anomaly_type": payload.get("payload", {}).get("anomaly_type"),
-                    "urgency": payload.get("payload", {}).get("urgency"),
-                }
-            elif name == "turn_done":
-                answer_text = "".join(answer_parts)
-                usage = payload.get("usage", {}) or {}
-                detail = {
-                    "question": body.message[:4000],
-                    "answer": answer_text[:4000],
-                    "tools": tools_used,
-                    "citations": _extract_citations(answer_text),
-                    "ticket_draft": ticket_draft_info,
-                    "has_image": body.image is not None,
-                    "language": body.language,
-                    "steps": agent_steps[:20],
-                }
-                hub.usage.record(
-                    username=user.username,
-                    kind="chat",
-                    vehicle_id=vehicle_id,
-                    model=llm_cfg.model,
-                    input_tokens=usage.get("input_tokens") or 0,
-                    output_tokens=usage.get("output_tokens") or 0,
-                    duration_ms=int((time.perf_counter() - t0) * 1000),
-                    status="ok",
-                    detail=detail,
-                )
-                if answer_text:
-                    chats_store.add_message(conversation_id, "assistant", answer_text)
-            elif name == "error":
-                error_text = "".join(answer_parts)
-                hub.usage.record(
-                    username=user.username,
-                    kind="chat",
-                    vehicle_id=vehicle_id,
-                    model=llm_cfg.model,
-                    input_tokens=0,
-                    output_tokens=0,
-                    duration_ms=int((time.perf_counter() - t0) * 1000),
-                    status="error",
-                    error=payload.get("message", "")[:300],
-                    detail={
-                        "question": body.message[:4000],
-                        "tools": tools_used,
-                        "steps": agent_steps[:20],
-                        "language": body.language,
-                    },
-                )
-                if error_text:
-                    chats_store.add_message(conversation_id, "assistant", error_text)
+    async def event_stream() -> object:  # AsyncIterator[str]
+        """SSE event stream: relays events from the background turn task.
+
+        The task keeps running and persists the answer even if this
+        generator is cancelled by a client disconnect."""
+        conv_payload = json.dumps(
+            {"conversation_id": conversation_id}, ensure_ascii=False
+        )
+        yield f"event: conversation\ndata: {conv_payload}\n\n"
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            name, payload = item
+            yield f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
         event_stream(),
