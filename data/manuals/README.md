@@ -21,6 +21,27 @@ Alternatively, point the application at an external, access-controlled location
 via the `MANUALS_DIR` variable in `.env` — the external knowledge base is
 connected through configuration, not committed to Git.
 
+## Fetching at deploy time
+
+At deploy time the documents can be pulled from the shared storage folder
+automatically. Put the shared link into the gitignored `.env` (the link
+itself must never be committed — this is checked by a guard test):
+
+    MANUALS_DOWNLOAD_URL=https://...   # your .env, not .env.example
+
+then run one of:
+
+    scripts\fetch_manuals.bat            # Windows
+    scripts/fetch_manuals.sh             # Linux/macOS
+    python scripts/fetch_manuals.py      # directly
+
+The script downloads the PDFs (and case DOCX files, if wanted — see
+`--ext`) into `MANUALS_DIR`, skips files already present with the same
+size and tolerates flaky networks by retrying. After it finishes,
+recognise/rename the files and build the index:
+
+    python -m rag.setup --from <MANUALS_DIR>
+
 With no manuals available the application still runs: diagnostics, fleet views
 and ticketing work; the document panel and manual search degrade to an explicit
 "manual files unavailable" answer instead of invented content.

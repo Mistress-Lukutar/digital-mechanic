@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -41,6 +43,29 @@ def test_system_prompt_skeleton_has_no_quoted_values() -> None:
     # Torque/clearance units only ever appeared inside quoted examples.
     assert "Н·м" not in content, "quoted manual values must stay external"
     assert "кгс·м" not in content, "quoted manual values must stay external"
+
+
+def test_shared_storage_link_not_committed() -> None:
+    '''the shared storage link travels only through MANUALS_DOWNLOAD_URL in
+    the gitignored .env — no tracked text file may contain it.'''
+    # The needle is assembled from parts so this file does not contain
+    # the link itself (the guard would otherwise match its own source).
+    needle = b"disk.yandex." + b"ru"
+    text_exts = {
+        ".md", ".py", ".toml", ".txt", ".yaml", ".yml", ".json", ".example",
+        ".sh", ".bat", ".ts", ".vue", ".html", ".css", ".cfg", ".ini",
+    }
+    skip_dirs = {".git", ".venv", "node_modules", "__pycache__"}
+    for path in REPO_ROOT.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in text_exts:
+            continue
+        if skip_dirs.intersection(path.parts):
+            continue
+        if needle in path.read_bytes():
+            pytest.fail(
+                f"shared storage link must stay in the gitignored .env, "
+                f"not in {path.relative_to(REPO_ROOT)}"
+            )
 
 
 def test_knowledge_yaml_has_no_manual_text() -> None:
