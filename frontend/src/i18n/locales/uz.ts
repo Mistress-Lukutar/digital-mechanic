@@ -166,6 +166,10 @@ const uz = {
   'ticket.validation.ref_manual': 'Havola #{n}: qoʻllanmani koʻrsating',
   'ticket.validation.ref_page': 'Havola #{n}: bet raqami ≥ 1 boʻlishi kerak',
   'ticket.error.create': 'Ariza yaratish xatosi',
+  'ticket.floor_hint': 'Ariza qabul qilish chegarasi: 0,50',
+  'ticket.floor_blocked': 'Ishonchlilik 0,50 chegarasidan past — ariza mavjud emas, yozuvni takrorlang',
+  'ticket.warning_notice': 'Yozuv sifati ogohlantirish — natija ishonchliligi pasaygan, qayta yozuv tavsiya etiladi.',
+  'ticket.override_checkbox': 'Yozuv sifati haqidagi ogohlantirishni hisobga olgan holda arizani tasdiqlayman',
 
   // ---------------------------------------------------------------------------
   // doc.* — DocPanel

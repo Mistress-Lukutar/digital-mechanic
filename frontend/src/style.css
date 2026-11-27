@@ -281,6 +281,16 @@ textarea:focus {
   cursor: pointer;
 }
 
+.warning-strip {
+  border: 1px solid var(--warning);
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
 .info-strip {
   background: rgba(240, 166, 54, 0.1);
   color: #f0a636;
