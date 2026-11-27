@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pymupdf
 
-from rag.config import get_settings
+from rag.config import RagSettings, get_settings
 from rag.extract.passport import matches_designation, measure
 from rag.knowledge.loader import load_knowledge
 
@@ -180,6 +180,14 @@ def main() -> None:
         action="store_true",
         help="only place the files, do not build the index",
     )
+    parser.add_argument(
+        "--eval",
+        action="store_true",
+        help=(
+            "run the eval gate (python -m rag.eval --set all) after the "
+            "build; needs the external question sets in RAG_EVAL_DIR"
+        ),
+    )
     args = parser.parse_args()
 
     settings = get_settings()
@@ -224,11 +232,42 @@ def main() -> None:
         settings=settings,
     )
     print(f"index {summary['version']} built: {summary['n_chunks']} chunks")
+    if args.eval:
+        _run_eval_gate(settings)
     print("start the service: uvicorn rag.service:app --port 8003")
     print(
         "backend switch: RAG_API_URL=http://127.0.0.1:8003 in .env "
         "(already the default)"
     )
+
+
+def _run_eval_gate(settings: RagSettings) -> None:
+    '''Run the eval sets right after the build (issue #14 H2).
+
+    The build is only half of the reproducibility contract — the eval
+    numbers must come from THIS build, so ``--eval`` chains the eval
+    runner and propagates its exit code (a failing gate fails the
+    command). Skipped with a note when RAG_EVAL_DIR has no question sets.
+
+    Args:
+        settings: RAG settings (eval_dir holds the external JSONL sets).
+    '''
+    import subprocess
+    import sys
+
+    set_files = ("manual.jsonl", "golden.jsonl", "negative.jsonl")
+    if not any((settings.eval_dir / name).is_file() for name in set_files):
+        print(
+            f"  ! eval skipped: no question sets in RAG_EVAL_DIR "
+            f"({settings.eval_dir}) — see scripts/fetch_external.py"
+        )
+        return
+    result = subprocess.run(
+        [sys.executable, "-m", "rag.eval", "--set", "all"],
+        cwd=str(Path(__file__).resolve().parents[1]),
+    )
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
 
 
 if __name__ == "__main__":
