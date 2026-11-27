@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Iterator
 
 API_BASE = "https://cloud-api.yandex.net/v1/disk/public/resources"
+DOWNLOAD_API = API_BASE + "/download"
 USER_AGENT = {"User-Agent": "digital-mechanic-fetch/0.1"}
 DEFAULT_EXTS = ("pdf", "docx")
 MAX_DIR_DEPTH = 5
@@ -146,11 +147,12 @@ def read_env_file(repo_root: Path) -> dict[str, str]:
     return values
 
 
-def api_get(params: dict[str, str]) -> dict:
+def api_get(params: dict[str, str], endpoint: str = API_BASE) -> dict:
     '''Call the Yandex Disk public REST API.
 
     Args:
         params: Query parameters (public_key, path, offset, limit).
+        endpoint: API endpoint (listing by default, DOWNLOAD_API for links).
 
     Returns:
         Parsed JSON response.
@@ -158,7 +160,7 @@ def api_get(params: dict[str, str]) -> dict:
     Raises:
         SystemExit: On HTTP or connection errors, with a readable message.
     '''
-    url = API_BASE + "?" + urllib.parse.urlencode(params)
+    url = endpoint + "?" + urllib.parse.urlencode(params)
     request = urllib.request.Request(url, headers=USER_AGENT)
     try:
         with _open_with_fallback(request) as response:
@@ -225,7 +227,9 @@ def download_href(public_key: str, path: str) -> str:
     '''
     last: str = "no attempts made"
     for attempt in range(ATTEMPTS):
-        data = api_get({"public_key": public_key, "path": path})
+        data = api_get(
+            {"public_key": public_key, "path": path}, endpoint=DOWNLOAD_API
+        )
         href = data.get("href")
         if href:
             return str(href)
