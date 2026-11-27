@@ -181,6 +181,8 @@ const ru = {
   'fleet.table.engine': 'Двигатель',
   'fleet.table.group': 'Группа',
   'fleet.table.status': 'Статус',
+  'fleet.filtered_title': 'Фильтр: {label} ({n})',
+  'fleet.empty_group': 'В этой категории нет машин',
 
   // ---------------------------------------------------------------------------
   // admin.* — AdminView

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import type { VehicleItem, FleetStats } from '../types'
 import { getFleetStats, getFleetPriority, apiGet, apiUrl } from '../api'
 import { t } from '../i18n'
@@ -13,6 +13,21 @@ const vehicles = ref<VehicleItem[]>([])
 const priorityList = ref<VehicleItem[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+const selectedGroup = ref<'normal' | 'attention' | 'quarantine' | null>(null)
+
+function toggleGroup(group: 'normal' | 'attention' | 'quarantine'): void {
+  if (selectedGroup.value === group) {
+    selectedGroup.value = null
+  } else {
+    selectedGroup.value = group
+  }
+}
+
+const filteredVehicles = computed(() => {
+  if (selectedGroup.value === null) return []
+  return vehicles.value.filter(v => v.group === selectedGroup.value)
+})
 
 async function fetchData(): Promise<void> {
   loading.value = true
@@ -127,22 +142,43 @@ function openVehicle(id: string): void {
     <template v-else>
       <!-- Group cards row -->
       <section class="group-cards">
-        <div class="group-card card" :class="{ 'card-normal': true }">
+        <div
+          role="button"
+          tabindex="0"
+          class="group-card card"
+          :class="{ 'card-normal': true, active: selectedGroup === 'normal' }"
+          @click="toggleGroup('normal')"
+          @keydown.enter="toggleGroup('normal')"
+        >
           <span class="group-label dim">{{ t('fleet.group.normal') }}</span>
           <span class="group-num accent">{{ stats?.normal ?? 0 }}</span>
         </div>
-        <div class="group-card card" :class="{ 'card-warning': true }">
+        <div
+          role="button"
+          tabindex="0"
+          class="group-card card"
+          :class="{ 'card-warning': true, active: selectedGroup === 'attention' }"
+          @click="toggleGroup('attention')"
+          @keydown.enter="toggleGroup('attention')"
+        >
           <span class="group-label dim">{{ t('fleet.requires_attention') }}</span>
           <span class="group-num warning">{{ stats?.attention ?? 0 }}</span>
         </div>
-        <div class="group-card card" :class="{ 'card-danger': true }">
+        <div
+          role="button"
+          tabindex="0"
+          class="group-card card"
+          :class="{ 'card-danger': true, active: selectedGroup === 'quarantine' }"
+          @click="toggleGroup('quarantine')"
+          @keydown.enter="toggleGroup('quarantine')"
+        >
           <span class="group-label dim">{{ t('fleet.group.quarantine') }}</span>
           <span class="group-num danger">{{ stats?.quarantine ?? 0 }}</span>
         </div>
       </section>
 
-      <!-- Priority list (quarantine vehicles) -->
-      <section v-if="priorityList.length > 0" class="priority-section">
+      <!-- Priority list / filtered group -->
+      <section v-if="selectedGroup === null && priorityList.length > 0" class="priority-section">
         <h3 class="section-title">{{ t('fleet.priority_list') }}</h3>
         <div class="priority-list">
           <div
@@ -169,6 +205,37 @@ function openVehicle(id: string): void {
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- Filtered group list -->
+      <section v-if="selectedGroup !== null" class="priority-section">
+        <h3 class="section-title">{{ t('fleet.filtered_title', { label: groupLabel(selectedGroup), n: filteredVehicles.length }) }}</h3>
+        <div v-if="filteredVehicles.length > 0" class="priority-list">
+          <div
+            v-for="v in filteredVehicles" :key="v.vehicle_id"
+            class="priority-item card"
+          >
+            <div class="priority-row">
+              <span class="mono garage-no">{{ v.garage_no }}</span>
+              <span class="vehicle-id mono">{{ v.vehicle_id }}</span>
+              <span v-if="v.engine_model" class="chip engine-chip">{{ v.engine_model }}</span>
+              <span :class="['badge', groupClass(v.group)]">{{ groupLabel(v.group) }}</span>
+            </div>
+            <div class="priority-detail">
+              <span v-if="v.latest_anomaly_title" class="anomaly-text">{{ v.latest_anomaly_title }}</span>
+              <span v-else class="dim">{{ t('fleet.no_anomalies') }}</span>
+            </div>
+            <div class="priority-meta">
+              <span :class="['badge', statusBadgeClass(v.latest_status)]">{{ statusLabel(v.latest_status) }}</span>
+              <span v-if="v.latest_anomaly_score !== null" :class="['score-badge', 'badge-danger']">
+                {{ v.latest_anomaly_score.toFixed(2) }}
+              </span>
+              <span class="dim mono date">{{ formatShortDate(v.latest_checked_at) }}</span>
+              <button class="open-btn primary" @click="openVehicle(v.vehicle_id)">{{ t('fleet.open') }}</button>
+            </div>
+          </div>
+        </div>
+        <p v-else class="empty-hint dim">{{ t('fleet.empty_group') }}</p>
       </section>
 
       <!-- Full fleet table (collapsible) -->
@@ -233,6 +300,7 @@ function openVehicle(id: string): void {
   gap: 4px;
   padding: 16px 12px;
   text-align: center;
+  cursor: pointer;
 }
 
 .card-normal {
@@ -245,6 +313,17 @@ function openVehicle(id: string): void {
 
 .card-danger {
   border-color: var(--danger);
+}
+
+.group-card.active {
+  border-color: var(--accent) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.empty-hint {
+  text-align: center;
+  padding: 24px 0;
 }
 
 .group-label {

@@ -183,6 +183,8 @@ const kk = {
   'fleet.table.engine': 'Қозғалтқыш',
   'fleet.table.group': 'Топ',
   'fleet.table.status': 'Статус',
+  'fleet.filtered_title': 'Сүзгі: {label} ({n})',
+  'fleet.empty_group': 'Бұл санатта көліктер жоқ',
 
   // ---------------------------------------------------------------------------
   // admin.* — AdminView

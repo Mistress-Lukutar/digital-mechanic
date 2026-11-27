@@ -183,6 +183,8 @@ const uz = {
   'fleet.table.engine': 'Dvigatel',
   'fleet.table.group': 'Guruh',
   'fleet.table.status': 'Holat',
+  'fleet.filtered_title': 'Filtr: {label} ({n})',
+  'fleet.empty_group': "Bu toifada mashinalar yo'q",
 
   // ---------------------------------------------------------------------------
   // admin.* — AdminView

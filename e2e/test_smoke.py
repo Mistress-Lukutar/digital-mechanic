@@ -138,7 +138,7 @@ def test_admin_navigation_no_console_errors(
     # Select a vehicle first so ChatView has a vehicleId (quick-chips require it).
     page.locator(".vehicle-card").first.click()
     page.wait_for_selector('button:has-text("Чат")', state="visible")
-    page.get_by_role("button", name="Чат").click()
+    page.get_by_role("button", name="Чат", exact=True).click()
     # ChatView renders quick-chips when empty chat with a vehicle selected.
     first_chip = page.locator(".quick-chip").first
     assert first_chip.is_visible(), "Expected at least one quick-chip on Chat page"
