@@ -50,6 +50,12 @@ let currentTextLayer: TextLayer | null = null
 const containerEl = ref<HTMLDivElement | null>(null)
 const containerWidth = ref<number>(0)
 
+// Fit-width mode: the page scale tracks the container (sidebar) width until
+// the user zooms manually, then their scale wins.
+let fitMode = true
+let resizeObserver: ResizeObserver | null = null
+let refitTimer: number | null = null
+
 // ---------------------------------------------------------------------------
 // Computed page title (page / numPages)
 // ---------------------------------------------------------------------------
@@ -63,6 +69,12 @@ function clampScale(v: number): number {
   return Math.min(3.0, Math.max(0.4, v))
 }
 
+// Fit-width may exceed the manual zoom cap: with a wide sidebar the page must
+// still fill the available width.
+function clampFitScale(v: number): number {
+  return Math.min(6.0, Math.max(0.2, v))
+}
+
 function getDPR(): number {
   return window.devicePixelRatio ?? 1
 }
@@ -72,7 +84,24 @@ function computeInitialScale(page: PDFPageProxy): number {
   const vp = page.getViewport({ scale: 1 })
   let w = containerWidth.value
   if (w <= 0) w = 360 // fallback
-  return clampScale(w / vp.width)
+  return clampFitScale(w / vp.width)
+}
+
+/** Recompute the fit-width scale for the current page and re-render if it changed. */
+async function refitToWidth(): Promise<void> {
+  if (!pdfDoc || containerWidth.value <= 0) return
+  const page = await pdfDoc.getPage(currentPage.value)
+  const vp = page.getViewport({ scale: 1 })
+  const next = clampFitScale(containerWidth.value / vp.width)
+  if (Math.abs(next - scale) < 0.005) return // below render noise
+  scale = next
+  await renderPage()
+}
+
+// Debounced so a sidebar drag re-renders once on settle, not per mousemove.
+function scheduleRefit(): void {
+  if (refitTimer !== null) clearTimeout(refitTimer)
+  refitTimer = window.setTimeout(() => { refitTimer = null; void refitToWidth() }, 150)
 }
 
 /** Cancel in-flight render and text-layer tasks. */
@@ -204,6 +233,21 @@ async function loadDocument(): Promise<void> {
   }
 }
 
+// Track container width changes (sidebar resize / panel reopen). Fires once on
+// observe() too, which keeps containerWidth fresh for the initial fit.
+watch(containerEl, (el) => {
+  if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null }
+  if (!el) return
+  resizeObserver = new ResizeObserver((entries) => {
+    const w = entries[0]?.contentRect.width ?? 0
+    // While the sidebar is hidden (display:none) the width reads as 0 — keep
+    // the last known value so a hidden panel doesn't reset the fit.
+    if (w > 0) containerWidth.value = w
+    if (fitMode && w > 0) scheduleRefit()
+  })
+  resizeObserver.observe(el)
+})
+
 // ---------------------------------------------------------------------------
 // Watchers
 // ---------------------------------------------------------------------------
@@ -218,6 +262,7 @@ watch(
     currentPage.value = 1
     numPages.value = 0
     scale = 1
+    fitMode = true
     loading.value = false
     error.value = null
     await loadDocument()
@@ -258,11 +303,13 @@ function goNext(): void {
 }
 
 function zoomIn(): void {
+  fitMode = false
   scale = clampScale(scale * 1.2)
   renderPage()
 }
 
 function zoomOut(): void {
+  fitMode = false
   scale = clampScale(scale / 1.2)
   renderPage()
 }
@@ -285,6 +332,8 @@ function measureContainerWidth(): void {
 
 onBeforeUnmount(() => {
   cancelInflightTasks()
+  if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null }
+  if (refitTimer !== null) { clearTimeout(refitTimer); refitTimer = null }
   if (loadingTask) { loadingTask.destroy(); loadingTask = null }
   pdfDoc = null
 })
