@@ -36,11 +36,12 @@ const ru = {
   'garage.search.placeholder': 'Госномер, гаражный №, марка, модель…',
   'garage.filter.all': 'Все',
   'garage.filter.normal': 'В норме',
-  'garage.filter.attention': 'Требует внимания',
+  'garage.filter.attention': 'Проблемы записи',
   'garage.filter.quarantine': 'Карантин',
   'garage.empty': 'Ничего не найдено',
   'garage.counts_anomalies': 'Отклонений: {n}',
   'garage.counts_checks': 'Проверок: {m}',
+  'garage.vehicle_id': 'Госномер',
 
   // ---------------------------------------------------------------------------
   // status.* — StatusCard
@@ -168,7 +169,7 @@ const ru = {
   'fleet.group.normal': 'Норма',
   'fleet.group.attention': 'Внимание',
   'fleet.group.quarantine': 'Карантин',
-  'fleet.requires_attention': 'Требует внимания',
+  'fleet.requires_attention': 'Проблемы записи',
   'fleet.priority_list': 'Приоритетный список',
   'fleet.no_anomalies': 'Без отклонений',
   'fleet.open': 'Открыть',

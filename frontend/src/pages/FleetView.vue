@@ -189,7 +189,7 @@ function openVehicle(id: string): void {
             <tbody>
               <tr v-for="v in vehicles" :key="v.vehicle_id">
                 <td class="mono">{{ v.garage_no }}</td>
-                <td class="mono dim">{{ v.vehicle_id.slice(0, 8) }}…</td>
+                <td class="mono dim">{{ v.vehicle_id }}</td>
                 <td>{{ v.make }} {{ v.model || '' }}</td>
                 <td class="chip engine-sm">{{ v.engine_model }}</td>
                 <td><span :class="['badge', groupClass(v.group)]">{{ groupLabel(v.group) }}</span></td>

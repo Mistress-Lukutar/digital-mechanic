@@ -177,7 +177,10 @@ onMounted(async (): Promise<void> => {
         @click="emit('open-vehicle', v.vehicle_id)"
       >
         <div class="card-header">
-          <span class="vehicle-id">{{ v.garage_no }}</span>
+          <div class="vehicle-info">
+            <span class="vehicle-id">{{ v.garage_no }}</span>
+            <span class="dim mono vehicle-plate">{{ t('garage.vehicle_id') }} {{ v.vehicle_id }}</span>
+          </div>
           <span class="badge" :class="groupClass(v.group)">{{ statusLabel(v.latest_status) }}</span>
         </div>
 
@@ -301,6 +304,16 @@ onMounted(async (): Promise<void> => {
   font-weight: 700;
   font-family: Consolas, monospace;
   letter-spacing: 0.02em;
+}
+
+.vehicle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vehicle-plate {
+  font-size: 11px;
 }
 
 .card-body {

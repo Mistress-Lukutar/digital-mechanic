@@ -38,11 +38,12 @@ const uz = {
   'garage.search.placeholder': 'Davlat raqami, garaj №, marka, model…',
   'garage.filter.all': 'Barchasi',
   'garage.filter.normal': 'Normal',
-  'garage.filter.attention': 'Eʼtibor kerak',
+  'garage.filter.attention': 'Yozuv muammolari',
   'garage.filter.quarantine': 'Karantin',
   'garage.empty': 'Hech narsa topilmadi',
   'garage.counts_anomalies': 'Anomaliyalar: {n}',
   'garage.counts_checks': 'Tekshiruvlar: {m}',
+  'garage.vehicle_id': 'Dav. №',
 
   // ---------------------------------------------------------------------------
   // status.* — StatusCard
@@ -170,7 +171,7 @@ const uz = {
   'fleet.group.normal': 'Normal',
   'fleet.group.attention': 'Eʼtibor',
   'fleet.group.quarantine': 'Karantin',
-  'fleet.requires_attention': 'Eʼtibor kerak',
+  'fleet.requires_attention': 'Yozuv muammolari',
   'fleet.priority_list': 'Ustuvorlik roʻyxati',
   'fleet.no_anomalies': 'Anomaliyasiz',
   'fleet.open': 'Ochish',
