@@ -621,3 +621,66 @@ class TestShowDocumentPDFMissing:
             )
 
         assert "недоступен" in str(exc_info.value)
+
+
+class TestCreateTicketFuelMismatch:
+    """Tests for fuel-compatibility gate in create_ticket."""
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_blocks_fuel_mismatch(self) -> None:
+        """F08 on petrol Y652CK98 → ToolError with 'противоречит'; alert created."""
+        hub = _build_test_hub()
+        context = ctx(
+            vehicle_id="Y652CK98", session_id="S-0132", hub=hub
+        )
+
+        from mechanic.agent.tools_impl.tickets import make_create_ticket_tool
+
+        tool_def = make_create_ticket_tool()(context.services)  # type: ignore[arg-type]
+        args = {
+            "anomaly_type": "F08",
+            "conclusion": "Жёсткая работа",
+            "operations": ["Общая проверка топливной системы"],
+            "references": [{"manual": "ЗМЗ-5234.10 РК", "pdf_page": 52}],
+        }
+
+        with pytest.raises(ToolError) as exc_info:
+            await tool_def.executor(args, context)
+
+        assert "противоречит" in str(exc_info.value)
+
+        alerts = hub.alerts.recent()
+        assert len(alerts) >= 1
+        alert = alerts[0]
+        assert alert.kind == "fuel_mismatch"
+        assert alert.vehicle_id == "Y652CK98"
+        assert alert.session_id == "S-0132"
+        assert alert.engine_model == "ЗМЗ-5234.10"
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_allows_f08_on_diesel(self) -> None:
+        """F08 on diesel M333YK47 → no error, ticket_draft event."""
+        hub = _build_test_hub()
+        context = ctx(
+            vehicle_id="M333YK47", session_id="S-0005", hub=hub
+        )
+
+        from mechanic.agent.tools_impl.tickets import make_create_ticket_tool
+
+        tool_def = make_create_ticket_tool()(context.services)  # type: ignore[arg-type]
+        args = {
+            "anomaly_type": "F08",
+            "conclusion": "Неисправность топливной системы.",
+            "urgency": "low",
+            "priority_rationale": "механик сказал низкий",
+            "operations": ["Проверить форсунки"],
+            "references": [
+                {"manual": "236.01.01 РК", "pdf_page": 112}
+            ],
+        }
+
+        result = await tool_def.executor(args, context)
+
+        assert isinstance(result, ToolOutcome)
+        assert result.event is not None
+        assert result.event[0] == "ticket_draft"
