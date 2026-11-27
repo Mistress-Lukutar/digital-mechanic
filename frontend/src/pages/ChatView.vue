@@ -495,20 +495,22 @@ function toggleMic(): void {
           <h3>{{ t('chat.history') }}</h3>
           <button class="close-btn" @click="mobilePanel = null">&times;</button>
         </div>
-        <div class="sidebar-tabs">
-          <button :class="['sidebar-tab', { active: activeTab === 'history' }]" @click="setActiveTab('history')">{{ t('history.title') }}</button>
-          <button :class="['sidebar-tab', { active: activeTab === 'chats' }]" @click="setActiveTab('chats')">{{ t('chats.tab') }}</button>
+        <div class="mobile-panel-body">
+          <div class="sidebar-tabs">
+            <button :class="['sidebar-tab', { active: activeTab === 'history' }]" @click="setActiveTab('history')">{{ t('history.title') }}</button>
+            <button :class="['sidebar-tab', { active: activeTab === 'chats' }]" @click="setActiveTab('chats')">{{ t('chats.tab') }}</button>
+          </div>
+          <HistoryPanel v-show="activeTab === 'history'" :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
+          <ChatsPanel
+            v-if="activeTab === 'chats'"
+            :vehicle-id="props.vehicleId"
+            :active-id="activeConversationId"
+            :refresh-key="chatsRefreshKey"
+            :disabled="streaming"
+            @select="handleSelectConversation"
+            @deleted="handleConversationDeleted"
+          />
         </div>
-        <HistoryPanel v-show="activeTab === 'history'" :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
-        <ChatsPanel
-          v-if="activeTab === 'chats'"
-          :vehicle-id="props.vehicleId"
-          :active-id="activeConversationId"
-          :refresh-key="chatsRefreshKey"
-          :disabled="streaming"
-          @select="handleSelectConversation"
-          @deleted="handleConversationDeleted"
-        />
       </div>
 
       <div v-if="mobilePanel === 'doc'" class="mobile-overlay" @click.self="mobilePanel = null">
@@ -614,7 +616,8 @@ function toggleMic(): void {
 .close-error { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--danger-text); font-size: 16px; padding: 4px; cursor: pointer; }
 .panel-empty { padding: 24px; text-align: center; }
 .mobile-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 150; display: flex; flex-direction: column; }
-.mobile-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
+.mobile-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-panel); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.mobile-overlay > .mobile-panel-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .close-btn { background: none; border: 0; color: var(--text-dim); font-size: 24px; padding: 0 4px; cursor: pointer; }
 @media (max-width: 1023px) { .chat-sidebar { display: none; } }
 @media (min-width: 1024px) { .mobile-overlay { display: none; } }
