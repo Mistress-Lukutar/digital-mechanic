@@ -293,6 +293,18 @@ export interface AdminUserItem {
   created_at: string
 }
 
+export interface AdminAlertItem {
+  id: number
+  ts: string
+  username: string | null
+  vehicle_id: string | null
+  session_id: string | null
+  engine_model: string | null
+  kind: string
+  text: string
+  is_read: boolean
+}
+
 // ---------------------------------------------------------------------------
 // Admin — LLM settings
 // ---------------------------------------------------------------------------
