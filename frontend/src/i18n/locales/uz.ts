@@ -122,6 +122,13 @@ const uz = {
   'chat.edit.cancel': 'Bekor qilish',
   'chat.recovering': 'Javobni tiklanmoqda…',
   'chat.error.recovery': 'Tayyor javobni olish mumkin bo\'lmadi. Savolni qayta bering.',
+  'chat.mic.error.denied': 'Mikrofonga ruxsat berilmagan. Brauzer sozlamalarida ruxsat bering va qayta urinib ko\'ring.',
+  'chat.mic.error.insecure': 'Ovozli kiritish faqat HTTPS orqali ishlaydi. Ilovani himoyalangan manzil orqali oching.',
+  'chat.mic.error.network': 'Nutqni tanish xizmati mavjud emas. Internet aloqasini tekshiring.',
+  'chat.mic.error.no-mic': 'Mikrofon topilmadi.',
+  'chat.mic.error.lang': 'Bu brauzer tanlangan tilda tanishni qo\'llab-quvvatlamaydi.',
+  'chat.mic.error.no-speech': 'Nutq aniqlanmadi. Qayta urinib ko\'ring.',
+  'chat.mic.error.generic': 'Nutqni tanish mumkin bo\'lmadi.',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel

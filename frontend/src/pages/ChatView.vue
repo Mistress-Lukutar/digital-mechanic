@@ -2,6 +2,7 @@
 import { ref, nextTick, watch, computed, onBeforeUnmount, onMounted } from 'vue'
 import type { TicketDraftEvent, ChatMessage, DiagnosticResult } from '../types'
 import { t } from '../i18n'
+import type { MessageKey } from '../i18n'
 import { createSseChat } from '../composables/useSseChat'
 import { useSpeech } from '../composables/useSpeech'
 import { getChat, listChats, switchChatBranch } from '../api'
@@ -71,6 +72,10 @@ const speech = useSpeech()
 // in templates, so the mic bindings must live at setup scope.
 const micSupported = speech.supported
 const micListening = speech.listening
+const micError = speech.error
+const micErrorText = computed<string | null>(() =>
+  micError.value ? t(`chat.mic.error.${micError.value}` as MessageKey) : null,
+)
 
 const messages = chat.messages
 const streaming = chat.streaming
@@ -420,13 +425,18 @@ function onKeydown(e: KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKe
 function handleVoiceText(text: string): void {
   const sep = messageInput.value.trim() ? ' ' : ''
   messageInput.value += sep + text
-  autoGrow({ target: inputEl.value as unknown as EventTarget } as Event)
-  if (inputEl.value) inputEl.value.focus()
+  if (streaming.value || recovering.value) {
+    // Can't send right now — leave the text in the composer.
+    autoGrow({ target: inputEl.value as unknown as EventTarget } as Event)
+    if (inputEl.value) inputEl.value.focus()
+    return
+  }
+  void sendMessage()
 }
 
 function toggleMic(): void {
   if (speech.listening.value) {
-    speech.stop()
+    speech.stop(true)
   } else {
     speech.start(handleVoiceText)
   }
@@ -603,6 +613,11 @@ function toggleMic(): void {
           </svg>
           {{ t('chat.ticket.reopen') }}
         </button>
+      </div>
+
+      <div v-if="micError" class="error-strip mic-error" role="alert">
+        {{ micErrorText }}
+        <button class="close-error" @click="micError = null">&times;</button>
       </div>
 
       <div class="input-row" v-if="vehicleId">
