@@ -14,12 +14,26 @@ from the PDFs lands in gitignored `data/rag/`; this is guarded by tests
 
 ## One-command setup
 
-Place the issued PDFs (any file names — the two Russian-named files from
-the hackathon bundle are recognised too) into a directory — at deploy
-time they can be fetched from the shared storage link: set
-`MANUALS_DOWNLOAD_URL` in the gitignored `.env` and run
-`python scripts/fetch_manuals.py` (the link itself is never committed).
-Then:
+At deploy time everything is bootstrapped by one idempotent command —
+download what is missing from the shared storage link
+(`MANUALS_DOWNLOAD_URL` in the gitignored `.env`; the link itself is
+never committed), recognise the manuals, build the index with
+embeddings and cache it:
+
+```bash
+scripts/bootstrap.sh                # Linux/macOS
+scripts\bootstrap.bat               # Windows
+# python scripts/bootstrap.py --no-embed   # BM25-only (no ~2.3 GB model)
+```
+
+Already-downloaded files are skipped by size; a built index in
+`RAG_DATA_DIR` (default `data/rag/`, gitignored) is reused, so re-deploys
+are cache hits (`--force-index` rebuilds).
+
+Under the hood the bootstrap runs `rag.setup`, which can also be used
+directly when the PDFs are already somewhere on disk (any file names —
+the two Russian-named files from the hackathon bundle are recognised
+too):
 
 ```bash
 python -m rag.setup --from "C:\\path\\to\\pdfs"
@@ -36,7 +50,7 @@ place files only.
 Manual steps, if you prefer:
 
 ```bash
-# files are already under data/manuals/ with manifest names, or set MANUALS_DIR
+# files are already under MANUALS_DIR with manifest names
 python -m rag.ingest                 # build the index (BM25 + embeddings)
 python -m rag.ingest --no-embed      # BM25-only build
 uvicorn rag.service:app --port 8003  # serve (RAG_API_URL in the backend .env)
