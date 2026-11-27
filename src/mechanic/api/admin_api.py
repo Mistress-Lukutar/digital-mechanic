@@ -214,3 +214,28 @@ async def update_llm_settings(
     data = cfg.model_dump()
     data["api_key"] = _mask_api_key(data["api_key"])
     return data
+
+
+@router.get("/alerts")
+async def list_alerts(
+    limit: int = 50, admin=Depends(require_admin)
+) -> list[dict]:
+    """List recent admin alerts (newest first)."""
+    capped = min(max(limit, 1), 200)
+    return [r.model_dump() for r in get_hub().alerts.recent(capped)]
+
+
+@router.get("/alerts/unread_count")
+async def alerts_unread_count(admin=Depends(require_admin)) -> dict:
+    """Count unread admin alerts (for the nav badge)."""
+    return {"unread": get_hub().alerts.unread_count()}
+
+
+@router.post("/alerts/{alert_id}/read")
+async def mark_alert_read(
+    alert_id: int, admin=Depends(require_admin)
+) -> dict:
+    """Mark one admin alert as read."""
+    if not get_hub().alerts.mark_read(alert_id):
+        raise HTTPException(status_code=404, detail="оповещение не найдено")
+    return {"status": "ok"}

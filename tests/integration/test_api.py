@@ -205,7 +205,7 @@ async def app_client(tmp_path: Path) -> httpx.AsyncClient:
     yield client
     await client.aclose()
 
-    for service in (hub.auth, hub.ticket_log, hub.usage):
+    for service in (hub.auth, hub.ticket_log, hub.usage, hub.alerts):
         try:
             service._conn.close()  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001
@@ -757,6 +757,16 @@ async def test_ticket_submit_requires_warning_override(
     assert list_resp.status_code == 200
     tickets = list_resp.json()
     assert len(tickets) == 1
+
+    # Alert created for warning override.
+    alerts_resp = await app_client.get(
+        "/api/admin/alerts", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert alerts_resp.status_code == 200
+    alerts = alerts_resp.json()
+    override_alerts = [a for a in alerts if a["kind"] == "warning_override"]
+    assert len(override_alerts) >= 1
+    assert override_alerts[0]["vehicle_id"] == "P854BT78"
 
 
 async def test_ticket_submit_blocked_below_floor(app_client: httpx.AsyncClient) -> None:
