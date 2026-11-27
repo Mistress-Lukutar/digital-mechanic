@@ -102,6 +102,29 @@ export interface FleetStats {
 // Chat / SSE
 // ---------------------------------------------------------------------------
 
+/** One chat conversation in the per-vehicle history list. */
+export interface ChatConversationItem {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+  message_count: number
+}
+
+/** One persisted message inside a conversation. */
+export interface ChatHistoryMessage {
+  role: 'user' | 'assistant'
+  text: string
+  image: string | null
+  ts: string
+}
+
+/** Response of GET /api/chats/{id}. */
+export interface ChatConversationDetail {
+  conversation: ChatConversationItem & { username: string; vehicle_id: string }
+  messages: ChatHistoryMessage[]
+}
+
 export interface AgentStepT {
   call_id: string
   name: string
@@ -172,14 +195,6 @@ export interface DocumentInfo {
   pages: number[]
   engines: string[]
   file: string
-}
-
-export interface DocumentPage {
-  doc_id: string
-  doc_title: string
-  page_pdf: number
-  text: string
-  pdf_path: string
 }
 
 // ---------------------------------------------------------------------------
