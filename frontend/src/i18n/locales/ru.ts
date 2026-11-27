@@ -7,6 +7,8 @@ const ru = {
   'app.role.admin': 'админ',
   'app.role.user': 'пользователь',
   'app.logout': 'Выйти',
+  'app.status.online': 'Сервер доступен',
+  'app.status.offline': 'Сервер недоступен',
   'app.stub.title': 'Раздел «{page}»',
   'app.stub.body': 'Появится в следующем этапе.',
   'login.username': 'Имя пользователя',

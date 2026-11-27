@@ -752,8 +752,18 @@ function toggleMic(): void {
 @media (max-width: 1023px) { .chat-sidebar { display: none; } }
 @media (min-width: 1024px) { .mobile-overlay { display: none; } }
 @media (max-width: 640px) {
-  .chat-header { flex-wrap: wrap; row-gap: 4px; }
+  /* Vehicle context card: info lines on top, controls row beneath. */
+  .chat-header {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    margin: 8px 8px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 10px 12px;
+  }
   .header-info { order: -1; flex-basis: 100%; }
+  .header-main { font-size: 15px; }
+  .chat-header .sidebar-toggle:last-of-type { margin-left: auto; }
   .input-row { margin: 8px 8px 10px; }
 }
 .reasoning-toggle { background: transparent; border: 0; color: var(--text-dim); font-size: 11px; cursor: pointer; padding: 0 2px; line-height: 1.2; display: inline-flex; align-items: center; gap: 4px; }

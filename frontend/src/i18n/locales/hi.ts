@@ -9,6 +9,8 @@ const hi = {
   'app.role.admin': 'एडमिन',
   'app.role.user': 'उपयोगकर्ता',
   'app.logout': 'लॉगआउट',
+  'app.status.online': 'सर्वर उपलब्ध है',
+  'app.status.offline': 'सर्वर उपलब्ध नहीं है',
   'app.stub.title': '«{page}» खंड',
   'app.stub.body': 'अगले चरण में उपलब्ध होगा।',
   'login.username': 'उपयोगकर्ता नाम',

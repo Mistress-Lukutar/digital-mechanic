@@ -9,6 +9,8 @@ const kk = {
   'app.role.admin': 'админ',
   'app.role.user': 'пайдаланушы',
   'app.logout': 'Шығу',
+  'app.status.online': 'Сервер қолжетімді',
+  'app.status.offline': 'Сервер қолжетімсіз',
   'app.stub.title': '«{page}» бөлімі',
   'app.stub.body': 'Келесі кезеңде пайда болады.',
   'login.username': 'Пайдаланушы атауы',

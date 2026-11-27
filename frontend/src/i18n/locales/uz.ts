@@ -9,6 +9,8 @@ const uz = {
   'app.role.admin': 'admin',
   'app.role.user': 'foydalanuvchi',
   'app.logout': 'Chiqish',
+  'app.status.online': 'Server ishlayapti',
+  'app.status.offline': 'Server ishlamayapti',
   'app.stub.title': '«{page}» boʻlimi',
   'app.stub.body': 'Keyingi bosqichda paydo boʻladi.',
   'login.username': 'Foydalanuvchi nomi',

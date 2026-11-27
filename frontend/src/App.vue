@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import type { VehicleItem, FleetStats } from './types'
 import { auth } from './composables/useAuth'
 import { apiUrl } from './api'
@@ -33,6 +33,29 @@ const groupFilter = ref<'all' | 'normal' | 'attention' | 'quarantine'>('all')
 
 // Current vehicle (for chat navigation)
 let currentVehicleId = ''
+
+// Backend liveness for the topbar status dot (unauthenticated /health probe).
+const backendUp = ref(true)
+let healthTimer: ReturnType<typeof setInterval> | null = null
+
+async function pingHealth(): Promise<void> {
+  try {
+    const r = await fetch(apiUrl('/health'))
+    backendUp.value = r.ok
+  } catch {
+    backendUp.value = false
+  }
+}
+
+onMounted(() => {
+  void pingHealth()
+  healthTimer = setInterval(() => { void pingHealth() }, 60_000)
+})
+
+onBeforeUnmount(() => {
+  if (healthTimer) clearInterval(healthTimer)
+  healthTimer = null
+})
 
 async function restoreAuth(): Promise<void> {
   const ok = await auth.restore()
@@ -163,25 +186,39 @@ onMounted(restoreAuth)
     <header v-if="page !== 'login'" class="topbar">
       <div class="topbar-brand">
         <span class="brand-title">{{ t('app.title') }}</span>
+        <span
+          class="status-dot"
+          role="img"
+          :class="{ down: !backendUp }"
+          :title="backendUp ? t('app.status.online') : t('app.status.offline')"
+          :aria-label="backendUp ? t('app.status.online') : t('app.status.offline')"
+        />
       </div>
 
       <nav class="topbar-nav">
-        <button
-          :class="['nav-btn', { active: page === 'garage' }]"
-          @click="page = 'garage'"
-        >
+        <button :class="['nav-btn', { active: page === 'garage' }]" @click="page = 'garage'">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2.7-3.6A1.5 1.5 0 0 0 14 6H8a2 2 0 0 0-1.8 1.1L4 10l-2.5.6A1.5 1.5 0 0 0 0 12.1V16c0 .6.4 1 1 1h2"/>
+            <circle cx="7" cy="17" r="2"/>
+            <path d="M9 17h6"/>
+            <circle cx="17" cy="17" r="2"/>
+          </svg>
           {{ t('app.nav.garage') }}
         </button>
-        <button
-          :class="['nav-btn', { active: page === 'chat' }]"
-          @click="page = 'chat'"
-        >
+        <button :class="['nav-btn', { active: page === 'chat' }]" @click="page = 'chat'">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
           {{ t('app.nav.chat') }}
         </button>
-        <button
-          :class="['nav-btn', { active: page === 'fleet' }]"
-          @click="page = 'fleet'"
-        >
+        <button :class="['nav-btn', { active: page === 'fleet' }]" @click="page = 'fleet'">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
+            <path d="M15 18H9"/>
+            <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>
+            <circle cx="17" cy="18" r="2"/>
+            <circle cx="7" cy="18" r="2"/>
+          </svg>
           {{ t('app.nav.fleet') }}
         </button>
         <button
@@ -189,16 +226,20 @@ onMounted(restoreAuth)
           :class="['nav-btn', { active: page === 'admin' }]"
           @click="page = 'admin'"
         >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+          </svg>
           {{ t('app.nav.admin') }}
         </button>
       </nav>
 
-      <LocaleSwitcher />
-
-      <div class="topbar-user">
-        <span class="username">{{ auth.username.value }}</span>
-        <span class="role-chip">{{ auth.role.value === 'admin' ? t('app.role.admin') : t('app.role.user') }}</span>
-        <button class="logout-btn" @click="handleLogout">{{ t('app.logout') }}</button>
+      <div class="topbar-foot">
+        <LocaleSwitcher />
+        <div class="topbar-user">
+          <span class="username">{{ auth.username.value }}</span>
+          <span class="role-chip">{{ auth.role.value === 'admin' ? t('app.role.admin') : t('app.role.user') }}</span>
+          <button class="logout-btn" @click="handleLogout">{{ t('app.logout') }}</button>
+        </div>
       </div>
     </header>
 
@@ -285,6 +326,9 @@ onMounted(restoreAuth)
 }
 
 .topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -367,6 +411,33 @@ onMounted(restoreAuth)
   color: var(--danger-text);
 }
 
+.status-dot {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.status-dot.down {
+  background: var(--danger);
+}
+
+.nav-icon {
+  display: none;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.topbar-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .main-content {
   flex: 1;
   min-height: 0;
@@ -393,20 +464,51 @@ onMounted(restoreAuth)
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
+    padding: 10px 12px;
   }
 
-  .topbar-nav {
+  .topbar-brand {
     justify-content: space-between;
   }
 
-  .nav-btn {
-    font-size: 12px;
-    padding: 6px 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-panel);
+  .brand-title {
+    font-size: 16px;
   }
 
-  .topbar-user {
+  .status-dot {
+    display: inline-block;
+  }
+
+  .topbar-nav {
+    gap: 8px;
+  }
+
+  .nav-btn {
+    flex: 1;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    min-height: 38px;
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+
+  .nav-btn.active {
+    background: var(--accent-dim);
+    color: var(--text-on-accent);
+    border-color: var(--accent);
+  }
+
+  .nav-btn.active:hover:not(:disabled) {
+    background: var(--accent-dim);
+    color: var(--text-on-accent);
+  }
+
+  .nav-icon {
+    display: block;
+  }
+
+  .topbar-foot {
     justify-content: space-between;
   }
 }
