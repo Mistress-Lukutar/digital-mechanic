@@ -554,9 +554,18 @@ function toggleMic(): void {
             <!-- Normal mode -->
             <template v-else>
               <div class="user-bubble-wrap">
-                <div class="bubble user-bubble" style="position:relative;">
+                <div class="bubble user-bubble">
                   <img v-if="msg.image" :src="msg.image" class="user-image-thumb" />
                   {{ msg.text }}
+                </div>
+                <!-- Always-visible edit button + branch pager under the bubble, right-aligned (#23) -->
+                <div class="bubble-actions">
+                  <!-- Branch switcher -->
+                  <div v-if="msg.siblingCount && msg.siblingCount > 1" class="branch-switcher">
+                    <button :disabled="!msg.prevSiblingId || streaming" @click="switchBranch(msg.prevSiblingId!)">‹</button>
+                    <span>{{ msg.siblingIndex }}/{{ msg.siblingCount }}</span>
+                    <button :disabled="!msg.nextSiblingId || streaming" @click="switchBranch(msg.nextSiblingId!)">›</button>
+                  </div>
                   <!-- Edit button -->
                   <button
                     v-if="msg.id !== undefined && !streaming"
@@ -568,12 +577,6 @@ function toggleMic(): void {
                       <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
                     </svg>
                   </button>
-                </div>
-                <!-- Branch switcher -->
-                <div v-if="msg.siblingCount && msg.siblingCount > 1" class="branch-switcher">
-                  <button :disabled="!msg.prevSiblingId || streaming" @click="switchBranch(msg.prevSiblingId!)">‹</button>
-                  <span>{{ msg.siblingIndex }}/{{ msg.siblingCount }}</span>
-                  <button :disabled="!msg.nextSiblingId || streaming" @click="switchBranch(msg.nextSiblingId!)">›</button>
                 </div>
               </div>
             </template>
@@ -819,11 +822,13 @@ function toggleMic(): void {
 .reasoning-body { color: var(--text-dim); font-size: 12px; white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin: 4px 0; line-height: 1.4; }
 
 /* Edit / branch */
-.edit-btn { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: transparent; border: 0; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0; transition: opacity 0.15s ease, color 0.15s ease; }
-.message-row.user:hover .edit-btn { opacity: 1; }
-.edit-btn:hover { color: var(--accent); background: var(--bg-input); }
+/* Кнопка правки и пагинатор веток: строка под баблом справа, видны всегда (#23).
+   padding/min-height: 0 — иначе глобальное правило button (style.css) раздувает их до 28x40. */
+.bubble-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.edit-btn { width: 26px; height: 26px; background: transparent; border: 0; padding: 0; min-height: 0; color: var(--text); opacity: 0.75; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: color 0.15s ease, background 0.15s ease, opacity 0.15s ease; }
+.edit-btn:hover { opacity: 1; color: var(--accent); background: var(--bg-input); }
 .edit-btn:focus { opacity: 1; outline: 1px solid var(--accent); }
-.edit-btn svg { width: 14px; height: 14px; }
+.edit-btn svg { width: 16px; height: 16px; }
 .user-bubble-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .edit-textarea { background: transparent; border: 0; padding: 8px 10px; min-height: 60px; max-height: 200px; font-size: 14px; font-family: inherit; resize: vertical; width: 100%; color: var(--text-on-accent); }
 .edit-textarea:focus { outline: 1px solid var(--accent); border-radius: var(--radius-sm); }
@@ -832,7 +837,7 @@ function toggleMic(): void {
 .edit-action-btn.save:hover { background: var(--accent-dim); color: var(--text-on-accent); border-color: var(--accent); }
 .edit-action-btn.cancel:hover { color: var(--danger-text); border-color: var(--danger-text); }
 .branch-switcher { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-dim); }
-.branch-switcher button { background: transparent; border: 0; color: var(--text-dim); cursor: pointer; padding: 2px 4px; font-size: 11px; line-height: 1; border-radius: 3px; }
+.branch-switcher button { background: transparent; border: 0; color: var(--text-dim); cursor: pointer; padding: 2px 4px; min-height: 0; font-size: 11px; line-height: 1; border-radius: 3px; }
 .branch-switcher button:hover:not(:disabled) { color: var(--accent); background: var(--bg-input); }
 .branch-switcher button:disabled { opacity: 0.35; cursor: default; }
 
