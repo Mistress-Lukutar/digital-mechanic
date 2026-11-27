@@ -13,6 +13,7 @@ build/
 # Environment and secrets
 .env
 *.key
+certs/
 
 # Frontend
 node_modules/
