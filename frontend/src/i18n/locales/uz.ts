@@ -104,6 +104,16 @@ const uz = {
   'chat.attach.remove': 'Rasmni olib tashlash',
 
   // ---------------------------------------------------------------------------
+  // chats.* — ChatsPanel
+  // ---------------------------------------------------------------------------
+  'chats.tab': 'Chatlar',
+  'chats.empty': "Hozircha chatlar yo'q",
+  'chats.untitled': "Nomsiz",
+  'chats.loading': "Yuklanmoqda…",
+  'chats.delete': "Chatni o'chirish",
+  'chats.delete_confirm': "Bu chat o'chirilsinmi? Xabarlar tarixi yo'qoladi.",
+
+  // ---------------------------------------------------------------------------
   // tools.* — AgentStep tool-name display map
   // ---------------------------------------------------------------------------
   'tools.get_diagnostic_result': 'Diagnostika',
@@ -145,13 +155,14 @@ const uz = {
   // ---------------------------------------------------------------------------
   // doc.* — DocPanel
   // ---------------------------------------------------------------------------
-  'doc.page.title': 'b. {n}',
+  'doc.page.title': '{n}/{m}-bet',
   'doc.loading': 'Yuklanmoqda…',
-  'doc.error.unavailable': 'Sahifa serverda mavjud emas',
+  'doc.error.unavailable': 'PDF fayl serverda mavjud emas',
   'doc.error.generic': 'Xato: {msg}',
-  'doc.error.load': 'Sahifani yuklash xatosi',
-  'doc.empty': 'Sahifa matni mavjud emas — PDF ni oching',
-  'doc.open_pdf': 'PDF ochish (b. {n})',
+  'doc.prev_page': "Oldingi sahifa",
+  'doc.next_page': 'Keyingi sahifa',
+  'doc.zoom_in': 'Kattalashtirish',
+  'doc.zoom_out': 'Kichiklashtirish',
 
   // ---------------------------------------------------------------------------
   // fleet.* — FleetView

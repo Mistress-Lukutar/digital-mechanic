@@ -4,9 +4,10 @@ import type {
   AdminUserItem,
   AuthMeResponse,
   AuthTokenResponse,
+  ChatConversationDetail,
+  ChatConversationItem,
   ChatTurnDetail,
   DocumentInfo,
-  DocumentPage,
   FleetStats,
   LlmSettingsView,
   UsageRowItem,
@@ -212,6 +213,34 @@ export async function resetChat(vehicleId: string): Promise<{ status: string }> 
   )
 }
 
+/** GET /api/chats?vehicle_id=... — list conversations for a vehicle. */
+export async function listChats(
+  vehicleId: string,
+): Promise<ChatConversationItem[]> {
+  return apiGet<ChatConversationItem[]>(
+    `${apiUrl('/api/chats')}?vehicle_id=${encodeURIComponent(vehicleId)}`,
+  )
+}
+
+/** GET /api/chats/{conversation_id} — conversation detail with messages. */
+export async function getChat(
+  conversationId: string,
+): Promise<ChatConversationDetail> {
+  return apiGet<ChatConversationDetail>(
+    apiUrl(`/api/chats/${encodeURIComponent(conversationId)}`),
+  )
+}
+
+/** DELETE /api/chats/{conversation_id}. */
+export async function deleteChat(
+  conversationId: string,
+): Promise<void> {
+  await apiSend<void>(
+    apiUrl(`/api/chats/${encodeURIComponent(conversationId)}`),
+    'DELETE',
+  )
+}
+
 /** POST /api/tickets — create a ticket. */
 export async function createTicket(
   payload: Record<string, unknown>,
@@ -228,15 +257,23 @@ export async function listDocuments(): Promise<DocumentInfo[]> {
   return apiGet<DocumentInfo[]>(apiUrl('/api/documents'))
 }
 
-/** GET /api/documents/{doc_id}/page/{page_pdf} */
-export async function getDocumentPage(
-  docId: string,
-  pagePdf: number,
-): Promise<DocumentPage> {
-  docId = docId.replace(/[«»]/g, '').trim()
-  return apiGet<DocumentPage>(
-    apiUrl(`/api/documents/${encodeURIComponent(docId)}/page/${pagePdf}`),
+/** GET the raw PDF file bytes for a document (authenticated). */
+export async function fetchDocumentFile(docId: string): Promise<ArrayBuffer> {
+  const response = await fetch(
+    apiUrl(`/api/documents/${encodeURIComponent(docId)}/file`),
+    { headers: _token ? { Authorization: `Bearer ${_token}` } : {} },
   )
+  if (!response.ok) {
+    let message = await response.text()
+    try {
+      const payload = JSON.parse(message)
+      if (payload?.detail) message = formatApiDetail(payload.detail)
+    } catch {
+      /* keep raw text */
+    }
+    throw new ApiError(response.status, message || `HTTP ${response.status}`)
+  }
+  return response.arrayBuffer()
 }
 
 // ---------------------------------------------------------------------------
