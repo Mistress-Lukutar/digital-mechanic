@@ -281,6 +281,14 @@ const hi = {
   'admin.detail_hint': '"chat" पंक्ति पर क्लिक — प्रश्न, उत्तर और उद्धरण',
   'admin.detail_loading': 'लोड हो रहा है…',
   'admin.detail_error': 'विवरण अनुपलब्ध',
+  'admin.detail.steps': 'चरण',
+  'admin.detail.step_tool': 'उपकरण',
+  'admin.detail.step_args': 'तर्क',
+  'admin.detail.step_status': 'स्थिति',
+  'admin.detail.step_time': 'समय',
+  'admin.detail.step_summary': 'सारांश',
+  'admin.detail.step_ok': 'OK',
+  'admin.detail.step_error': 'त्रुटि',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults

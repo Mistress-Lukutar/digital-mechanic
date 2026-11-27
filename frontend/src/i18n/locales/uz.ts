@@ -281,6 +281,14 @@ const uz = {
   'admin.detail_hint': '"chat" qatorini bosish — savol, javob va iqtiboslar',
   'admin.detail_loading': 'Yuklanmoqda…',
   'admin.detail_error': 'Tafsilotlar mavjud emas',
+  'admin.detail.steps': 'Qadamlar',
+  'admin.detail.step_tool': 'Vosita',
+  'admin.detail.step_args': 'Argumentlar',
+  'admin.detail.step_status': 'Holati',
+  'admin.detail.step_time': 'Vaqt',
+  'admin.detail.step_summary': 'Xulosa',
+  'admin.detail.step_ok': 'OK',
+  'admin.detail.step_error': 'Xato',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults
