@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from mechanic.config import Settings
+from mechanic.services.alerts import AlertsStore
 from mechanic.services.auth import AuthService
 from mechanic.services.chats import ChatStore
 from mechanic.services.fleet import FleetStore
@@ -38,6 +39,7 @@ class ServiceHub:
     ticket_log: TicketLog
     chats: ChatStore
     usage: UsageLog
+    alerts: AlertsStore
     auth: AuthService
 
 
@@ -64,5 +66,6 @@ def build_service_hub(settings: Settings) -> ServiceHub:
         ticket_log=TicketLog(settings.resolve_db_path()),
         chats=ChatStore(settings.resolve_db_path()),
         usage=UsageLog(settings.resolve_db_path()),
+        alerts=AlertsStore(settings.resolve_db_path()),
         auth=AuthService(settings.resolve_db_path()),
     )

@@ -30,6 +30,7 @@ from mechanic.agent.tools_base import (
     ToolOutcome,
 )
 from mechanic.config import Settings
+from mechanic.services.alerts import AlertsStore
 from mechanic.services.auth import AuthService
 from mechanic.services.chats import ChatStore
 from mechanic.services.fleet import FleetStore
@@ -210,6 +211,7 @@ def _build_test_hub(
         ticket_log=TicketLog(DATA_DIR / "test_tickets.db"),
         chats=ChatStore(DATA_DIR / "test_chats.db"),
         usage=UsageLog(DATA_DIR / "test_usage.db"),
+        alerts=AlertsStore(DATA_DIR / "test_alerts.db"),
         auth=AuthService(DATA_DIR / "test_auth.db"),
     )
     return hub

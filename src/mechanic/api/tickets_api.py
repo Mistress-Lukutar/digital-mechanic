@@ -126,6 +126,20 @@ async def submit_ticket(
             else None
         ),
     )
+
+    if override_used:
+        hub.alerts.add(
+            kind="warning_override",
+            text=(
+                f"Механик {user.username} подтвердил заявку по ТС "
+                f"{payload.vehicle_id} (сессия {payload.session_id}) при "
+                f"качестве записи warning (confidence {session.confidence})."
+            ),
+            username=user.username,
+            vehicle_id=payload.vehicle_id,
+            session_id=payload.session_id,
+        )
+
     return {
         "ticket_id": result.ticket_id,
         "status": result.status,
