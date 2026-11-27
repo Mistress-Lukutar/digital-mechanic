@@ -60,18 +60,104 @@ The agent must respond in Russian and follow the rules above.
 """
 
 
+def _past_discussions_block(
+    hub: object,
+    username: str | None,
+    conversation_id: str | None,
+    vehicle_id: str,
+) -> str:
+    """Build a block listing recent past conversations for this vehicle.
+
+    Returns an empty string when there is nothing to show.
+
+    Args:
+        hub: The :class:`~mechanic.services.hub.ServiceHub` instance.
+        username: Authenticated user name (``None`` → skip).
+        conversation_id: Current conversation id to exclude from the list.
+        vehicle_id: Vehicle identifier for filtering.
+
+    Returns:
+        A formatted string block (with leading newline) or ``""``.
+    """
+    if username is None:
+        return ""
+    chats = getattr(hub, "chats", None)
+    if chats is None:
+        return ""
+    try:
+        convs = chats.list_conversations(username, vehicle_id, limit=4)
+    except Exception:
+        return ""
+
+    # Exclude the conversation being continued and empty ones.
+    convs = [
+        c for c in convs
+        if c.get("id") != conversation_id and c.get("message_count", 0) > 0
+    ]
+    if not convs:
+        return ""
+
+    lines: list[str] = []
+    for c in convs[:2]:
+        try:
+            title = c.get("title") or "диалог"
+            date = c.get("updated_at", "")[:10]
+            msgs = chats.get_messages(c["id"])
+            tail_text = ""
+            tail_role = ""
+            for m in reversed(msgs):
+                txt = m.get("text", "")
+                if txt and txt.strip():
+                    tail_text = txt.strip()[:160].replace("\n", " ")
+                    role_val = m.get("role", "")
+                    if role_val == "assistant":
+                        tail_role = "ответ агента"
+                    elif role_val == "user":
+                        tail_role = "вопрос механика"
+                    else:
+                        tail_role = role_val
+                    break
+            lines.append(
+                f'- «{title}» ({date}): {tail_role}: «{tail_text}»'
+            )
+        except Exception:
+            continue
+
+    if not lines:
+        return ""
+
+    block = (
+        "\n"
+        "## ПРОШЛЫЕ ОБСУЖДЕНИЯ ПО ЭТОЙ МАШИНЕ\n"
+        "\n"
+        "Двигатель этой машины уже обслуживали через систему. Кратко напомни "
+        "в первом\n"
+        "ответе нового диалога, что обсуждали раньше и на чём остановились, "
+        "и уточни,\n"
+        "продолжаем ли прошлую тему или это новый вопрос.\n"
+    )
+    for line in lines:
+        block += line + "\n"
+    return block
+
+
 def build_system_prompt(
-    hub: object, vehicle_id: str, language: str = "ru"
+    hub: object,
+    vehicle_id: str,
+    language: str = "ru",
+    username: str | None = None,
+    conversation_id: str | None = None,
 ) -> str:  # ServiceHub
     """Build the full system prompt for a given vehicle.
 
     Reads the template from ``prompts/system.md`` (or uses a fallback),
     fills in the vehicle block and engine documents block, replaces
-    placeholders, and appends a language-rule block that instructs the model
-    to answer in the language of the user's latest message, falling back to
-    the requested language. The *language* parameter accepts ``"ru"``,
-    ``"kk"``, ``"uz"``, ``"hi"``; unknown values fall back to ``"ru"`` (a
-    warning is logged).
+    placeholders, appends a past-discussions block (when *username* and
+    *conversation_id* are provided), and finally appends a language-rule
+    block that instructs the model to answer in the language of the user's
+    latest message, falling back to the requested language. The *language*
+    parameter accepts ``"ru"``, ``"kk"``, ``"uz"``, ``"hi"``; unknown values
+    fall back to ``"ru"`` (a warning is logged).
 
     Args:
         hub: The :class:`~mechanic.services.hub.ServiceHub` instance.
@@ -79,6 +165,10 @@ def build_system_prompt(
         language: Target response language code. Valid values are ``"ru"``,
             ``"kk"``, ``"uz"``, ``"hi"``. Unknown values fall back to
             ``"ru"`` (a warning is logged).
+        username: Authenticated user name. Used to look up past conversations;
+            when ``None`` the past-discussions block is omitted.
+        conversation_id: Current conversation id to exclude from the list of
+            past discussions.
 
     Returns:
         The complete system prompt string with all placeholders filled and
@@ -181,6 +271,11 @@ def build_system_prompt(
     # --- Replace placeholders ---
     result = template.replace("{vehicle_block}", vehicle_block)
     result = result.replace("{docs_block}", docs_block)
+
+    # --- Past discussions block (before language block) ---
+    past_block = _past_discussions_block(hub, username, conversation_id, vehicle_id)
+    if past_block:
+        result += past_block
 
     # --- Append language block (blank-line separated) ---
     # The answer language follows the language of the mechanic's latest
