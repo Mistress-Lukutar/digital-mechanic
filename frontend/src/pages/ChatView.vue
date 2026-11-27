@@ -74,6 +74,7 @@ const micListening = speech.listening
 
 const messages = chat.messages
 const streaming = chat.streaming
+const recovering = chat.recovering
 const chatError = chat.error
 // Top-level aliases: nested refs inside a plain object are NOT auto-unwrapped
 const activeConversationId = chat.conversationId
@@ -154,7 +155,7 @@ function onFileSelected(e: Event): void {
 
 async function sendMessage(): Promise<void> {
   const text = messageInput.value.trim()
-  if (!text || streaming.value) return
+  if (!text || streaming.value || recovering.value) return
   if (!props.vehicleId) return
   messageInput.value = ''
   const img = attachedImage.value
@@ -264,7 +265,18 @@ onBeforeUnmount(() => {
   }
 })
 
-onMounted(() => { void restoreLastConversation() })
+const onVisibilityChange = (): void => {
+  if (document.visibilityState === 'visible') void chat.resumeIfNeeded()
+}
+
+onMounted(() => {
+  void restoreLastConversation()
+  document.addEventListener('visibilitychange', onVisibilityChange)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
 
 function isMobileLayout(): boolean {
   return window.matchMedia('(max-width: 1023px)').matches
@@ -562,6 +574,10 @@ function toggleMic(): void {
           <span class="spinner" /><span class="dim">{{ t('chat.streaming') }}</span>
         </div>
 
+        <div v-if="recovering" class="streaming-indicator">
+          <span class="spinner" /><span class="dim">{{ t('chat.recovering') }}</span>
+        </div>
+
         <!-- Quick actions: centered in the chat area when empty with vehicle -->
         <div v-if="!streaming && messages.length === 0 && vehicleId" class="quick-actions">
           <button v-for="action in quickActions" :key="action.label" class="quick-chip" @click="quickSend(action)">{{ action.label }}</button>
@@ -600,7 +616,7 @@ function toggleMic(): void {
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
             </svg>
           </button>
-          <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
+          <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || recovering || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
           <input type="file" accept="image/*" ref="fileInput" style="display:none" @change="onFileSelected" />
           <div class="composer-tools-right">
             <button v-if="micSupported && !streaming && vehicleId" class="mic-btn" :class="{ listening: micListening }" :title="micListening ? t('chat.mic.listening') : t('chat.mic.label')" :aria-label="micListening ? t('chat.mic.listening') : t('chat.mic.label')" @click="toggleMic">
@@ -610,7 +626,7 @@ function toggleMic(): void {
                 <line x1="12" y1="19" x2="12" y2="22"/>
               </svg>
             </button>
-            <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage"><svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId || recovering" @click="sendMessage"><svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
             </svg></button>
             <button v-else class="stop-btn danger-solid" @click="chat.stop">{{ t('chat.stop') }}</button>

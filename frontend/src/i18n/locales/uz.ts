@@ -120,6 +120,8 @@ const uz = {
   'chat.edit.label': 'Tahrirlash',
   'chat.edit.save': 'Yuborish',
   'chat.edit.cancel': 'Bekor qilish',
+  'chat.recovering': 'Javobni tiklanmoqda…',
+  'chat.error.recovery': 'Tayyor javobni olish mumkin bo\'lmadi. Savolni qayta bering.',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel

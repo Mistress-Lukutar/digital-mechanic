@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { getAuthToken, apiUrl, formatApiDetail } from '../api'
+import { getAuthToken, apiUrl, formatApiDetail, getChat } from '../api'
 import { locale, t } from '../i18n'
 import type {
   AgentStepT,
@@ -95,7 +95,28 @@ export function createSseChat(options: SseChatOptions) {
   // and lets the reader loop exit immediately on abort.
   let isStopped = false
 
+  // Recovery state — set when tab was backgrounded and SSE stream died.
+  const recovering = ref(false)
+  let lastFrameAt = 0
+  let pollTimer: ReturnType<typeof setTimeout> | null = null
+  // True when the stream died while stale (page suspended in background):
+  // the finished answer is likely already on the server, so a visibility
+  // return should re-sync instead of leaving the network error strip.
+  let diedWhileStale = false
+
+  const STALE_MS = 20_000
+  const POLL_MS = 3_000
+  const RECOVERY_TIMEOUT_MS = 90_000
+
+  /** Cancel an in-flight recovery poll (new send, reset, or load). */
+  function cancelRecovery(): void {
+    if (pollTimer !== null) { clearTimeout(pollTimer); pollTimer = null }
+    recovering.value = false
+    diedWhileStale = false
+  }
+
   function resetLocal(): void {
+    cancelRecovery()
     messages.value = []
     streaming.value = false
     error.value = null
@@ -128,6 +149,7 @@ export function createSseChat(options: SseChatOptions) {
 
   /** Synchronously replace local transcript with a persisted conversation. */
   function loadConversation(detail: ChatConversationDetail): void {
+    cancelRecovery()
     if (streaming.value) stop()
     messages.value = detail.messages.map((m) => {
       const msg: ChatMessage = {
@@ -157,6 +179,8 @@ export function createSseChat(options: SseChatOptions) {
 
     // Reset the stop guard at the start of each new send()
     isStopped = false
+    lastFrameAt = Date.now()
+    cancelRecovery()
 
     // Push user message
     const userMsg: ChatMessage = { role: 'user', text: message, steps: [] }
@@ -235,6 +259,7 @@ export function createSseChat(options: SseChatOptions) {
       if (e instanceof Error && e.name === 'AbortError') {
         // Abort — finalization happens in the finally block below.
       } else {
+        if (Date.now() - lastFrameAt > STALE_MS) diedWhileStale = true
         error.value = e instanceof Error ? e.message : t('chat.error.connection')
       }
     } finally {
@@ -265,6 +290,8 @@ export function createSseChat(options: SseChatOptions) {
     // Guard: bail out immediately if stop() was called.
     // This makes every event handler a no-op after abort.
     if (isStopped) return
+
+    lastFrameAt = Date.now()
 
     // Parse JSON data
     let json: Record<string, unknown>
@@ -421,5 +448,52 @@ export function createSseChat(options: SseChatOptions) {
     await send(vehicleId, newText, null, image, msg.id)
   }
 
-  return { messages, streaming, error, conversationId, resetLocal, loadConversation, send, stop, editMessage }
+  /** On tab re-visibility: if the SSE stream is stale (page was
+      suspended, e.g. mobile browser backgrounded) or already died
+      while stale, abort/drop it and re-sync the finished answer
+      from the server by polling. */
+  async function resumeIfNeeded(): Promise<void> {
+    if (recovering.value) return
+    if (streaming.value) {
+      if (Date.now() - lastFrameAt < STALE_MS) return
+      if (abortCtrl) { abortCtrl.abort(); abortCtrl = null }
+    } else {
+      // Stream already failed with a network error while stale.
+      if (!diedWhileStale) return
+    }
+    cancelRecovery()
+    recovering.value = true
+
+    // Server persists the user turn immediately and the assistant turn
+    // at turn_done. Target size = local size (+1 if no assistant yet).
+    const lastLocal = messages.value[messages.value.length - 1]
+    const target = lastLocal && lastLocal.role === 'assistant'
+      ? messages.value.length
+      : messages.value.length + 1
+    const cid = conversationId.value
+    const deadline = Date.now() + RECOVERY_TIMEOUT_MS
+    if (!cid) { recovering.value = false; return }
+
+    const poll = async (): Promise<void> => {
+      if (!recovering.value) return
+      try {
+        const detail = await getChat(cid)
+        if (detail.messages.length >= target) {
+          loadConversation(detail)
+          error.value = null
+          cancelRecovery()
+          return
+        }
+      } catch { /* transient server error — keep polling */ }
+      if (Date.now() > deadline) {
+        cancelRecovery()
+        error.value = t('chat.error.recovery')
+        return
+      }
+      pollTimer = setTimeout(() => { void poll() }, POLL_MS)
+    }
+    void poll()
+  }
+
+  return { messages, streaming, error, conversationId, resetLocal, loadConversation, send, stop, editMessage, recovering, resumeIfNeeded }
 }
