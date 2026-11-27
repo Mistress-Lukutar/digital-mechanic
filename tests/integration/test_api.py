@@ -936,3 +936,48 @@ async def test_admin_usage_detail_contains_agent_steps(
         assert "vehicle_id" in args
     finally:
         chat_api_module.get_llm_client = original_get_llm
+
+
+async def test_admin_economics_endpoint(app_client: httpx.AsyncClient) -> None:
+    """GET /api/admin/economics returns scenario + fleet calculation."""
+    token = await _admin_login(app_client)
+
+    # Seed usage rows so medians are deterministic.
+    from mechanic.api.deps import get_hub
+
+    hub = get_hub()
+    hub.usage.record(username="x", kind="chat", input_tokens=10000, output_tokens=1000)
+    hub.usage.record(username="x", kind="chat", input_tokens=10000, output_tokens=1000)
+    hub.usage.record(username="x", kind="chat", input_tokens=12000, output_tokens=800)
+
+    # GET /api/admin/economics with default params
+    resp = await app_client.get(
+        "/api/admin/economics?machines=50&period_days=14&questions=3",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+
+    data = resp.json()
+
+    # scenario.turns == diagnosis(1) + questions(3) = 4
+    assert data["scenario"]["turns"] == 4
+
+    # usage_stats medians: inputs [10000,10000,12000] → median=10000
+    #                        outputs [1000,1000,800]   → median=1000
+    assert data["usage_stats"]["median_input"] == 10000
+    assert data["usage_stats"]["median_output"] == 1000
+
+    # scenario cost: per_turn = (10000*0.22 + 1000*0.88)/1e6 = 0.00308
+    #   factor = 82.313 (USD), turns=4
+    #   cost = 0.00308 * 4 * 82.313 ≈ 1.0141
+    expected_cost = 4 * (10000 * 0.22 + 1000 * 0.88) / 1_000_000 * 82.313
+    assert data["scenario"]["cost_rub"] == pytest.approx(expected_cost, rel=0.01)
+
+    # fleet cost_year_rub ≈ scenario_cost * (30/14*50) * 12
+    expected_year = expected_cost * (30 / 14 * 50) * 12
+    assert data["fleet"]["cost_year_rub"] == pytest.approx(expected_year, rel=0.01)
+
+    # Assumptions are capped correctly
+    assert data["assumptions"]["machines"] == 50
+    assert data["assumptions"]["period_days"] == 14
+    assert data["assumptions"]["questions"] == 3

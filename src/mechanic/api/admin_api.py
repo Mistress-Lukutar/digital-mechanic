@@ -17,7 +17,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from mechanic.api.deps import get_app_settings, get_hub, require_admin
-from mechanic.services.app_settings import effective_llm_config
+from mechanic.services.app_settings import (
+    EconomyPrices,
+    effective_llm_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -239,3 +242,70 @@ async def mark_alert_read(
     if not get_hub().alerts.mark_read(alert_id):
         raise HTTPException(status_code=404, detail="оповещение не найдено")
     return {"status": "ok"}
+
+
+@router.get("/economics/prices")
+async def get_economy_prices(admin=Depends(require_admin)) -> dict:
+    """Current token prices for the economics calculator."""
+    return get_app_settings().get_economy_prices().model_dump()
+
+
+@router.put("/economics/prices")
+async def update_economy_prices(
+    prices: EconomyPrices, admin=Depends(require_admin)
+) -> dict:
+    """Save token prices for the economics calculator."""
+    get_app_settings().save_economy_prices(prices)
+    return prices.model_dump()
+
+
+@router.get("/economics")
+async def get_economics(
+    machines: int = 50,
+    period_days: int = 14,
+    questions: int = 3,
+    admin=Depends(require_admin),
+) -> dict:
+    """Economy calculation: one scenario + fleet recalculation.
+
+    A scenario = diagnosis + mechanic questions (+1 reserve turn); token
+    medians come from the real usage log; prices from economy settings.
+    """
+    hub_ = get_hub()
+    prices = get_app_settings().get_economy_prices()
+    stats = hub_.usage.chat_token_stats()
+    params = {
+        "machines": machines,
+        "period_days": period_days,
+        "questions": questions,
+    }
+    capped = {k: max(1, min(v, 10000)) for k, v in params.items()}
+    turns = 1 + capped["questions"]  # diagnosis + questions; ticket needs no model call
+    median_in = float(stats["median_input"])
+    median_out = float(stats["median_output"])
+    per_turn = (
+        median_in * prices.input_price + median_out * prices.output_price
+    ) / 1_000_000
+    factor = prices.usd_rate if prices.currency == "USD" else 1.0
+    scenario_cost = per_turn * turns * factor
+    checks_per_month = 30.0 / capped["period_days"]
+    scenarios_per_month = checks_per_month * capped["machines"]
+    return {
+        "prices": prices.model_dump(),
+        "assumptions": capped,
+        "usage_stats": stats,
+        "scenario": {
+            "turns": turns,
+            "input_tokens": median_in * turns,
+            "output_tokens": median_out * turns,
+            "cost_rub": round(scenario_cost, 4),
+        },
+        "fleet": {
+            "checks_per_month": round(checks_per_month, 2),
+            "scenarios_per_month": round(scenarios_per_month, 1),
+            "cost_month_rub": round(scenario_cost * scenarios_per_month, 2),
+            "cost_year_rub": round(scenario_cost * scenarios_per_month * 12, 2),
+            "tokens_per_scenario": int((median_in + median_out) * turns),
+        },
+        "indexation_cost_rub": prices.indexation_cost,
+    }
