@@ -68,6 +68,9 @@ const ru = {
   'history.urgency.high': 'Высокий',
   'history.urgency.medium': 'Средний',
   'history.urgency.low': 'Низкий',
+  'history.trend_worsening': 'Score растёт {n} проверок подряд — состояние ухудшается',
+  'history.trend_improving': 'Score снижается {n} проверок подряд — состояние улучшается',
+  'history.trend_stable': 'Score стабилен — без признаков ухудшения',
 
   // ---------------------------------------------------------------------------
   // chart.* — AnomalyChart

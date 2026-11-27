@@ -70,6 +70,9 @@ const hi = {
   'history.urgency.high': 'उच्च',
   'history.urgency.medium': 'मध्यम',
   'history.urgency.low': 'निम्न',
+  'history.trend_worsening': 'Score पिछली {n} जाँचों में बढ़ रहा है — स्थिति खराब हो रही है',
+  'history.trend_improving': 'Score पिछली {n} जाँचों में कम हो रहा है — स्थिति सुधर रही है',
+  'history.trend_stable': 'Score स्थिर है — खराब होने के संकेत नहीं',
 
   // ---------------------------------------------------------------------------
   // chart.* — AnomalyChart

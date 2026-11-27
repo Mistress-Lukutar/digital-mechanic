@@ -70,6 +70,9 @@ const kk = {
   'history.urgency.high': 'Жоғары',
   'history.urgency.medium': 'Орташа',
   'history.urgency.low': 'Төмен',
+  'history.trend_worsening': 'Score соңғы {n} тексеруде өсіп келеді — жағдай нашарлап барада',
+  'history.trend_improving': 'Score соңғы {n} тексеруде төмендеп келеді — жағдай жақсарып барада',
+  'history.trend_stable': 'Score тұрақты — нашарлау белгілері жоқ',
 
   // ---------------------------------------------------------------------------
   // chart.* — AnomalyChart
