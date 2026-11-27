@@ -5,7 +5,7 @@ Author: Mistress-Lukutar
 Date:   2026-11-26
 Version: v0.1.0
 
-Eight tests covering login, consent checkbox state, navigation, user CRUD,
+Nine tests covering login, consent checkbox state, navigation, user CRUD,
 role-based visibility, session restore, and logout. Russian UI text in selectors
 is expected.
 
@@ -20,6 +20,8 @@ from __future__ import annotations
 from typing import Any
 
 from playwright.sync_api import Page
+
+NEW_FLAGGED_PASSWORD: str = "new-flagged-pass-99"
 
 # ---------------------------------------------------------------------------
 # Helper: login
@@ -261,3 +263,62 @@ def test_logout_returns_to_login(page: Page, stand: Any) -> None:
 
     page.wait_for_selector("#login-user", state="visible")
     page.wait_for_selector("#login-pass", state="visible")
+
+
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Test 9: Forced password-change modal
+# ---------------------------------------------------------------------------
+
+
+def test_forced_password_change_modal(
+    page: Page, stand: Any
+) -> None:
+    """Login with must_change_password=1 → modal appears, change password, verify."""
+    # 1. Login as the flagged user — topbar appears (helper waits for it).
+    login(page, stand, stand.flagged_user, stand.flagged_password)
+
+    # 2. Mandatory modal must be visible and have no dismiss affordance.
+    page.wait_for_selector(".modal-overlay", state="visible")
+    assert page.locator(".modal-overlay .modal-close").count() == 0, (
+        "Modal must have no close button"
+    )
+
+    # 3. Fill in old password + new password fields.
+    page.fill("#pwd-old", stand.flagged_password)
+    page.fill("#pwd-new", NEW_FLAGGED_PASSWORD)
+    page.fill("#pwd-confirm", NEW_FLAGGED_PASSWORD)
+
+    # 4. Click the save button scoped to the modal.
+    page.locator(".modal-overlay").get_by_role(
+        "button", name="Сохранить пароль"
+    ).click()
+
+    # 5. Mandatory modal must disappear after successful change.
+    page.wait_for_selector(".modal-overlay", state="hidden")
+
+    # 6. Garage data must load (vehicle cards appear).
+    page.wait_for_selector(".vehicle-card", state="visible")
+
+    # 7. Log out — click Выйти in the topbar.
+    page.get_by_role("button", name="Выйти").click()
+    page.wait_for_selector("#login-user", state="visible")
+
+    # 8. Old password must now be rejected (401 → .error-strip).
+    page.fill("#login-user", stand.flagged_user)
+    page.fill("#login-pass", stand.flagged_password)
+    page.locator("#login-consent").check()
+    page.get_by_role("button", name="Войти").click()
+    page.wait_for_selector(".error-strip", state="visible")
+
+    # Refresh to get a fresh LoginView component (loading state resets).
+    page.goto(stand.base_url)
+    page.wait_for_selector("#login-user", state="visible")
+
+    # 9. New password must work: fill form, check consent, click Войти, wait for topbar.
+    page.fill("#login-user", stand.flagged_user)
+    page.fill("#login-pass", NEW_FLAGGED_PASSWORD)
+    page.locator("#login-consent").check()
+    page.get_by_role("button", name="Войти").click(force=True)
+    page.wait_for_selector('button:has-text("Гараж")', state="visible")

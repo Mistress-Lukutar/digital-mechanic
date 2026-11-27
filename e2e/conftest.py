@@ -51,6 +51,8 @@ ADMIN_USER: str = "admin"
 ADMIN_PASSWORD: str = "e2e-admin-pass-123"
 USER_USER: str = "e2euser"
 USER_PASSWORD: str = "e2e-user-pass-123"
+FLAGGED_USER: str = "e2e_flagged"
+FLAGGED_PASSWORD: str = "e2e-flagged-pass-123"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -62,6 +64,8 @@ class StandInfo:
     admin_password: str
     user_user: str
     user_password: str
+    flagged_user: str
+    flagged_password: str
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +207,9 @@ def stand(tmp_path_factory: pytest.TempPathFactory) -> Iterator[StandInfo]:
     auth = AuthService(db_path)
     auth.create_user(ADMIN_USER, ADMIN_PASSWORD, "admin")
     auth.create_user(USER_USER, USER_PASSWORD, "user")
+    auth.create_user(FLAGGED_USER, FLAGGED_PASSWORD, "user")
+    # Bootstrap-admin semantics: password must be changed on first login.
+    auth.change_password_admin(FLAGGED_USER, FLAGGED_PASSWORD)
     del auth
     gc.collect()
 
@@ -256,6 +263,8 @@ def stand(tmp_path_factory: pytest.TempPathFactory) -> Iterator[StandInfo]:
             admin_password=ADMIN_PASSWORD,
             user_user=USER_USER,
             user_password=USER_PASSWORD,
+            flagged_user=FLAGGED_USER,
+            flagged_password=FLAGGED_PASSWORD,
         )
     finally:
         for proc in procs:
