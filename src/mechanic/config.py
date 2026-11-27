@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # DB lives inside app_data_dir.
     db_file: Path | None = None
 
+    # Initial admin password at first startup. When empty, a random
+    # password is generated and logged once (bootstrap); set it via env
+    # ADMIN_INITIAL_PASSWORD to avoid logging any secret.
+    admin_initial_password: str = ""
+
     @property
     def vehicles_path(self) -> Path:
         '''Path of the issued fleet file.'''

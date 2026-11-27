@@ -35,6 +35,38 @@ class TestAuthServiceBootstrapAdmin:
         assert pw1 is not None
         assert pw2 is None
 
+    def test_bootstrap_admin_uses_initial_password(
+        self, tmp_path: pytest.TempPath
+    ) -> None:
+        """bootstrap_admin(initial_password) uses the supplied password."""
+        auth = AuthService(tmp_path / "auth.db")
+        pw = auth.bootstrap_admin("startup-pass-1")
+
+        assert pw == "startup-pass-1"
+
+        result = auth.verify_login("admin", "startup-pass-1")
+        assert result is not None
+        assert result.username == "admin"
+        assert result.role == "admin"
+
+        # Second call returns None (admin already exists).
+        pw2 = auth.bootstrap_admin("another-pass")
+        assert pw2 is None
+
+    def test_bootstrap_admin_generates_when_unset(
+        self, tmp_path: pytest.TempPath
+    ) -> None:
+        """bootstrap_admin() with no args generates a random password."""
+        auth = AuthService(tmp_path / "auth.db")
+        pw = auth.bootstrap_admin()
+
+        assert pw is not None
+        assert len(pw) >= 12
+
+        result = auth.verify_login("admin", pw)
+        assert result is not None
+        assert result.username == "admin"
+
 
 class TestAuthServiceVerifyLogin:
     """Test verify_login()."""

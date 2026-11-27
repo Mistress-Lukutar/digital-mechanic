@@ -1128,3 +1128,40 @@ async def test_ticket_submit_wrong_engine_manual_rejected(
     assert resp.status_code == 422, resp.text
     detail = resp.json()["detail"]
     assert "двигателю" in detail
+
+
+async def test_login_rate_limited_after_failures(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """POST /api/auth/login returns 429 after 5 failed attempts for a username."""
+    admin_token = await _admin_login(app_client)
+
+    # Create a regular user with a known password.
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "bruteforce", "password": "brute-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    # 5 failed login attempts with wrong password.
+    for _ in range(5):
+        resp = await app_client.post(
+            "/api/auth/login",
+            json={"username": "bruteforce", "password": "wrong"},
+        )
+        assert resp.status_code == 401
+
+    # 6th attempt with the CORRECT password is still throttled → 429.
+    resp = await app_client.post(
+        "/api/auth/login",
+        json={"username": "bruteforce", "password": "brute-pass-1"},
+    )
+    assert resp.status_code == 429
+    assert "подождите" in resp.json()["detail"]
+
+    # A login attempt for a DIFFERENT username (admin) still succeeds.
+    admin_resp = await app_client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": "admin-pass-1"},
+    )
+    assert admin_resp.status_code == 200

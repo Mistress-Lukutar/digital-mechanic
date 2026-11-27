@@ -152,12 +152,18 @@ class AuthService:
     # Public API
     # ------------------------------------------------------------------
 
-    def bootstrap_admin(self) -> str | None:
+    def bootstrap_admin(self, initial_password: str | None = None) -> str | None:
         """Create the initial admin user if none exists.
 
         Creates a user named ``"admin"`` with role ``"admin"``,
         ``must_change_password=1``, and a random 16-char password
-        (``secrets.token_urlsafe(12)`` produces 16 URL-safe chars).
+        (``secrets.token_urlsafe(12)`` produces 16 URL-safe chars), or the
+        supplied *initial_password* when given.
+
+        Args:
+            initial_password: When given, used as the initial admin password
+                instead of a generated one; the caller decides whether it may
+                be logged.
 
         Returns:
             The plaintext password if a new admin was created, or ``None``
@@ -172,7 +178,7 @@ class AuthService:
         if cursor.fetchone() is not None:
             return None
 
-        password = secrets.token_urlsafe(12)
+        password = initial_password or secrets.token_urlsafe(12)
         salt = secrets.token_hex(16)
         pw_hash = self._hash_password(password, salt)
         now = datetime.now(UTC).isoformat()

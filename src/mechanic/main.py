@@ -53,13 +53,20 @@ async def lifespan(app: FastAPI) -> object:  # type: ignore[no-untyped-def]
     settings = get_settings()
     init_hub(settings)
     init_app_settings(settings)
-    password = get_hub().auth.bootstrap_admin()
+    initial_password = settings.admin_initial_password or None
+    password = get_hub().auth.bootstrap_admin(initial_password)
     if password is not None:
-        logger.warning(
-            "Bootstrap admin created: username='admin' "
-            "password='%s' - change it after first login",
-            password,
-        )
+        if initial_password:
+            logger.warning(
+                "Bootstrap admin created with the password from "
+                "ADMIN_INITIAL_PASSWORD - change it after first login"
+            )
+        else:
+            logger.warning(
+                "Bootstrap admin created: username='admin' "
+                "password='%s' - change it after first login",
+                password,
+            )
     yield
 
 

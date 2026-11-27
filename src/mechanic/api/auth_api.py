@@ -1,17 +1,24 @@
 '''
 File:   auth_api.py
-Brief:  Authentication endpoints (login, change password, me).
+Brief:  Authentication endpoints (login, change password, me) with failed-login
+        throttle.
 Author: Mistress-Lukutar
 Date:   2026-11-26
 Version: v0.1.0
 
 Provides the ``/api/auth`` router with login, password change and current-user
 introspection endpoints backed by :class:`~mechanic.services.auth.AuthService`.
+Failed-login attempts are rate-limited per username via a sliding-window
+throttler stored on ``request.app.state`` so each FastAPI app instance (tests
+create fresh apps per test) gets an isolated tracker.
 '''
 
 from __future__ import annotations
 
 import logging
+import threading
+import time
+from collections import deque
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -20,6 +27,51 @@ from mechanic.api.deps import get_hub
 from mechanic.services.auth import AuthError, TokenUser
 
 logger = logging.getLogger(__name__)
+
+
+class _LoginThrottle:
+    """Sliding-window throttle for failed login attempts (per username)."""
+
+    MAX_FAILURES = 5
+    WINDOW_SECONDS = 300.0
+
+    def __init__(self) -> None:
+        self._failures: dict[str, deque[float]] = {}
+        self._lock = threading.Lock()
+
+    def wait_seconds(self, username: str) -> int:
+        """Return seconds the next attempt for *username* must wait, 0 if allowed."""
+        now = time.monotonic()
+        with self._lock:
+            attempts = self._failures.get(username)
+            if not attempts:
+                return 0
+            recent = [t for t in attempts if now - t < self.WINDOW_SECONDS]
+            attempts.clear()
+            attempts.extend(recent)
+            if len(recent) < self.MAX_FAILURES:
+                return 0
+            oldest = recent[0]
+            remaining = self.WINDOW_SECONDS - (now - oldest)
+            return max(1, int(remaining))
+
+    def record_failure(self, username: str) -> None:
+        now = time.monotonic()
+        with self._lock:
+            self._failures.setdefault(username, deque()).append(now)
+
+    def clear(self, username: str) -> None:
+        with self._lock:
+            self._failures.pop(username, None)
+
+
+def _get_throttle(request: Request) -> _LoginThrottle:
+    throttle = getattr(request.app.state, "login_throttle", None)
+    if throttle is None:
+        throttle = _LoginThrottle()
+        request.app.state.login_throttle = throttle
+    return throttle
+
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -65,15 +117,27 @@ async def _auth_user(request: Request) -> TokenUser:
 
 
 @router.post("/login")
-async def login(body: LoginRequest) -> dict:
+async def login(body: LoginRequest, request: Request) -> dict:
     """Authenticate a user and return a session token."""
+    throttle = _get_throttle(request)
+    wait = throttle.wait_seconds(body.username)
+    if wait > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"слишком много неудачных попыток входа — "
+                f"подождите {wait} с"
+            ),
+        )
     hub = get_hub()
     result = hub.auth.verify_login(body.username, body.password)
     if result is None:
+        throttle.record_failure(body.username)
         raise HTTPException(
             status_code=401,
             detail="неверное имя пользователя или пароль",
         )
+    throttle.clear(body.username)
     token = hub.auth.create_token(body.username)
     return {
         "token": token,
