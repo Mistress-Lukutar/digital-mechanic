@@ -3,7 +3,7 @@ File:   test_prompt.py
 Brief:  Tests for the language-aware system-prompt builder and ChatRequest model.
 Author: Mistress-Lukutar
 Date:   2026-11-27
-Version: v0.1.1
+Version: v0.1.2
 
 Verifies that build_system_prompt appends the correct language block for each
 supported locale, falls back to Russian on unknown values, and that the
@@ -302,9 +302,19 @@ class TestManualSpecificBlock:
 
     def test_no_block_when_not_configured(self, monkeypatch: Any) -> None:
         """Without PROMPT_MANUAL_FILE the skeleton note stays, no insertion."""
+        from types import SimpleNamespace
+
+        from mechanic import config as config_module
         from mechanic.agent import prompt as prompt_module
 
         monkeypatch.setattr(prompt_module, "MANUAL_BLOCK_PATH", None)
+        # A developer .env may legitimately configure PROMPT_MANUAL_FILE;
+        # the "not configured" scenario must not depend on the host machine.
+        monkeypatch.setattr(
+            config_module,
+            "get_settings",
+            lambda: SimpleNamespace(prompt_manual_file=None),
+        )
         result = _prompt(_build_test_hub())
 
         assert "ВНЕШНИЙ-МАРКЕР-БЛОКА" not in result
