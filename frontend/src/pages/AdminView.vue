@@ -224,6 +224,16 @@ function kindChipClass(kind: string): string {
   return ''
 }
 
+function argsText(args: unknown): string {
+  if (args == null) return '\u2014'
+  if (typeof args === 'string') return args
+  try {
+    return JSON.stringify(args)
+  } catch {
+    return String(args)
+  }
+}
+
 async function toggleDetailRow(id: number): Promise<void> {
   if (expandedUsageId.value === id) {
     expandedUsageId.value = null
@@ -375,6 +385,35 @@ async function toggleDetailRow(id: number): Promise<void> {
                     <div v-if="usageDetail.language">
                       <span class="chip dim">lang: {{ usageDetail.language }}</span>
                     </div>
+                    <template v-if="usageDetail?.steps?.length">
+                      <h5>{{ t('admin.detail.steps') }}</h5>
+                      <div class="table-wrap">
+                        <table class="data-table steps-table">
+                          <thead>
+                            <tr>
+                              <th>{{ t('admin.detail.step_tool') }}</th>
+                              <th>{{ t('admin.detail.step_args') }}</th>
+                              <th>{{ t('admin.detail.step_status') }}</th>
+                              <th>{{ t('admin.detail.step_time') }}</th>
+                              <th>{{ t('admin.detail.step_summary') }}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="(s, i) in usageDetail.steps" :key="i">
+                              <td class="mono">{{ s.tool }}</td>
+                              <td class="mono step-args" :title="argsText(s.arguments)">{{ argsText(s.arguments) }}</td>
+                              <td>
+                                <span :class="['badge', s.ok === false ? 'badge-error' : 'badge-ok']">
+                                  {{ s.ok === false ? t('admin.detail.step_error') : t('admin.detail.step_ok') }}
+                                </span>
+                              </td>
+                              <td>{{ s.duration_ms }} мс</td>
+                              <td>{{ s.summary }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </template>
                   </template>
                 </td>
               </tr>
@@ -811,5 +850,25 @@ async function toggleDetailRow(id: number): Promise<void> {
 .unread-row {
   font-weight: 600;
   border-left: 3px solid var(--danger);
+}
+
+/* Steps table in detail row */
+.steps-table {
+  font-size: 12px;
+}
+
+.step-args {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge-error {
+  background: var(--danger);
+  color: #fff;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
 }
 </style>

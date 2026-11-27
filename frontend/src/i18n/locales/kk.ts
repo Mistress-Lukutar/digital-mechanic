@@ -281,6 +281,14 @@ const kk = {
   'admin.detail_hint': '«chat» жолын басу — сұрақ, жауап және дереккөздер',
   'admin.detail_loading': 'Жүктелуде…',
   'admin.detail_error': 'Толық ақпарат қолжетімсіз',
+  'admin.detail.steps': 'Қадамдар',
+  'admin.detail.step_tool': 'Құрал',
+  'admin.detail.step_args': 'Аргументтер',
+  'admin.detail.step_status': 'Күйі',
+  'admin.detail.step_time': 'Уақыт',
+  'admin.detail.step_summary': 'Түйін',
+  'admin.detail.step_ok': 'OK',
+  'admin.detail.step_error': 'Қате',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults

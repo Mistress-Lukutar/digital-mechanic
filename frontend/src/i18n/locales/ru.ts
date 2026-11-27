@@ -279,6 +279,14 @@ const ru = {
   'admin.detail_hint': 'Клик по строке «chat» — вопрос, ответ и цитаты хода',
   'admin.detail_loading': 'Загрузка…',
   'admin.detail_error': 'Детализация недоступна',
+  'admin.detail.steps': 'Шаги',
+  'admin.detail.step_tool': 'Инструмент',
+  'admin.detail.step_args': 'Аргументы',
+  'admin.detail.step_status': 'Статус',
+  'admin.detail.step_time': 'Время',
+  'admin.detail.step_summary': 'Сводка',
+  'admin.detail.step_ok': 'OK',
+  'admin.detail.step_error': 'Ошибка',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults

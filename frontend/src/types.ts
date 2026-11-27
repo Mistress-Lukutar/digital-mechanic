@@ -284,6 +284,13 @@ export interface ChatTurnDetail {
   ticket_draft: { anomaly_type: string | null; urgency: string | null } | null
   has_image: boolean
   language: string | null
+  steps?: {
+    tool: string
+    arguments: unknown
+    ok: boolean | null
+    summary: string
+    duration_ms: number
+  }[]
 }
 
 export interface AdminUserItem {
