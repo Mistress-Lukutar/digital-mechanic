@@ -208,14 +208,6 @@ export async function getVehicleDetail(vehicleId: string): Promise<VehicleDetail
   return apiGet<VehicleDetail>(apiUrl(`/api/vehicles/${encodeURIComponent(vehicleId)}`))
 }
 
-/** POST /api/chat/{vehicle_id}/reset */
-export async function resetChat(vehicleId: string): Promise<{ status: string }> {
-  return apiSend<{ status: string }>(
-    apiUrl(`/api/chat/${encodeURIComponent(vehicleId)}/reset`),
-    'POST',
-  )
-}
-
 /** GET /api/chats?vehicle_id=... — list conversations for a vehicle. */
 export async function listChats(
   vehicleId: string,

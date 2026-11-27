@@ -1,6 +1,6 @@
 '''
 File:   chat_api.py
-Brief:  Chat endpoint with SSE streaming, conversation reset, message-edit
+Brief:  Chat endpoint with SSE streaming, message-edit
         (branching), and language selection.
 Author: Mistress-Lukutar
 Date:   2026-11-27
@@ -8,7 +8,7 @@ Version: v0.4.0
 
 Provides the ``/api/chat`` router with a streaming chat endpoint that wraps
 the :class:`~mechanic.agent.loop.AgentLoop` and yields SSE-formatted events,
-plus a reset endpoint to clear a vehicle's conversation history. Supports an
+Supports an
 optional ``language`` field on ``ChatRequest`` for non-Russian responses.
 
 Conversation persistence: each chat creates or resumes a stored conversation
@@ -459,13 +459,3 @@ async def chat(
         },
     )
 
-
-@router.post("/chat/{vehicle_id}/reset")
-async def reset_chat(
-    vehicle_id: str,
-    user=Depends(_auth_user),
-) -> dict:
-    """Reset the conversation for *vehicle_id*."""
-    conversations = get_conversations()
-    conversations.reset(vehicle_id)
-    return {"status": "reset"}

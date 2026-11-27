@@ -75,10 +75,6 @@ class ConversationStore:
             Turn(role="tool", parts=list(results))
         )
 
-    def reset(self, vehicle_id: str) -> None:
-        '''Drop the conversation for a vehicle (the "new check" action).'''
-        self._turns.pop(vehicle_id, None)
-
     def forget(self, key: str) -> None:
         '''Drop stored turns for *key* without raising when it is absent.'''
         self._turns.pop(key, None)
