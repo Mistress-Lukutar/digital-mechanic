@@ -45,7 +45,7 @@ class TestPriorityHigh:
         assert "Приоритет высокий" in suggestion.rationale
         assert "Дизельная топливоподача" in suggestion.rationale
         assert "F08" not in suggestion.rationale  # rationale uses title, not code
-        assert "риск отказа в рейсе" in suggestion.rationale
+        assert "до выпуска в рейс" in suggestion.rationale
 
 
 class TestPriorityMedium:
