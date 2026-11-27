@@ -6,8 +6,9 @@ Date:   2026-11-26
 Version: v0.1.0
 
 Implements the fixed contract from Issue #1 on top of the index: strict
-engine filtering BEFORE scoring, tier over a comparable score (cosine in
-hybrid mode, IDF-normalised BM25 relevance otherwise), and the explicit
+engine filtering BEFORE scoring, tier over a comparable score (in hybrid
+mode the best of cosine and IDF-normalised BM25 relevance per chunk, so a
+chunk found only by BM25 keeps its score; issue #14 H1), and the explicit
 ``no_instruction`` signal that drives the agent's honest refusal. Used by
 both the FastAPI service and the eval runner.
 '''
@@ -165,8 +166,12 @@ class SearchEngine:
         fused = fuse([*bm25_ranked, *cos_ranked], engine_mask=mask)
         if not fused:
             return SearchResponse(results=[], no_instruction=True)
-        comparable = cos_best if cos_best else bm25_best
+        comparable = self._merge_comparable(fused, cos_best, bm25_best)
         comparable = self._boost_sections(query, fused, comparable)
+        # RRF leads the ordering. Comparable-first ordering was evaluated
+        # on the eval sets (issue #14 H1): it lifts hit@1/MRR but pushes
+        # saturated BM25 pages past gold pages and drops manual hit@5
+        # below the baseline — rejected. RRF keeps hit@5 at the baseline.
         candidates = sorted(fused, key=lambda idx: fused[idx], reverse=True)
 
         results: list[SearchHit] = []
@@ -197,6 +202,35 @@ class SearchEngine:
         return SearchResponse(results=results, no_instruction=not results)
 
     # --- retrievers ---------------------------------------------------------
+
+    def _merge_comparable(
+        self,
+        fused: dict[int, float],
+        cos_best: dict[int, float],
+        bm25_best: dict[int, float],
+    ) -> dict[int, float]:
+        '''Comparable score per candidate: the best of both retrievers.
+
+        The tier cut reads this mapping, so a missing entry means a
+        silently dropped chunk. Taking the whole mapping from one
+        retriever (the old cos_best-or-bm25_best fallback) zeroed chunks
+        found only by BM25 — even when RRF ranked them first. Cosine and
+        IDF-normalised BM25 relevance are both in [0, 1] and both
+        calibrated against the same tier thresholds, so their per-chunk
+        max keeps the stronger evidence (issue #14 H1).
+
+        Args:
+            fused: Candidate chunk indices with RRF scores.
+            cos_best: Chunk → best cosine over query variants.
+            bm25_best: Chunk → best normalised BM25 relevance.
+
+        Returns:
+            Chunk index → comparable score for every fused chunk.
+        '''
+        return {
+            idx: max(cos_best.get(idx, 0.0), bm25_best.get(idx, 0.0))
+            for idx in fused
+        }
 
     def _run_bm25(
         self, queries: list[str], mask: np.ndarray
@@ -302,7 +336,8 @@ class SearchEngine:
         '''Map a comparable score to high/med/None (low is dropped).
 
         Args:
-            score: Cosine or normalised BM25 relevance in [0, 1].
+            score: Comparable score in [0, 1] — the best per chunk of the
+                cosine and the normalised BM25 relevance.
 
         Returns:
             "high" | "med" | None.

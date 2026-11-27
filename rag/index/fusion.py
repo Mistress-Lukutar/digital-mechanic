@@ -51,6 +51,12 @@ def order_candidates(
 ) -> list[int]:
     '''Order fused candidates by their comparable score.
 
+    Evaluated on the issue #14 eval sets and NOT used by the engine:
+    comparable-first ordering lifts hit@1/MRR but lets saturated BM25
+    pages (full query-term coverage) overtake dense-confirmed gold pages,
+    dropping manual hit@5 below the hybrid baseline. Kept as a utility
+    for future experiments; the engine orders by RRF.
+
     Args:
         fused: chunk index → RRF score (ties broken by it).
         comparable: chunk index → cosine or normalised BM25 relevance.
