@@ -291,6 +291,39 @@ const hi = {
   'admin.detail.step_error': 'त्रुटि',
 
   // ---------------------------------------------------------------------------
+  // admin.econ.* — Economy tab
+  // ---------------------------------------------------------------------------
+  'admin.tab.econ': 'अर्थव्यवस्था',
+  'admin.econ.title': 'दृश्य और बेड़ा अर्थव्यवस्था',
+  'admin.econ.prices': 'मॉडल मूल्य',
+  'admin.econ.model_label': 'मॉडल / मूल्य स्रोत',
+  'admin.econ.input_price': 'इनपुट मूल्य प्रति 1 मिलियन',
+  'admin.econ.output_price': 'आउटपुट मूल्य प्रति 1 मिलियन',
+  'admin.econ.currency': 'मुद्रा',
+  'admin.econ.usd_rate': 'सीबी $ दर',
+  'admin.econ.indexation': 'महंगाई (एक बार), ₽',
+  'admin.econ.assumptions': 'धारणाएं',
+  'admin.econ.machines': 'बेड़े में मशीनें',
+  'admin.econ.period': 'जाँच आवृत्ति, दिन',
+  'admin.econ.questions': 'मैकेनिक जाँच प्रश्न',
+  'admin.econ.save_prices': 'मूल्य सहेजें',
+  'admin.econ.recalc': 'पुनः गणना',
+  'admin.econ.export_csv': 'CSV निर्यात',
+  'admin.econ.stats': 'स्टैंड माप: {n} टर्न्स, इनपुट मध्यिका {in}, आउटपुट {out}',
+  'admin.econ.scenario': 'दृश्य (निदान → उत्तर/आवेदन)',
+  'admin.econ.scenario_turns': 'मॉडल को दृश्य कॉल',
+  'admin.econ.scenario_tokens_in': 'दृश्य इनपुट टोकन',
+  'admin.econ.scenario_tokens_out': 'दृश्य आउटपुट टोकन',
+  'admin.econ.scenario_cost': 'दृश्य लागत, ₽',
+  'admin.econ.fleet': 'बेड़ा पुनः गणना',
+  'admin.econ.checks_month': 'मासिक बेड़ा जाँच',
+  'admin.econ.scenarios_month': 'मासिक दृश्य',
+  'admin.econ.cost_month': 'मासिक बेड़ा लागत, ₽',
+  'admin.econ.cost_year': 'वार्षिक बेड़ा लागत, ₽',
+  'admin.econ.tokens_scenario': 'दृश्य पर टोकन',
+  'admin.econ.csv_title': '"डिजिटल मैकेनिक" अर्थव्यवस्था',
+
+  // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults
   // ---------------------------------------------------------------------------
   'confirm.ok': 'पुष्टि करें',

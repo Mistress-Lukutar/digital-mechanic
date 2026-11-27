@@ -291,6 +291,39 @@ const uz = {
   'admin.detail.step_error': 'Xato',
 
   // ---------------------------------------------------------------------------
+  // admin.econ.* — Economy tab
+  // ---------------------------------------------------------------------------
+  'admin.tab.econ': 'Iqtisodiyot',
+  'admin.econ.title': 'Ssenariy va park iqtisodiyoti',
+  'admin.econ.prices': 'Model narxlari',
+  'admin.econ.model_label': 'Model / narx manbasi',
+  'admin.econ.input_price': 'Kirish narxi 1 mln uchun',
+  'admin.econ.output_price': 'Chiqish narxi 1 mln uchun',
+  'admin.econ.currency': 'Valyuta',
+  'admin.econ.usd_rate': 'CB $ kursi',
+  'admin.econ.indexation': 'Indeksatsiya (bir martalik), ₽',
+  'admin.econ.assumptions': 'Farazlar',
+  'admin.econ.machines': 'Parkdagi mashinalar soni',
+  'admin.econ.period': 'Tekshiruv chastotaligi, kun',
+  'admin.econ.questions': 'Mexanik tekshiruv savollari',
+  'admin.econ.save_prices': 'Narxlarni saqlash',
+  'admin.econ.recalc': "Qayta hisoblash",
+  'admin.econ.export_csv': 'CSV eksport',
+  'admin.econ.stats': 'Poligon oʻlchovi: {n} yurish, kirish medianasi {in}, chiqish {out}',
+  'admin.econ.scenario': 'Ssenariy (diagnostika → javob/ariza)',
+  'admin.econ.scenario_turns': 'Modelga ssenariy chaqiruvlari',
+  'admin.econ.scenario_tokens_in': 'Ssenariy kiruvchi tokenlar',
+  'admin.econ.scenario_tokens_out': 'Ssenariy chiquvchi tokenlar',
+  'admin.econ.scenario_cost': 'Ssenariy narxi, ₽',
+  'admin.econ.fleet': "Parkga qayta hisob",
+  'admin.econ.checks_month': 'Oyiga park tekshiruvlari',
+  'admin.econ.scenarios_month': 'Oyiga ssenariylar',
+  'admin.econ.cost_month': 'Oyiga park narxi, ₽',
+  'admin.econ.cost_year': 'Yilga park narxi, ₽',
+  'admin.econ.tokens_scenario': 'Ssenariyga tokenlar',
+  'admin.econ.csv_title': '"Raqamli mexanik" iqtisodiyoti',
+
+  // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults
   // ---------------------------------------------------------------------------
   'confirm.ok': 'Tasdiqlash',

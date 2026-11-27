@@ -291,6 +291,39 @@ const kk = {
   'admin.detail.step_error': 'Қате',
 
   // ---------------------------------------------------------------------------
+  // admin.econ.* — Economy tab
+  // ---------------------------------------------------------------------------
+  'admin.tab.econ': 'Экономика',
+  'admin.econ.title': 'Сценарий мен парк экономикасы',
+  'admin.econ.prices': 'Модель бағалары',
+  'admin.econ.model_label': 'Модель / баға көзі',
+  'admin.econ.input_price': 'Кіру бағасы 1 млн-ға',
+  'admin.econ.output_price': 'Шығу бағасы 1 млн-ға',
+  'admin.econ.currency': 'Валюта',
+  'admin.econ.usd_rate': 'ЦБ $ бағамы',
+  'admin.econ.indexation': 'Индексация (бір рет), ₽',
+  'admin.econ.assumptions': 'Допущения',
+  'admin.econ.machines': 'Парктағы машиналар саны',
+  'admin.econ.period': 'Тексеру жиілігі, күн',
+  'admin.econ.questions': 'Механик тексеру сұрақтары',
+  'admin.econ.save_prices': 'Бағаларды сақтау',
+  'admin.econ.recalc': 'Қайта есептеу',
+  'admin.econ.export_csv': 'CSV экспорттау',
+  'admin.econ.stats': 'Стенд өлшемі: {n} жүріс, кіру медианасы {in}, шығу {out}',
+  'admin.econ.scenario': 'Сценарий (диагностика → жауап/өтініш)',
+  'admin.econ.scenario_turns': 'Модельге сценарий шақырулары',
+  'admin.econ.scenario_tokens_in': 'Сценарий кіріс токендері',
+  'admin.econ.scenario_tokens_out': 'Сценарий шығыс токендері',
+  'admin.econ.scenario_cost': 'Сценарий құны, ₽',
+  'admin.econ.fleet': 'Парққа қайта есептеу',
+  'admin.econ.checks_month': 'Айына парк тексерулері',
+  'admin.econ.scenarios_month': 'Айына сценарийлер',
+  'admin.econ.cost_month': 'Айына парк құны, ₽',
+  'admin.econ.cost_year': 'Жылына парк құны, ₽',
+  'admin.econ.tokens_scenario': 'Сценарийге токендер',
+  'admin.econ.csv_title': '«Цифровой механик» экономикасы',
+
+  // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults
   // ---------------------------------------------------------------------------
   'confirm.ok': 'Растау',

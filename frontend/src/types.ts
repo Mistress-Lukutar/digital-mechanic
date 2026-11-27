@@ -313,6 +313,34 @@ export interface AdminAlertItem {
 }
 
 // ---------------------------------------------------------------------------
+// Admin — Economy / pricing
+// ---------------------------------------------------------------------------
+
+export interface EconomyPrices {
+  input_price: number
+  output_price: number
+  currency: string
+  usd_rate: number
+  model_label: string
+  indexation_cost: number
+}
+
+export interface EconomicsResponse {
+  prices: EconomyPrices
+  assumptions: { machines: number; period_days: number; questions: number }
+  usage_stats: { turns: number; median_input: number; median_output: number }
+  scenario: { turns: number; input_tokens: number; output_tokens: number; cost_rub: number }
+  fleet: {
+    checks_per_month: number
+    scenarios_per_month: number
+    cost_month_rub: number
+    cost_year_rub: number
+    tokens_per_scenario: number
+  }
+  indexation_cost_rub: number
+}
+
+// ---------------------------------------------------------------------------
 // Admin — LLM settings
 // ---------------------------------------------------------------------------
 
