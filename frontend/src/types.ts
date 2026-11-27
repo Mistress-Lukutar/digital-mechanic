@@ -250,6 +250,16 @@ export interface UsageRowItem {
   error: string | null
 }
 
+export interface ChatTurnDetail {
+  question: string
+  answer: string
+  tools: string[]
+  citations: { doc: string; page: number }[]
+  ticket_draft: { anomaly_type: string | null; urgency: string | null } | null
+  has_image: boolean
+  language: string | null
+}
+
 export interface AdminUserItem {
   username: string
   role: string

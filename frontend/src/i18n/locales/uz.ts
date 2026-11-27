@@ -229,6 +229,15 @@ const uz = {
   'admin.delete_user_title': 'Foydalanuvchini oʻchirish',
   'admin.delete_user_message': '«{username}» oʻchirilsinmi?',
   'admin.password_min_8': 'Parol kamida 8 ta belgidan iborat boʻlishi kerak',
+  'admin.detail_question': 'Savol',
+  'admin.detail_answer': 'Javob',
+  'admin.detail_tools': 'Asboblar',
+  'admin.detail_citations': 'Iqtiboslar',
+  'admin.detail_ticket_draft': 'Ariza loyihasi',
+  'admin.detail_image': 'rasm bilan',
+  'admin.detail_hint': '"chat" qatorini bosish — savol, javob va iqtiboslar',
+  'admin.detail_loading': 'Yuklanmoqda…',
+  'admin.detail_error': 'Tafsilotlar mavjud emas',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults

@@ -227,6 +227,15 @@ const ru = {
   'admin.delete_user_title': 'Удалить пользователя',
   'admin.delete_user_message': 'Удалить «{username}»',
   'admin.password_min_8': 'Пароль должен содержать минимум 8 символов',
+  'admin.detail_question': 'Вопрос',
+  'admin.detail_answer': 'Ответ',
+  'admin.detail_tools': 'Инструменты',
+  'admin.detail_citations': 'Цитаты',
+  'admin.detail_ticket_draft': 'Черновик заявки',
+  'admin.detail_image': 'с изображением',
+  'admin.detail_hint': 'Клик по строке «chat» — вопрос, ответ и цитаты хода',
+  'admin.detail_loading': 'Загрузка…',
+  'admin.detail_error': 'Детализация недоступна',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults
