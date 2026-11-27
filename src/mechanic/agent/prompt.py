@@ -21,9 +21,11 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Default prompts directory relative to CWD (repo root).
-# Tests may monkeypatch this to point at a temp dir.
-PROMPTS_DIR: Path = Path("prompts")
+# Anchored to the repository layout (src/mechanic/agent/prompt.py), NOT the
+# process CWD: launching uvicorn from another directory must not swap the
+# system prompt for the fallback template. Tests may still monkeypatch this.
+_REPO_ROOT: Path = Path(__file__).resolve().parents[3]
+PROMPTS_DIR: Path = _REPO_ROOT / "prompts"
 
 # Language display names for the language-block instruction.
 LANGUAGE_NAMES: dict[str, str] = {

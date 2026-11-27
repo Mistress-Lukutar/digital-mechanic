@@ -315,3 +315,12 @@ class TestPastDiscussions:
 
         assert "Зазоры клапанов" not in result
         assert "## ПРОШЛЫЕ ОБСУЖДЕНИЯ" not in result
+
+
+def test_prompts_dir_anchored_to_repo_root() -> None:
+    """PROMPTS_DIR must resolve from the code location, not the CWD."""
+    repo_root = Path(__file__).resolve().parents[2]
+    from mechanic.agent.prompt import PROMPTS_DIR
+
+    assert PROMPTS_DIR == repo_root / "prompts"
+    assert (PROMPTS_DIR / "system.md").is_file()
