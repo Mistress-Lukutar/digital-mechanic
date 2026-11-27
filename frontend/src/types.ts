@@ -113,6 +113,12 @@ export interface ChatConversationItem {
 
 /** One persisted message inside a conversation. */
 export interface ChatHistoryMessage {
+  id: number
+  parent_id: number | null
+  sibling_index: number
+  sibling_count: number
+  prev_sibling_id: number | null
+  next_sibling_id: number | null
   role: 'user' | 'assistant'
   text: string
   image: string | null
@@ -135,6 +141,11 @@ export interface AgentStepT {
 }
 
 export interface ChatMessage {
+  id?: number
+  siblingIndex?: number
+  siblingCount?: number
+  prevSiblingId?: number | null
+  nextSiblingId?: number | null
   role: 'user' | 'assistant'
   text: string
   steps: AgentStepT[]

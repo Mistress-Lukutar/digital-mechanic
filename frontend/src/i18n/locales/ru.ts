@@ -112,6 +112,9 @@ const ru = {
   'chat.reasoning.toggle': 'Думаю…',
   'chat.attach.label': 'Прикрепить изображение',
   'chat.attach.remove': 'Убрать изображение',
+  'chat.edit.label': 'Редактировать',
+  'chat.edit.save': 'Отправить',
+  'chat.edit.cancel': 'Отмена',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel

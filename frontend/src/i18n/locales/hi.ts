@@ -114,6 +114,9 @@ const hi = {
   'chat.reasoning.toggle': 'सोच रहा हूँ…',
   'chat.attach.label': 'छवि संलग्न करें',
   'chat.attach.remove': 'छवि हटाएँ',
+  'chat.edit.label': 'संपादित करें',
+  'chat.edit.save': 'भेजें',
+  'chat.edit.cancel': 'रद्द करें',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel

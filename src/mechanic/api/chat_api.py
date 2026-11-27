@@ -1,9 +1,10 @@
 '''
 File:   chat_api.py
-Brief:  Chat endpoint with SSE streaming, conversation reset, and language selection.
+Brief:  Chat endpoint with SSE streaming, conversation reset, message-edit
+        (branching), and language selection.
 Author: Mistress-Lukutar
 Date:   2026-11-27
-Version: v0.3.0
+Version: v0.4.0
 
 Provides the ``/api/chat`` router with a streaming chat endpoint that wraps
 the :class:`~mechanic.agent.loop.AgentLoop` and yields SSE-formatted events,
@@ -17,6 +18,10 @@ SQLite so that LLM context survives backend restarts.
 
 Multimodal support: ``ChatRequest`` accepts an optional ``image`` data-URL
 that is forwarded into the agent turn as a multimodal content part.
+
+Message editing (branching): when ``edit_message_id`` is set on
+``ChatRequest``, the corresponding user message is replaced by a sibling
+branch and the assistant answer is regenerated from that point onward.
 '''
 
 from __future__ import annotations
@@ -73,6 +78,27 @@ def _extract_citations(text: str) -> list[dict]:
     return citations
 
 
+def _hydrate_store(
+    conversations: ConversationStore, key: str, messages: list[dict]
+) -> None:
+    """Rebuild in-memory turns for *key* from persisted message dicts.
+
+    Args:
+        conversations: In-memory conversation store to populate.
+        key: Conversation id used as the store key.
+        messages: Message dicts from :meth:`~mechanic.services.chats.ChatStore.get_messages`.
+    """
+    for m in messages:
+        if not m["text"]:
+            continue
+        if m["role"] == "user":
+            conversations.add_user_message(key, m["text"], image=m.get("image"))
+        elif m["role"] == "assistant":
+            conversations.add_assistant_parts(
+                key, [TextPart(text=m["text"])]
+            )
+
+
 router = APIRouter(prefix="/api", tags=["chat"])
 
 # Maximum length for a data-URL image (~1.5 MB JPEG base64-encoded).
@@ -88,6 +114,9 @@ class ChatRequest(BaseModel):
         language: Target response language (ru, kk, uz, hi); defaults to ru.
         image: Optional data-URL image (``data:image/...``). Must be ≤ 2 100 000 chars.
         conversation_id: Resumed conversation ID; a new one is created if absent.
+        edit_message_id: When set together with ``conversation_id``, edits that
+            user message: a sibling branch is created and the answer is
+            regenerated.
     """
 
     message: str
@@ -95,6 +124,7 @@ class ChatRequest(BaseModel):
     language: Literal["ru", "kk", "uz", "hi"] | None = None
     image: str | None = None
     conversation_id: str | None = None
+    edit_message_id: int | None = None
 
     @field_validator("image")
     @classmethod
@@ -232,33 +262,59 @@ async def chat(
 
     llm_cfg = effective_llm_config(hub.settings, get_app_settings())
 
+    if body.edit_message_id is not None and not body.conversation_id:
+        raise HTTPException(
+            status_code=400, detail="edit_message_id требует conversation_id"
+        )
+
     # Resolve or create the conversation.
+    edit_parent_id: int | None = None
     if body.conversation_id:
         conv = chats_store.get_conversation(body.conversation_id)
         if conv is None:
             raise HTTPException(status_code=404, detail="чат не найден")
         if conv["username"] != user.username or conv["vehicle_id"] != vehicle_id:
             raise HTTPException(status_code=404, detail="чат не найден")
-        # Hydrate in-memory store when it has no turns for this key.
-        if not conversations.history(body.conversation_id):
-            for m in chats_store.get_messages(body.conversation_id):
-                if not m["text"]:
-                    continue
-                if m["role"] == "user":
-                    conversations.add_user_message(
-                        body.conversation_id, m["text"], image=m["image"]
-                    )
-                elif m["role"] == "assistant":
-                    conversations.add_assistant_parts(
-                        body.conversation_id, [TextPart(text=m["text"])]
-                    )
+
+        if body.edit_message_id is not None:
+            target = chats_store.get_message(
+                body.conversation_id, body.edit_message_id
+            )
+            if target is None:
+                raise HTTPException(status_code=404, detail="сообщение не найдено")
+            if target["role"] != "user":
+                raise HTTPException(
+                    status_code=400, detail="можно редактировать только сообщения пользователя"
+                )
+            prefix = (
+                chats_store.get_path_to(body.conversation_id, target["parent_id"])
+                if target["parent_id"] is not None
+                else []
+            )
+            conversations.forget(body.conversation_id)
+            _hydrate_store(conversations, body.conversation_id, prefix)
+            edit_parent_id = target["parent_id"]
+        else:
+            # Hydrate in-memory store when it has no turns for this key.
+            if not conversations.history(body.conversation_id):
+                _hydrate_store(
+                    conversations, body.conversation_id,
+                    chats_store.get_messages(body.conversation_id),
+                )
+
         conversation_id = body.conversation_id
     else:
         conv = chats_store.create_conversation(user.username, vehicle_id)
         conversation_id = conv["id"]
 
     # Persist the user turn right away.
-    chats_store.add_message(conversation_id, "user", body.message, image=body.image)
+    if body.edit_message_id is not None:
+        chats_store.add_message(
+            conversation_id, "user", body.message,
+            image=body.image, parent_id=edit_parent_id,
+        )
+    else:
+        chats_store.add_message(conversation_id, "user", body.message, image=body.image)
 
     store_key = conversation_id
 

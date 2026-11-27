@@ -241,6 +241,18 @@ export async function deleteChat(
   )
 }
 
+/** POST /api/chats/{conversation_id}/branch — switch active branch. */
+export async function switchChatBranch(
+  conversationId: string,
+  messageId: number,
+): Promise<ChatConversationDetail> {
+  return apiSend<ChatConversationDetail>(
+    apiUrl(`/api/chats/${encodeURIComponent(conversationId)}/branch`),
+    'POST',
+    { message_id: messageId },
+  )
+}
+
 /** POST /api/tickets — create a ticket. */
 export async function createTicket(
   payload: Record<string, unknown>,
