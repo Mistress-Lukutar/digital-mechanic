@@ -21,6 +21,7 @@ static/
 
 # Runtime artifacts (indexes, databases, logs)
 data/rag/
+data/external/
 data/summaries/
 *.db
 *.db-shm
