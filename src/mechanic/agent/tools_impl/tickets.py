@@ -21,6 +21,10 @@ from mechanic.agent.tools_base import ToolContext, ToolDef, ToolError, ToolOutco
 
 logger = logging.getLogger(__name__)
 
+# Fault codes tied to a specific fuel system: code -> fuel substring the
+# vehicle card must contain (lowercase). Extend as new codes demand.
+FUEL_COMPATIBLE_FUELS: dict[str, str] = {"F08": "дизель"}
+
 
 def _require_hub(ctx: ToolContext) -> object:  # ServiceHub
     """Return the ServiceHub from *ctx* or raise ``ToolError``."""
@@ -77,10 +81,43 @@ async def _execute_create_ticket(
         raise ToolError(
             "Не указан anomaly_type (код неисправности F01…F14)"
         )
+    from mechanic.errors import FleetError
     from mechanic.services.priority import suggest_urgency
 
     fault_title = hub.fleet.fault_title(anomaly_type)  # type: ignore[attr-defined]
     suggestion = suggest_urgency(session_record, fault_title=fault_title)
+
+    # Fuel-compatibility check: e.g. F08 (diesel fuel delivery) is
+    # impossible on a petrol vehicle — diagnostics vs vehicle card
+    # mismatch (customer test case Y652CK98 / S-0132).
+    try:
+        vehicle_card = hub.fleet.get_vehicle(vehicle_id)  # type: ignore[attr-defined]
+        fuel = (vehicle_card.fuel or "").strip().lower()
+        required_fuel = FUEL_COMPATIBLE_FUELS.get(anomaly_type)
+        if required_fuel is not None and fuel and required_fuel not in fuel:
+            hub.alerts.add(  # type: ignore[attr-defined]
+                kind="fuel_mismatch",
+                text=(
+                    f"Код {anomaly_type} ({fault_title}) несовместим с "
+                    f"топливом «{vehicle_card.fuel}» ТС {vehicle_id} "
+                    f"(сессия {session_id}) — результат диагностики "
+                    "сомнителен, заявка заблокирована."
+                ),
+                vehicle_id=vehicle_id,
+                session_id=session_id,
+                engine_model=vehicle_card.engine_model,
+            )
+            raise ToolError(
+                f"Код неисправности {anomaly_type} «{fault_title}» "
+                f"противоречит карточке ТС (топливо: {vehicle_card.fuel}). "
+                "Результат диагностики сомнителен: НЕ собирай заявку. "
+                "Скажи механику прямо, что есть противоречие между "
+                "диагностикой и карточкой машины, предложи перепроверить "
+                "запись и диагностику, сверить карточку ТС (модель "
+                "двигателя, топливо). О ситуации сообщено администратору."
+            )
+    except FleetError:
+        pass  # unknown vehicle → mismatch check skipped
 
     agent_urgency: str | None = args.get("urgency")
     if agent_urgency is not None:
@@ -226,4 +263,4 @@ def make_create_ticket_tool() -> Callable[[object], ToolDef]:
     return _factory
 
 
-__all__: list[str] = ["make_create_ticket_tool"]
+__all__: list[str] = ["make_create_ticket_tool", "FUEL_COMPATIBLE_FUELS"]
