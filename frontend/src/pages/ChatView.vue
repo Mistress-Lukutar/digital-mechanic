@@ -316,39 +316,44 @@ function toggleMic(): void {
         </div>
       </div>
 
-      <div v-if="attachedImage && vehicleId" class="image-preview-chip">
-        <img :src="attachedImage" alt="" class="preview-thumb" />
-        <button class="remove-btn" @click="attachedImage = null" :title="t('chat.attach.remove')">&times;</button>
-      </div>
       <div class="input-row" v-if="vehicleId">
+        <div v-if="attachedImage" class="image-preview-chip">
+          <img :src="attachedImage" alt="" class="preview-thumb" />
+          <button class="remove-btn" @click="attachedImage = null" :title="t('chat.attach.remove')">&times;</button>
+        </div>
         <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
         <input type="file" accept="image/*" ref="fileInput" style="display:none" @change="onFileSelected" />
-        <button
-          v-if="!streaming && vehicleId"
-          class="attach-btn"
-          :title="t('chat.attach.label')"
-          aria-label="Прикрепить изображение"
-          @click="fileInput?.click()"
-        >
-          <svg class="attach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-          </svg>
-        </button>
-        <button
-          v-if="micSupported && !streaming && vehicleId"
-          class="mic-btn"
-          :class="{ listening: micListening }"
-          :title="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
-          :aria-label="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
-          @click="toggleMic"
-        >
-          <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <rect x="9" y="2" width="6" height="12" rx="3"/>
-            <path d="M5 11a7 7 0 0 0 14 0H5z"/>
-          </svg>
-        </button>
-        <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage">&rarr;</button>
-        <button v-else class="stop-btn danger-solid" @click="chat.stop">{{ t('chat.stop') }}</button>
+        <div class="composer-tools">
+          <button
+            v-if="!streaming && vehicleId"
+            class="attach-btn"
+            :title="t('chat.attach.label')"
+            aria-label="Прикрепить изображение"
+            @click="fileInput?.click()"
+          >
+            <svg class="attach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <div class="composer-tools-right">
+            <button
+              v-if="micSupported && !streaming && vehicleId"
+              class="mic-btn"
+              :class="{ listening: micListening }"
+              :title="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
+              :aria-label="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
+              @click="toggleMic"
+            >
+              <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+            </button>
+            <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage">&uarr;</button>
+            <button v-else class="stop-btn danger-solid" @click="chat.stop">{{ t('chat.stop') }}</button>
+          </div>
+        </div>
       </div>
       </div>
 
@@ -435,22 +440,26 @@ function toggleMic(): void {
 .chat-empty-banner .empty-icon { width: 48px; height: 48px; opacity: 0.4; }
 .quick-chip { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim); padding: 4px 12px; font-size: 12px; border-radius: 999px; cursor: pointer; }
 .quick-chip:hover { border-color: var(--accent); color: var(--accent); }
-.input-row { display: flex; align-items: flex-end; gap: 8px; padding: 12px 16px; background: var(--bg-panel); border-top: 1px solid var(--border); flex-shrink: 0; }
-.input-row textarea { flex: 1; resize: none; min-height: 36px; max-height: 120px; padding: 8px 12px; font-size: 14px; font-family: inherit; }
-.send-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; padding: 0; flex-shrink: 0; }
-.stop-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; padding: 0; flex-shrink: 0; }
-.attach-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); padding: 0; cursor: pointer; flex-shrink: 0; }
-.attach-btn:hover { border-color: var(--accent); color: var(--accent); }
+.input-row { display: flex; flex-direction: column; gap: 6px; margin: 8px 16px 12px; padding: 10px 12px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 6px 24px rgba(0,0,0,0.35); flex-shrink: 0; }
+.input-row:focus-within { border-color: var(--accent-dim); }
+.input-row textarea { background: transparent; border: 0; padding: 8px 10px; min-height: 40px; max-height: 120px; font-size: 14px; font-family: inherit; resize: none; width: 100%; }
+.composer-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.composer-tools-right { display: flex; align-items: center; gap: 6px; }
+.send-btn { width: 44px; height: 44px; border-radius: 50%; font-size: 20px; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
+.stop-btn { height: 44px; width: auto; min-width: 64px; border-radius: 999px; padding: 0 16px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.attach-btn { width: 36px; height: 36px; border-radius: 50%; background: transparent; border: 0; color: var(--text-dim); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; flex-shrink: 0; }
+  .attach-btn:hover { background: var(--bg-input); color: var(--accent); }
 .attach-icon { width: 20px; height: 20px; }
-.mic-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); padding: 0; cursor: pointer; flex-shrink: 0; }
-.mic-btn:hover { border-color: var(--accent); color: var(--accent); }
-.mic-icon { width: 20px; height: 20px; }
+.mic-btn { width: 44px; height: 44px; border-radius: 50%; background: transparent; border: 0; color: var(--text-dim); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; flex-shrink: 0; }
+  .mic-btn:hover { background: var(--bg-input); color: var(--accent); }
+.mic-icon { width: 22px; height: 22px; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; box-shadow: none; } 50% { opacity: 0.6; box-shadow: 0 0 8px var(--accent); } }
-.image-preview-chip { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--bg-panel); border-top: 1px solid var(--border); flex-shrink: 0; }
+.image-preview-chip { display: flex; align-items: center; gap: 8px; padding: 2px 2px 4px; background: transparent; border-top: 0; flex-shrink: 0; }
 .preview-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); }
 .remove-btn { background: transparent; border: none; color: var(--danger-text); font-size: 20px; line-height: 1; cursor: pointer; padding: 4px 8px; flex-shrink: 0; }
 .user-image-thumb { max-width: 100%; max-height: 160px; border-radius: var(--radius-sm); margin-bottom: 8px; display: block; object-fit: contain; }
-.mic-btn.listening .mic-icon { animation: mic-pulse 1s ease-in-out infinite; }
+.mic-btn.listening { color: var(--accent); }
+  .mic-btn.listening .mic-icon { animation: mic-pulse 1s ease-in-out infinite; }
 .chat-error { position: relative; margin: 8px 16px 0; }
 .close-error { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--danger-text); font-size: 16px; padding: 4px; cursor: pointer; }
 .panel-empty { padding: 24px; text-align: center; }
@@ -462,10 +471,11 @@ function toggleMic(): void {
 @media (max-width: 640px) {
   .chat-header { flex-wrap: wrap; row-gap: 4px; }
   .header-info { order: -1; flex-basis: 100%; }
+  .input-row { margin: 8px 8px 10px; }
 }
-.reasoning-toggle { background: transparent; border: 0; color: var(--text-dim); font-size: 12px; cursor: pointer; padding: 2px 4px; line-height: 1; display: inline-flex; align-items: center; gap: 4px; }
+.reasoning-toggle { background: transparent; border: 0; color: var(--text-dim); font-size: 11px; cursor: pointer; padding: 0 2px; line-height: 1.2; display: inline-flex; align-items: center; gap: 4px; }
 .reasoning-toggle:hover { color: var(--accent); }
-.chevron { display: inline-block; transition: transform 0.15s ease; font-size: 10px; }
+.chevron { display: inline-block; transition: transform 0.15s ease; font-size: 9px; }
 .chevron.open { transform: rotate(90deg); }
 .reasoning-body { color: var(--text-dim); font-size: 12px; white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin: 4px 0; line-height: 1.4; }
 </style>
