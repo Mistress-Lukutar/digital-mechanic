@@ -4,6 +4,7 @@ import type {
   AdminUserItem,
   AuthMeResponse,
   AuthTokenResponse,
+  ChatTurnDetail,
   DocumentInfo,
   DocumentPage,
   FleetStats,
@@ -257,6 +258,11 @@ export async function getAdminUsageTotals(): Promise<UsageTotalsType> {
 export async function getAdminUsageRecent(limit: number = 50): Promise<UsageRowItem[]> {
   const limit_ = String(Math.min(200, Math.max(1, limit)))
   return apiGet<UsageRowItem[]>(`${apiUrl('/api/admin/usage/recent')}?limit=${limit_}`)
+}
+
+/** GET /api/admin/usage/{id}/detail */
+export async function getAdminUsageDetail(id: number): Promise<ChatTurnDetail> {
+  return apiGet<ChatTurnDetail>(apiUrl(`/api/admin/usage/${id}/detail`))
 }
 
 // ---------------------------------------------------------------------------

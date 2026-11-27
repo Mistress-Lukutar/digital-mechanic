@@ -229,6 +229,15 @@ const hi = {
   'admin.delete_user_title': 'उपयोगकर्ता हटाएँ',
   'admin.delete_user_message': '«{username}» हटाएँ?',
   'admin.password_min_8': 'पासवर्ड में कम से कम 8 अक्षर होने चाहिए',
+  'admin.detail_question': 'प्रश्न',
+  'admin.detail_answer': 'उत्तर',
+  'admin.detail_tools': 'उपकरण',
+  'admin.detail_citations': 'उद्धरण',
+  'admin.detail_ticket_draft': 'टिकट ड्राफ्ट',
+  'admin.detail_image': 'छवि के साथ',
+  'admin.detail_hint': '"chat" पंक्ति पर क्लिक — प्रश्न, उत्तर और उद्धरण',
+  'admin.detail_loading': 'लोड हो रहा है…',
+  'admin.detail_error': 'विवरण अनुपलब्ध',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import type { UsageTotals, UsageRowItem, AdminUserItem, LlmSettingsView } from '../types'
-import { getAdminUsageTotals, getAdminUsageRecent, getAdminUsers, createAdminUser, deleteAdminUser, resetAdminPassword, getLlmSettings, updateLlmSettings } from '../api'
+import type { UsageTotals, UsageRowItem, ChatTurnDetail, AdminUserItem, LlmSettingsView } from '../types'
+import { getAdminUsageTotals, getAdminUsageRecent, getAdminUsers, createAdminUser, deleteAdminUser, resetAdminPassword, getLlmSettings, updateLlmSettings, getAdminUsageDetail } from '../api'
 import { useConfirm } from '../composables/useConfirm'
 import { t } from '../i18n'
 
@@ -15,6 +15,12 @@ const usageTotals = ref<UsageTotals | null>(null)
 const recentUsage = ref<UsageRowItem[]>([])
 const loadingData = ref(false)
 const errorStrip = ref<string | null>(null)
+
+// Detail row expand/collapse
+const expandedUsageId = ref<number | null>(null)
+const usageDetail = ref<ChatTurnDetail | null>(null)
+const detailLoading = ref(false)
+const detailError = ref('')
 
 async function loadDashboard(): Promise<void> {
   loadingData.value = true
@@ -175,6 +181,30 @@ function kindChipClass(kind: string): string {
   if (kind.includes('error')) return 'badge-danger'
   return ''
 }
+
+async function toggleDetailRow(id: number): Promise<void> {
+  if (expandedUsageId.value === id) {
+    expandedUsageId.value = null
+    usageDetail.value = null
+    detailLoading.value = false
+    detailError.value = ''
+    return
+  }
+  expandedUsageId.value = id
+  usageDetail.value = null
+  detailLoading.value = true
+  detailError.value = ''
+  try {
+    const detail = await getAdminUsageDetail(id)
+    // Stale-response guard: the user may expand another row while this
+    // fetch is in flight; apply only if the target row is still expanded.
+    if (expandedUsageId.value === id) usageDetail.value = detail
+  } catch (e) {
+    if (e instanceof Error && expandedUsageId.value === id) detailError.value = e.message
+  } finally {
+    if (expandedUsageId.value === id) detailLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -221,6 +251,9 @@ function kindChipClass(kind: string): string {
 
       <!-- Recent requests table -->
       <h4 class="section-title">{{ t('admin.recent_requests') }}</h4>
+      <div v-if="recentUsage.some(r => r.kind === 'chat' && r.status === 'ok')" class="dim" style="font-size: 12px;">
+        {{ t('admin.detail_hint') }}
+      </div>
       <div class="table-actions">
         <button :disabled="loadingData" @click="loadDashboard()">{{ t('admin.refresh') }}</button>
       </div>
@@ -245,20 +278,61 @@ function kindChipClass(kind: string): string {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in recentUsage" :key="r.id">
-              <td class="mono">{{ formatIso(r.ts) }}</td>
-              <td>{{ r.username || '—' }}</td>
-              <td><span :class="['chip', kindChipClass(r.kind)]">{{ r.kind }}</span></td>
-              <td class="dim mono">{{ r.model || '—' }}</td>
-              <td class="mono dim">{{ r.vehicle_id || '—' }}</td>
-              <td class="mono">{{ r.input_tokens }}</td>
-              <td class="mono">{{ r.output_tokens }}</td>
-              <td class="mono">{{ r.duration_ms }}</td>
-              <td>
-                <span v-if="r.status === 'ok'" class="badge badge-ok">OK</span>
-                <span v-else class="badge badge-danger" :title="r.error || ''">{{ t('admin.error_label') }}</span>
-              </td>
-            </tr>
+            <template v-for="r in recentUsage" :key="r.id">
+              <tr :class="['usage-row', { clickable: r.kind === 'chat' && r.status === 'ok' }]"
+                  @click="r.kind === 'chat' && r.status === 'ok' ? toggleDetailRow(r.id) : undefined">
+                <td class="mono">
+                  <span v-if="r.kind === 'chat' && r.status === 'ok'" class="expand-indicator">{{ expandedUsageId === r.id ? '▾' : '▸' }}</span>
+                  {{ formatIso(r.ts) }}
+                </td>
+                <td>{{ r.username || '—' }}</td>
+                <td><span :class="['chip', kindChipClass(r.kind)]">{{ r.kind }}</span></td>
+                <td class="dim mono">{{ r.model || '—' }}</td>
+                <td class="mono dim">{{ r.vehicle_id || '—' }}</td>
+                <td class="mono">{{ r.input_tokens }}</td>
+                <td class="mono">{{ r.output_tokens }}</td>
+                <td class="mono">{{ r.duration_ms }}</td>
+                <td>
+                  <span v-if="r.status === 'ok'" class="badge badge-ok">OK</span>
+                  <span v-else class="badge badge-danger" :title="r.error || ''">{{ t('admin.error_label') }}</span>
+                </td>
+              </tr>
+              <tr v-if="expandedUsageId === r.id" class="detail-row">
+                <td :colspan="9">
+                  <div v-if="detailLoading" class="dim">{{ t('admin.detail_loading') }}</div>
+                  <div v-else-if="detailError" class="badge badge-danger">{{ detailError }}</div>
+                  <template v-else-if="usageDetail">
+                    <div style="margin-bottom: 8px;">
+                      <span class="detail-label">{{ t('admin.detail_question') }}:</span>
+                      <pre class="mono pre-wrap">{{ usageDetail.question }}</pre>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                      <span class="detail-label">{{ t('admin.detail_answer') }}:</span>
+                      <pre class="mono pre-wrap dim">{{ usageDetail.answer }}</pre>
+                    </div>
+                    <div v-if="usageDetail.tools.length" style="margin-bottom: 8px;">
+                      <span class="detail-label">{{ t('admin.detail_tools') }}:</span>
+                      <span v-for="tool in usageDetail.tools" :key="tool" class="chip" style="margin-left: 4px;">{{ tool }}</span>
+                    </div>
+                    <div v-if="usageDetail.citations.length" style="margin-bottom: 8px;">
+                      <span class="detail-label">{{ t('admin.detail_citations') }}:</span>
+                      <span v-for="(c, ci) in usageDetail.citations" :key="ci" class="chip" style="margin-left: 4px;">[{{ c.doc }}, стр. {{ c.page }}]</span>
+                    </div>
+                    <div v-if="usageDetail.ticket_draft" style="margin-bottom: 8px;">
+                      <span class="detail-label">{{ t('admin.detail_ticket_draft') }}:</span>
+                      <span v-if="usageDetail.ticket_draft.anomaly_type" class="chip" style="margin-left: 4px;">{{ usageDetail.ticket_draft.anomaly_type }}</span>
+                      <span v-if="usageDetail.ticket_draft.urgency" class="chip" style="margin-left: 4px;">{{ usageDetail.ticket_draft.urgency }}</span>
+                    </div>
+                    <div v-if="usageDetail.has_image" style="margin-bottom: 8px;">
+                      <span class="chip">📷 {{ t('admin.detail_image') }}</span>
+                    </div>
+                    <div v-if="usageDetail.language">
+                      <span class="chip dim">lang: {{ usageDetail.language }}</span>
+                    </div>
+                  </template>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
 
@@ -589,5 +663,41 @@ function kindChipClass(kind: string): string {
 .kv-grid dd {
   margin: 0;
   font-family: Consolas, monospace;
+}
+
+/* Expandable usage rows */
+.data-table tbody tr.clickable {
+  cursor: pointer;
+}
+
+.expand-indicator {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  margin-right: 2px;
+  font-size: 10px;
+  color: var(--text-dim);
+  user-select: none;
+}
+
+/* Detail row */
+.detail-row td {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+
+.pre-wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
 }
 </style>

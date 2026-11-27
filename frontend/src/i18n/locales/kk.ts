@@ -229,6 +229,15 @@ const kk = {
   'admin.delete_user_title': 'Пайдаланушыны жою',
   'admin.delete_user_message': '«{username}» жойылсын ба?',
   'admin.password_min_8': 'Құпия сөз кем дегенде 8 таңбадан тұруы керек',
+  'admin.detail_question': 'Сұрақ',
+  'admin.detail_answer': 'Жауап',
+  'admin.detail_tools': 'Құралдар',
+  'admin.detail_citations': 'Дереккөздер',
+  'admin.detail_ticket_draft': 'Өтініш жобасы',
+  'admin.detail_image': 'суретпен',
+  'admin.detail_hint': '«chat» жолын басу — сұрақ, жауап және дереккөздер',
+  'admin.detail_loading': 'Жүктелуде…',
+  'admin.detail_error': 'Толық ақпарат қолжетімсіз',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults
