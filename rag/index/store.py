@@ -7,10 +7,11 @@ Version: v0.1.0
 
 A version directory (data/rag/index/vNNN/) holds the bm25 model, the
 embedding matrix, the chunks copy it was built from, pages text and a
-manifest. A new version is built next to the current one, checked by eval,
-then ``current.json`` is flipped — the old version stays until the demo
-is over. All of data/rag/ is gitignored: extracted manual text never
-enters the repository.
+manifest with build provenance (embed model, library versions, layout
+mode, git commit — issue #14 H2). A new version is built next to the
+current one, checked by eval, then ``current.json`` is flipped — the old
+version stays until the demo is over. All of data/rag/ is gitignored:
+extracted manual text never enters the repository.
 '''
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -40,6 +42,7 @@ class IndexManifest:
     n_chunks: int
     n_pages: int
     docs: dict[str, dict[str, int]]
+    provenance: dict = None  # type: ignore[assignment]
 
 
 @dataclass
@@ -119,6 +122,7 @@ def read_current(data_dir: Path, pinned: str | None = None) -> StoredIndex | Non
         n_chunks=manifest_data.get("n_chunks", len(chunks)),
         n_pages=manifest_data.get("n_pages", 0),
         docs=manifest_data.get("docs", {}),
+        provenance=manifest_data.get("provenance", {}),
     )
     page_text = _load_pages(directory / "pages.jsonl")
     return StoredIndex(
@@ -188,12 +192,77 @@ def write_version(
         "n_chunks": len(chunks),
         "n_pages": len(pages_seen),
         "docs": docs,
+        "provenance": _build_provenance(embed_model),
     }
     (directory / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8"
     )
     _write_pointer(data_dir, version)
     return version
+
+
+def _build_provenance(embed_model: str | None) -> dict:
+    '''Record how this build was made (issue #14 H2 provenance).
+
+    The flagship metric must be reproducible: a fresh fetch plus a
+    documented build has to produce the best index, so the manifest
+    carries the facts a re-builder needs to compare its run — embedding
+    model, library versions, the layout mode (the classic table detector
+    vs pymupdf's bundled neural layout) and the git commit of the code
+    the build ran from.
+
+    Args:
+        embed_model: Embedding model name or None (BM25-only build).
+
+    Returns:
+        Provenance dict for manifest.json; missing facts degrade to None.
+    '''
+    import pymupdf
+
+    versions: dict[str, str] = {
+        "pymupdf": str(getattr(pymupdf, "__version__", None)),
+        "numpy": str(np.__version__),
+    }
+    if embed_model:
+        try:
+            import sentence_transformers
+
+            versions["sentence-transformers"] = str(
+                sentence_transformers.__version__
+            )
+        except ImportError:
+            pass
+    return {
+        # ingest.py pins the classic table detector by flipping this flag.
+        "layout_mode": (
+            "classic-table-detector"
+            if not getattr(pymupdf, "_layout_enabled", True)
+            else "pymupdf-default"
+        ),
+        "library_versions": versions,
+        "git_commit": _git_commit(),
+    }
+
+
+def _git_commit() -> str | None:
+    '''Commit of the working tree the build ran from.
+
+    Returns:
+        Short commit hash, or None outside a git checkout / without git.
+    '''
+    repo_root = Path(__file__).resolve().parents[1]
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout.strip() or None
 
 
 def _read_pointer(data_dir: Path) -> str | None:
