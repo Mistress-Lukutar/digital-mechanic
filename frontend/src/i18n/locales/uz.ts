@@ -30,7 +30,6 @@ const uz = {
   'login.error.mismatch': 'Parollar mos kelmaydi',
   'login.error.password': 'Kirish xatosi',
   'login.error.change': 'Parolni oʻzgartirish xatosi',
-  'login.adminHint': 'Boshlangʻich admin paroli birinchi ishga tushirishda server konsoliga chiqariladi.',
   'login.consent': 'Demo tizimida maʼlumotlarni qayta ishlashga roziman (maʼlumotlar sintetik, 152-FZ)',
 
   // ---------------------------------------------------------------------------

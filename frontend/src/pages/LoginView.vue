@@ -158,9 +158,6 @@ function dismissError(): void {
         </button>
       </form>
 
-      <p class="field-hint login-hint">
-        {{ t('login.adminHint') }}
-      </p>
     </div>
   </div>
 </template>
@@ -192,10 +189,14 @@ function dismissError(): void {
   margin-bottom: 12px;
 }
 
-.login-hint {
-  margin-top: 16px;
-  color: var(--text-dim);
-  font-size: 12px;
-  line-height: 1.4;
+.consent-field {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.consent-field input[type='checkbox'] {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 </style>
