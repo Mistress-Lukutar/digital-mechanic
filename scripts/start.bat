@@ -39,21 +39,30 @@ if not exist "%REPO%\.venv\Scripts\python.exe" (
 :: [1/2] Frontend build - served statically by the API process.
 :: The vite build uses a relative base, so one static/dist works
 :: both at the server root and behind a subpath reverse proxy.
+:: Stale-bundle guard: the bundle is rebuilt when it is missing OR
+:: older than the sources (a git pull without npm build must not
+:: serve the old UI).
 :: ----------------------------------------------------------------
-if exist "%REPO%\static\dist\index.html" (
-    echo [1/2] Frontend build found: static\dist
-) else (
-    echo [1/2] static\dist not found - building frontend...
-    pushd "%REPO%\frontend"
-    call npm run build
-    if errorlevel 1 (
-        popd
-        echo ERROR: frontend build failed
-        pause
-        exit /b 1
-    )
+if exist "%REPO%\static\dist\index.html" goto front_exists
+goto front_build
+:front_exists
+"%REPO%\.venv\Scripts\python.exe" -c "import os,sys;d=r'%REPO%\frontend\src';i=r'%REPO%\static\dist\index.html';sys.exit(1 if os.path.getmtime(i)<max((os.path.getmtime(os.path.join(r,f)) for r,_,fs in os.walk(d) for f in fs),default=0) else 0)"
+if not errorlevel 1 goto front_up_to_date
+:front_build
+echo [1/2] Building frontend (missing or older than sources)...
+pushd "%REPO%\frontend"
+call npm run build
+if errorlevel 1 (
     popd
+    echo ERROR: frontend build failed
+    pause
+    exit /b 1
 )
+popd
+goto front_done
+:front_up_to_date
+echo [1/2] Frontend build up to date: static\dist
+:front_done
 echo.
 
 :: ----------------------------------------------------------------
@@ -95,6 +104,10 @@ echo   Mocks:     ML :%ML_PORT%, TOiR :%TOIR_PORT%, RAG :%RAG_PORT% (separate wi
 echo   Press Ctrl+C to stop the API server
 echo ----------------------------------------------------------------
 echo.
+:: Stale-backend guard: an old API process on %PORT% makes uvicorn exit
+:: with "address already in use" - warn explicitly (observed on the stand).
+netstat -ano | find ":%PORT% " | find "LISTENING" >nul 2>&1
+if not errorlevel 1 echo WARNING: port %PORT% already in use - stop the old API process first.
 cd /d "%REPO%"
 .venv\Scripts\python.exe -m uvicorn mechanic.main:app --host %HOST% --port %PORT%
 

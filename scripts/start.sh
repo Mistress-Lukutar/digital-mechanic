@@ -22,10 +22,13 @@ else
   exit 1
 fi
 
-# Build the frontend once; the vite build uses a relative base, so a single
-# static/dist works both at the server root and behind a subpath proxy.
-if [[ ! -f "$REPO/static/dist/index.html" ]]; then
-  echo "[start] static/dist missing - building frontend..."
+# Build the frontend when the bundle is missing OR older than the sources
+# (stale-bundle guard: a git pull without npm build must not serve the old
+# UI). The vite build uses a relative base, so a single static/dist works
+# both at the server root and behind a subpath proxy.
+if [[ ! -f "$REPO/static/dist/index.html" ]] \
+   || [[ -n "$(find "$REPO/frontend/src" -newer "$REPO/static/dist/index.html" -print -quit 2>/dev/null)" ]]; then
+  echo "[start] building frontend (missing or older than sources)..."
   (cd "$REPO/frontend" && npm run build)
 fi
 
@@ -56,5 +59,10 @@ trap 'kill "$ML_PID" "$TOIR_PID" ${RAG_PID:+"$RAG_PID"} 2>/dev/null || true' EXI
 
 echo "[start] API + UI: http://localhost:$PORT/  (health: /health)"
 echo "[start] mocks: ML :$ML_PORT, TOiR :$TOIR_PORT, RAG :$RAG_PORT - Ctrl+C stops everything"
+# Stale-backend guard: an old API process on $PORT makes uvicorn exit with
+# "address already in use" - warn explicitly (observed once on the stand).
+if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ":$PORT "; then
+  echo "[start] WARNING: port $PORT is already in use - stop the old API process first."
+fi
 cd "$REPO"
 "$PY" -m uvicorn mechanic.main:app --host "$HOST" --port "$PORT"
