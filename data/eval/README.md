@@ -1,25 +1,20 @@
-# Eval question sets (committed, no manual text)
+# Наборы вопросов eval (коммитимые, без текста руководств)
 
-Question sets for measuring search quality. Pages are PDF pages (1-based);
-gold values are quoted from the manuals and were verified against rendered
-page images (see the `verified_by` field in golden.jsonl).
+Наборы вопросов для измерения качества поиска. Страницы — PDF-страницы (отсчёт с 1); золотые значения процитированы из руководств и проверены по рендерам изображений страниц (см. поле `verified_by` в golden.jsonl).
 
-| File | Size | Shape |
+| Файл | Размер | Состав |
 |---|---|---|
-| `golden.jsonl` | 10 | `{qid, engine, question, value, gold_pages, verified_by}` — facts with exact values (torque, clearances) |
-| `manual.jsonl` | 46 | `{qid, engine, question, gold_pages, kind}` — section lookup with a gold page |
-| `negative.jsonl` | 10 | `{qid, engine, fault_code, question}` — questions the manuals cannot answer; the service must refuse (`no_instruction: true`); the fault codes are the six verified "none" cells of the fleet plus the other none cells |
+| `golden.jsonl` | 10 | `{qid, engine, question, value, gold_pages, verified_by}` — факты с точными значениями (моменты затяжки, зазоры) |
+| `manual.jsonl` | 46 | `{qid, engine, question, gold_pages, kind}` — поиск по разделам с золотой страницей |
+| `negative.jsonl` | 10 | `{qid, engine, fault_code, question}` — вопросы, которые руководства не могут ответить; сервис должен отказать (`no_instruction: true`); коды неисправностей — шесть проверенных ячеек «none» парка плюс другие ячейки none |
 
-Run:
+Запуск:
 
 ```bash
-python -m rag.eval --set all          # everything
-python -m rag.eval --set golden -v    # one set, per-question printout
+python -m rag.eval --set all          # всё
+python -m rag.eval --set golden -v    # один набор, вывод по каждому вопросу
 ```
 
-Metrics: hit@1 / hit@5 with a ±1 page tolerance, MRR, the value check for
-golden, and the refusal rate for negative. Target (plan-B): hit@5 ≥ 0.85 on
-the manual set; the numbers go into the commit message of each stage.
+Метрики: hit@1 / hit@5 с допуском ±1 страница, MRR, проверка значения для golden и доля отказов для negative. Цель (план B): hit@5 ≥ 0.85 на наборе manual; числа попадают в сообщение коммита каждого этапа.
 
-The bulk extracted manual text and the built indexes live in the
-gitignored `data/rag/` — only the question sets are committed.
+Весь извлечённый текст руководств и построенные индексы находятся в gitignored `data/rag/` — коммитятся только наборы вопросов.
