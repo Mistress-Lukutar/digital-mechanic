@@ -29,9 +29,12 @@ data/summaries/
 logs/
 server.log
 
-# Copyrighted factory manuals: never commit PDFs or extracted-text indexes.
-# Place the issued PDFs locally (see data/manuals/README.md).
+# Copyrighted factory manuals: never commit PDFs, DOCX case documents or
+# extracted-text indexes. Fetch them at deploy time (scripts/bootstrap.py)
+# or place them locally (see data/manuals/README.md).
 data/manuals/*.pdf
+data/manuals/*.docx
+data/manuals/_staging/
 
 # Internal planning docs stay local, never published.
 .agents/

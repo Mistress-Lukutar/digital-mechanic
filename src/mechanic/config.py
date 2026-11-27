@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     # Explicit DB file override (tests point it at a tmp dir); when unset the
     # DB lives inside app_data_dir.
     db_file: Path | None = None
+    # Manual-specific prompt block (the manual map and answer examples quote
+    # the copyrighted manuals): kept in a directory external to the
+    # repository and connected via configuration, like MANUALS_DIR.
+    prompt_manual_file: Path | None = None
 
     # Initial admin password at first startup. When empty, a random
     # password is generated and logged once (bootstrap); set it via env

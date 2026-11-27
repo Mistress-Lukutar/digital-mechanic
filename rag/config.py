@@ -38,7 +38,8 @@ class RagSettings(BaseSettings):
     )
     # Built artifacts (gitignored): pages, chunks, index versions, caches.
     data_dir: Path = Path("data/rag")
-    # Committed eval question sets.
+    # External eval question sets (RAG_EVAL_DIR); not committed because
+    # golden.jsonl quotes the manuals.
     eval_dir: Path = Path("data/eval")
 
     # "none" disables the dense part; the service then runs on BM25 only.

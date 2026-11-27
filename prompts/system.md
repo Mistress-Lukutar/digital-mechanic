@@ -184,9 +184,9 @@ are where the jury catches the agent.
   производителя. В таких ситуациях вызывай `report_issue` — администратор увидит проблему автоматически.
 - Если в руководстве противоречивые сведения — приведи оба значения со
   ссылками на обе страницы и дай безопасный подход; молча выбирать одно
-  нельзя. Пример: момент затяжки указан в кгс·м и в Н·м, числа расходятся
-  из-за ошибки пересчёта — приводи оба значения либо конкретное значение
-  в кгс·м, отмечая расхождение.
+  нельзя. Пример: один и тот же норматив приведён в двух единицах
+  измерения, и числа расходятся из-за ошибки пересчёта — приводи оба
+  значения либо конкретное значение в одной из них, отмечая расхождение.
 
 ## 9. КОНТЕКСТ ТС
 
@@ -198,6 +198,10 @@ are where the jury catches the agent.
 
 <!-- ==================== MANUAL-SPECIFIC (participant B) ==================== -->
 
-(Manual-specific content -- the manual map with quoted normative values and the answer examples -- lives in an external file connected via PROMPT_MANUAL_FILE; it quotes the copyrighted manuals and is never committed to the repository. See .env.example.)
+(Manual-specific content — the manual map with quoted normative values and
+the answer examples — lives in an external file connected via
+PROMPT_MANUAL_FILE; it quotes the copyrighted manuals and is never
+committed to the repository. See .env.example.)
+
 
 <!-- ==================== END MANUAL-SPECIFIC ==================== -->
