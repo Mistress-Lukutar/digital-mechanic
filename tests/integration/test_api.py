@@ -113,6 +113,54 @@ async def app_client(tmp_path: Path) -> httpx.AsyncClient:
                     "model_version": "mock-v1",
                 },
             )
+        if vid == "P854BT78":
+            return httpx.Response(
+                200,
+                json={
+                    "vehicle_id": "P854BT78",
+                    "session_id": "S-0021",
+                    "status": "anomaly",
+                    "anomaly_type": "F09",
+                    "anomaly_title": "Турбокомпрессор",
+                    "anomaly_score": 0.72,
+                    "confidence": 0.66,
+                    "signal_quality": "warning",
+                    "description": "Стук в турбине",
+                    "model_version": "mock-v1",
+                },
+            )
+        if vid == "M739BA198":
+            return httpx.Response(
+                200,
+                json={
+                    "vehicle_id": "M739BA198",
+                    "session_id": "S-0103",
+                    "status": "anomaly",
+                    "anomaly_type": "F02",
+                    "anomaly_title": "Давление масла",
+                    "anomaly_score": 0.74,
+                    "confidence": 0.48,
+                    "signal_quality": "warning",
+                    "description": "Низкое давление масла",
+                    "model_version": "mock-v1",
+                },
+            )
+        if vid == "P456AT178":
+            return httpx.Response(
+                200,
+                json={
+                    "vehicle_id": "P456AT178",
+                    "session_id": "S-0003",
+                    "status": "anomaly",
+                    "anomaly_type": "F01",
+                    "anomaly_title": "Клапаны",
+                    "anomaly_score": 0.71,
+                    "confidence": 0.80,
+                    "signal_quality": "bad",
+                    "description": "Стук клапанов",
+                    "model_version": "mock-v1",
+                },
+            )
         return httpx.Response(404, json={"detail": "vehicle not found"})
 
     def _toir_handler(request: httpx.Request) -> httpx.Response:
@@ -657,3 +705,131 @@ async def test_chat_invalid_image_url_422(app_client: httpx.AsyncClient) -> None
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 422
+
+
+async def test_ticket_submit_requires_warning_override(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """POST /api/tickets with warning signal_quality requires override_confirmed."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "P854BT78",
+        "session_id": "S-0021",
+        "anomaly_type": "F09",
+        "conclusion": "Стук в турбокомпрессоре",
+        "urgency": "medium",
+        "operations": ["Проверить турбокомпрессор"],
+        "spare_parts": [],
+        "references": [{"manual": "236.01.01 РК", "pdf_page": 50}],
+    }
+
+    # Without override_confirmed → 422 mentioning «подтвердите»
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    assert "подтвердите" in resp.json()["detail"]
+
+    # With override_confirmed true → success (200 per existing convention)
+    payload_with_override = {**payload, "override_confirmed": True}
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload_with_override,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["ticket_id"] == "TKT-0001"
+
+    # Verify ticket appears in list
+    list_resp = await app_client.get(
+        "/api/tickets/P854BT78", headers={"Authorization": f"Bearer {mech_token}"}
+    )
+    assert list_resp.status_code == 200
+    tickets = list_resp.json()
+    assert len(tickets) == 1
+
+
+async def test_ticket_submit_blocked_below_floor(app_client: httpx.AsyncClient) -> None:
+    """Session with confidence below floor → ticket blocked even with override."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "M739BA198",
+        "session_id": "S-0103",
+        "anomaly_type": "F02",
+        "conclusion": "Низкое давление масла",
+        "urgency": "high",
+        "operations": ["Проверить давление масла"],
+        "spare_parts": [],
+        "references": [{"manual": "236.01.01 РК", "pdf_page": 50}],
+    }
+
+    # With override_confirmed true but confidence below floor → 422 mentioning «порога»
+    payload_with_override = {**payload, "override_confirmed": True}
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload_with_override,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "порога" in detail
+
+
+async def test_ticket_submit_blocked_bad_quality(app_client: httpx.AsyncClient) -> None:
+    """Session with signal_quality bad → ticket blocked regardless of override."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "P456AT178",
+        "session_id": "S-0003",
+        "anomaly_type": "F01",
+        "conclusion": "Стук клапанов",
+        "urgency": "high",
+        "operations": ["Отрегулировать клапаны"],
+        "spare_parts": [],
+        "references": [{"manual": "236.01.01 РК", "pdf_page": 50}],
+    }
+
+    # Without override_confirmed → 422 mentioning «повторите запись»
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "повторите запись" in detail
+
+    # With override_confirmed true → still 422 (bad quality always blocks)
+    payload_with_override = {**payload, "override_confirmed": True}
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload_with_override,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "повторите запись" in detail
