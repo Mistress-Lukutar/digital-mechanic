@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, watch, computed } from 'vue'
+import { ref, nextTick, watch, computed, onBeforeUnmount } from 'vue'
 import type { TicketDraftEvent, ChatMessage, DiagnosticResult } from '../types'
 import { t } from '../i18n'
 import { createSseChat } from '../composables/useSseChat'
@@ -12,6 +12,17 @@ import HistoryPanel from '../components/HistoryPanel.vue'
 import DocPanel from '../components/DocPanel.vue'
 import AppModal from '../components/AppModal.vue'
 import { renderAssistantHtml } from '../lib/markdown'
+
+const SIDEBAR_MIN = 240
+const SIDEBAR_MAX = 560
+const SIDEBAR_DEFAULT = 380
+
+function loadSidebarWidth(key: string): number {
+  const raw = localStorage.getItem(key)
+  if (raw === null) return SIDEBAR_DEFAULT
+  const n = parseInt(raw, 10)
+  return isNaN(n) ? SIDEBAR_DEFAULT : Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, n))
+}
 
 const props = defineProps<{ vehicleId: string }>()
 const emit = defineEmits<{ back: [] }>()
@@ -146,6 +157,68 @@ const leftOpen = ref(true)
 const rightOpen = ref(false)
 const mobilePanel = ref<'history' | 'doc' | null>(null)
 
+const leftWidth = ref(loadSidebarWidth('chat.sidebar.left.width'))
+const rightWidth = ref(loadSidebarWidth('chat.sidebar.right.width'))
+
+let draggingSide: 'left' | 'right' | null = null
+
+function clamp(v: number): number {
+  return Math.round(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, v)))
+}
+
+function startResize(side: 'left' | 'right', _e: MouseEvent): void {
+  if (isMobileLayout() || draggingSide) return
+  draggingSide = side
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'col-resize'
+  window.addEventListener('mousemove', onResizeMove)
+  window.addEventListener('mouseup', endResize)
+}
+
+function onResizeMove(e: MouseEvent): void {
+  if (!draggingSide) return
+  const rect = document.querySelector('.chat-page')?.getBoundingClientRect()
+  if (!rect) return
+  if (draggingSide === 'left') {
+    leftWidth.value = clamp(e.clientX - rect.left)
+  } else {
+    rightWidth.value = clamp(rect.right - e.clientX)
+  }
+}
+
+function endResize(): void {
+  window.removeEventListener('mousemove', onResizeMove)
+  window.removeEventListener('mouseup', endResize)
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
+  if (draggingSide === 'left') {
+    localStorage.setItem('chat.sidebar.left.width', String(leftWidth.value))
+  } else if (draggingSide === 'right') {
+    localStorage.setItem('chat.sidebar.right.width', String(rightWidth.value))
+  }
+  draggingSide = null
+}
+
+function resetWidth(side: 'left' | 'right'): void {
+  if (side === 'left') {
+    leftWidth.value = SIDEBAR_DEFAULT
+    localStorage.removeItem('chat.sidebar.left.width')
+  } else {
+    rightWidth.value = SIDEBAR_DEFAULT
+    localStorage.removeItem('chat.sidebar.right.width')
+  }
+}
+
+onBeforeUnmount(() => {
+  if (draggingSide) {
+    window.removeEventListener('mousemove', onResizeMove)
+    window.removeEventListener('mouseup', endResize)
+    document.body.style.userSelect = ''
+    document.body.style.cursor = ''
+    draggingSide = null
+  }
+})
+
 function isMobileLayout(): boolean {
   return window.matchMedia('(max-width: 1023px)').matches
 }
@@ -222,9 +295,10 @@ function toggleMic(): void {
 
 <template>
   <div class="chat-page">
-    <aside v-show="leftOpen" class="chat-sidebar left">
+    <aside v-show="leftOpen" class="chat-sidebar left" :style="{ width: leftWidth + 'px' }">
       <button class="new-dialog-btn" :disabled="streaming" @click="handleNewDialog">{{ t('chat.new_dialog') }}</button>
       <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
+      <div class="sidebar-resizer" @mousedown="startResize('left', $event)" @dblclick="resetWidth('left')" role="separator" aria-orientation="vertical" />
     </aside>
 
     <div class="chat-column">
@@ -357,9 +431,10 @@ function toggleMic(): void {
       </div>
       </div>
 
-      <aside v-show="rightOpen" class="chat-sidebar right">
+      <aside v-show="rightOpen" class="chat-sidebar right" :style="{ width: rightWidth + 'px' }">
         <DocPanel v-if="activeDocId" :doc-id="activeDocId" :page="activePage" />
         <div v-else class="panel-empty dim">{{ t('chat.select_doc') }}</div>
+        <div class="sidebar-resizer" @mousedown="startResize('right', $event)" @dblclick="resetWidth('right')" role="separator" aria-orientation="vertical" />
       </aside>
 
       <div v-if="mobilePanel === 'history'" class="mobile-overlay" @click.self="mobilePanel = null">
@@ -396,9 +471,13 @@ function toggleMic(): void {
 .header-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
 .engine-chip { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim); padding: 1px 8px; border-radius: 999px; font-size: 11px; }
 .chat-column { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.chat-sidebar { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; background: var(--bg-panel); }
+.chat-sidebar { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; background: var(--bg-panel); position: relative; }
 .chat-sidebar.left { border-right: 1px solid var(--border); }
 .chat-sidebar.right { border-left: 1px solid var(--border); }
+.sidebar-resizer { position: absolute; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 10; }
+.chat-sidebar.left .sidebar-resizer { right: 0; }
+.chat-sidebar.right .sidebar-resizer { left: 0; }
+.sidebar-resizer:hover { background: var(--accent-dim); opacity: 0.4; }
 .chat-sidebar > * { flex-shrink: 0; }
 .new-dialog-btn { margin: 12px; width: calc(100% - 24px); font-size: 13px; }
 .sidebar-toggle { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); padding: 0; cursor: pointer; flex-shrink: 0; }
