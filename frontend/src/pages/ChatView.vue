@@ -47,7 +47,10 @@ fetchVehicleInfo()
 
 const chat = createSseChat({
   onTicketDraft(draft: TicketDraftEvent): void { ticketDraft.value = draft; showTicketModal.value = true },
-  onDocument(docId: string, page: number): void { activeDocId.value = docId; activePage.value = page; rightPanelTab.value = 'doc' },
+  onDocument(docId: string, page: number): void {
+    activeDocId.value = docId; activePage.value = page
+    if (!isMobileLayout()) rightOpen.value = true
+  },
 })
 
 const speech = useSpeech()
@@ -139,26 +142,23 @@ const quickActions = computed(() => [
   { label: t('chat.quick.ticket.label'), text: t('chat.quick.ticket.text') },
 ])
 
-type PanelTab = 'history' | 'doc'
-const rightPanelTab = ref<PanelTab>('history')
-const showHistoryPanel = ref(false)
-const showDocPanel = ref(false)
+const leftOpen = ref(true)
+const rightOpen = ref(false)
+const mobilePanel = ref<'history' | 'doc' | null>(null)
 
 function isMobileLayout(): boolean {
   return window.matchMedia('(max-width: 1023px)').matches
 }
 
-function toggleHistory(): void {
+function toggleSidebar(side: 'left' | 'right'): void {
   if (isMobileLayout()) {
-    if (rightPanelTab.value !== 'history') {
-      rightPanelTab.value = 'history'
-      showDocPanel.value = false
-      showHistoryPanel.value = true
-    } else {
-      showHistoryPanel.value = !showHistoryPanel.value
-    }
+    // On mobile both sidebars render as full-screen overlays keyed by panel name.
+    const panel = side === 'left' ? 'history' : 'doc'
+    mobilePanel.value = mobilePanel.value === panel ? null : panel
+  } else if (side === 'left') {
+    leftOpen.value = !leftOpen.value
   } else {
-    rightPanelTab.value = 'history'
+    rightOpen.value = !rightOpen.value
   }
 }
 
@@ -185,8 +185,8 @@ function handleMdClick(e: MouseEvent): void {
   e.preventDefault()
   activeDocId.value = el.getAttribute('data-doc-id')
   activePage.value = Number(el.getAttribute('data-page'))
-  rightPanelTab.value = 'doc'
-  if (isMobileLayout()) showDocPanel.value = true
+  if (isMobileLayout()) mobilePanel.value = 'doc'
+  else rightOpen.value = true
 }
 
 function getDiagFromMsg(msg: ChatMessage): DiagnosticResult | null {
@@ -222,143 +222,156 @@ function toggleMic(): void {
 
 <template>
   <div class="chat-page">
-    <header class="chat-header panel">
-      <button class="back-btn" @click="emit('back')">← {{ t('chat.back') }}</button>
-      <div class="header-info">
-        <div class="header-main">
-          <span class="garage-badge">{{ header.garageNo }}</span>
-          <span class="vehicle-name">{{ header.make }} {{ header.model || '' }}</span>
+    <aside v-show="leftOpen" class="chat-sidebar left">
+      <button class="new-dialog-btn" :disabled="streaming" @click="handleNewDialog">{{ t('chat.new_dialog') }}</button>
+      <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
+    </aside>
+
+    <div class="chat-column">
+      <header class="chat-header panel">
+        <button
+          class="sidebar-toggle"
+          :class="{ active: isMobileLayout() ? mobilePanel === 'history' : leftOpen }"
+          :title="t('chat.history')"
+          :aria-label="t('chat.history')"
+          @click="toggleSidebar('left')"
+        >
+          <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M3 6h18M3 12h18M3 18h18"/>
+          </svg>
+        </button>
+        <button class="back-btn" @click="emit('back')">← {{ t('chat.back') }}</button>
+        <div class="header-info">
+          <div class="header-main">
+            <span class="garage-badge">{{ header.garageNo }}</span>
+            <span class="vehicle-name">{{ header.make }} {{ header.model || '' }}</span>
+          </div>
+          <div class="header-meta">
+            <span v-if="header.sessionStatus" :class="['badge', sessionBadgeClass(header.sessionStatus)]">{{ sessionLabel(header.sessionStatus) }}</span>
+            <span v-if="header.engineModel" class="engine-chip">{{ header.engineModel }}</span>
+          </div>
         </div>
-        <div class="header-meta">
-          <span v-if="header.sessionStatus" :class="['badge', sessionBadgeClass(header.sessionStatus)]">{{ sessionLabel(header.sessionStatus) }}</span>
-          <span v-if="header.engineModel" class="engine-chip">{{ header.engineModel }}</span>
-        </div>
+        <button
+          class="sidebar-toggle"
+          :class="{ active: isMobileLayout() ? mobilePanel === 'doc' : rightOpen }"
+          :title="t('chat.document')"
+          :aria-label="t('chat.document')"
+          @click="toggleSidebar('right')"
+        >
+          <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <path d="M14 2v6h6"/>
+          </svg>
+        </button>
+      </header>
+
+      <div v-if="chatError" class="error-strip chat-error">
+        {{ chatError }}
+        <button class="close-error" @click="chatError = null">&times;</button>
       </div>
-      <div class="header-actions">
-        <button :disabled="streaming" @click="handleNewDialog">{{ t('chat.new_dialog') }}</button>
-        <button @click="toggleHistory">{{ t('chat.history') }}</button>
-      </div>
-    </header>
 
-    <div class="chat-layout">
-      <div class="chat-column">
-        <div v-if="chatError" class="error-strip chat-error">
-          {{ chatError }}
-          <button class="close-error" @click="chatError = null">&times;</button>
+      <div class="chat-messages">
+        <div v-for="(msg, idx) in messages" :key="idx" :class="['message-row', msg.role]">
+          <template v-if="msg.role === 'assistant'">
+            <div class="bubble assistant-bubble">
+              <template v-if="msg.reasoning && msg.reasoning.length > 0">
+                <button
+                  class="reasoning-toggle"
+                  @click="expandedReasoning[idx] = !expandedReasoning[idx]"
+                  :aria-expanded="!!expandedReasoning[idx]"
+                >
+                  <span :class="{ chevron: true, open: !!expandedReasoning[idx] }">▸</span>
+                  {{ t('chat.reasoning.toggle') }}
+                </button>
+                <div class="reasoning-body" v-show="expandedReasoning[idx]">{{ msg.reasoning }}</div>
+              </template>
+              <StatusCard v-if="getDiagFromMsg(msg)" :diag="getDiagFromMsg(msg)" />
+              <AgentStep v-for="(step, sIdx) in msg.steps" :key="sIdx" :step="step" />
+              <div v-if="msg.text" class="message-text md-body" v-html="renderAssistantHtml(msg.text)" @click="handleMdClick"></div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="bubble user-bubble">
+              <img v-if="msg.image" :src="msg.image" class="user-image-thumb" />
+              {{ msg.text }}
+            </div>
+          </template>
         </div>
 
-        <div class="chat-messages">
-          <div v-for="(msg, idx) in messages" :key="idx" :class="['message-row', msg.role]">
-            <template v-if="msg.role === 'assistant'">
-              <div class="bubble assistant-bubble">
-                <template v-if="msg.reasoning && msg.reasoning.length > 0">
-                  <button
-                    class="reasoning-toggle"
-                    @click="expandedReasoning[idx] = !expandedReasoning[idx]"
-                    :aria-expanded="!!expandedReasoning[idx]"
-                  >
-                    <span :class="{ chevron: true, open: !!expandedReasoning[idx] }">▸</span>
-                    {{ t('chat.reasoning.toggle') }}
-                  </button>
-                  <div class="reasoning-body" v-show="expandedReasoning[idx]">{{ msg.reasoning }}</div>
-                </template>
-                <StatusCard v-if="getDiagFromMsg(msg)" :diag="getDiagFromMsg(msg)" />
-                <AgentStep v-for="(step, sIdx) in msg.steps" :key="sIdx" :step="step" />
-                <div v-if="msg.text" class="message-text md-body" v-html="renderAssistantHtml(msg.text)" @click="handleMdClick"></div>
-              </div>
-            </template>
-            <template v-else>
-              <div class="bubble user-bubble">
-                <img v-if="msg.image" :src="msg.image" class="user-image-thumb" />
-                {{ msg.text }}
-              </div>
-            </template>
-          </div>
-
-          <div v-if="streaming" class="streaming-indicator">
-            <span class="spinner" /><span class="dim">{{ t('chat.streaming') }}</span>
-          </div>
-
-          <!-- Quick actions: centered in the chat area when empty with vehicle -->
-          <div v-if="!streaming && messages.length === 0 && vehicleId" class="quick-actions">
-            <button v-for="action in quickActions" :key="action.label" class="quick-chip" @click="messageInput = action.text">{{ action.label }}</button>
-          </div>
-
-          <!-- Empty vehicle banner: centered when no vehicle selected -->
-          <div v-if="!vehicleId && !streaming" class="chat-empty-banner panel">
-            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            <span>{{ t('chat.empty_vehicle') }}</span>
-          </div>
+        <div v-if="streaming" class="streaming-indicator">
+          <span class="spinner" /><span class="dim">{{ t('chat.streaming') }}</span>
         </div>
 
-        <div v-if="attachedImage && vehicleId" class="image-preview-chip">
-          <img :src="attachedImage" alt="" class="preview-thumb" />
-          <button class="remove-btn" @click="attachedImage = null" :title="t('chat.attach.remove')">&times;</button>
+        <!-- Quick actions: centered in the chat area when empty with vehicle -->
+        <div v-if="!streaming && messages.length === 0 && vehicleId" class="quick-actions">
+          <button v-for="action in quickActions" :key="action.label" class="quick-chip" @click="messageInput = action.text">{{ action.label }}</button>
         </div>
-        <div class="input-row" v-if="vehicleId">
-          <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
-          <input type="file" accept="image/*" ref="fileInput" style="display:none" @change="onFileSelected" />
-          <button
-            v-if="!streaming && vehicleId"
-            class="attach-btn"
-            :title="t('chat.attach.label')"
-            aria-label="Прикрепить изображение"
-            @click="fileInput?.click()"
-          >
-            <svg class="attach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-            </svg>
-          </button>
-          <button
-            v-if="micSupported && !streaming && vehicleId"
-            class="mic-btn"
-            :class="{ listening: micListening }"
-            :title="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
-            :aria-label="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
-            @click="toggleMic"
-          >
-            <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <rect x="9" y="2" width="6" height="12" rx="3"/>
-              <path d="M5 11a7 7 0 0 0 14 0H5z"/>
-            </svg>
-          </button>
-          <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage">&rarr;</button>
-          <button v-else class="stop-btn danger-solid" @click="chat.stop">{{ t('chat.stop') }}</button>
+
+        <!-- Empty vehicle banner: centered when no vehicle selected -->
+        <div v-if="!vehicleId && !streaming" class="chat-empty-banner panel">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span>{{ t('chat.empty_vehicle') }}</span>
         </div>
       </div>
 
-      <div class="right-panel">
-        <div class="panel-tabs">
-          <button :class="['tab-btn', { active: rightPanelTab === 'history' }]" @click="rightPanelTab = 'history'">{{ t('chat.history') }}</button>
-          <button :class="['tab-btn', { active: rightPanelTab === 'doc' }]" @click="rightPanelTab = 'doc'">{{ t('chat.document') }}</button>
-        </div>
-        <template v-if="rightPanelTab === 'history'">
-          <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
-        </template>
-        <template v-else>
-          <DocPanel v-if="activeDocId" :doc-id="activeDocId" :page="activePage" />
-          <div v-else class="panel-empty dim">{{ t('chat.select_doc') }}</div>
-        </template>
+      <div v-if="attachedImage && vehicleId" class="image-preview-chip">
+        <img :src="attachedImage" alt="" class="preview-thumb" />
+        <button class="remove-btn" @click="attachedImage = null" :title="t('chat.attach.remove')">&times;</button>
+      </div>
+      <div class="input-row" v-if="vehicleId">
+        <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
+        <input type="file" accept="image/*" ref="fileInput" style="display:none" @change="onFileSelected" />
+        <button
+          v-if="!streaming && vehicleId"
+          class="attach-btn"
+          :title="t('chat.attach.label')"
+          aria-label="Прикрепить изображение"
+          @click="fileInput?.click()"
+        >
+          <svg class="attach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+        <button
+          v-if="micSupported && !streaming && vehicleId"
+          class="mic-btn"
+          :class="{ listening: micListening }"
+          :title="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
+          :aria-label="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
+          @click="toggleMic"
+        >
+          <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 11a7 7 0 0 0 14 0H5z"/>
+          </svg>
+        </button>
+        <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage">&rarr;</button>
+        <button v-else class="stop-btn danger-solid" @click="chat.stop">{{ t('chat.stop') }}</button>
+      </div>
       </div>
 
-      <div v-if="showHistoryPanel && rightPanelTab === 'history'" class="mobile-overlay" @click.self="showHistoryPanel = false">
+      <aside v-show="rightOpen" class="chat-sidebar right">
+        <DocPanel v-if="activeDocId" :doc-id="activeDocId" :page="activePage" />
+        <div v-else class="panel-empty dim">{{ t('chat.select_doc') }}</div>
+      </aside>
+
+      <div v-if="mobilePanel === 'history'" class="mobile-overlay" @click.self="mobilePanel = null">
         <div class="mobile-panel-header">
-          <h3>История</h3>
-          <button class="close-btn" @click="showHistoryPanel = false">&times;</button>
+          <h3>{{ t('chat.history') }}</h3>
+          <button class="close-btn" @click="mobilePanel = null">&times;</button>
         </div>
         <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
       </div>
 
-      <div v-if="showDocPanel && activeDocId" class="mobile-overlay" @click.self="showDocPanel = false">
+      <div v-if="mobilePanel === 'doc'" class="mobile-overlay" @click.self="mobilePanel = null">
         <div class="mobile-panel-header">
-          <h3>Документ</h3>
-          <button class="close-btn" @click="showDocPanel = false">&times;</button>
+          <h3>{{ t('chat.document') }}</h3>
+          <button class="close-btn" @click="mobilePanel = null">&times;</button>
         </div>
         <DocPanel :doc-id="activeDocId!" :page="activePage" />
       </div>
-    </div>
 
     <AppModal v-if="showTicketModal && ticketDraft" wide title="Заявка на дефектовку" @close="handleTicketClose">
       <TicketForm :draft="ticketDraft" :vehicle-id="props.vehicleId" @submitted="handleTicketSubmitted" @close="handleTicketClose" />
@@ -367,8 +380,8 @@ function toggleMic(): void {
 </template>
 
 <style scoped>
-.chat-page { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
-.chat-header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; flex-shrink: 0; }
+.chat-page { display: flex; flex-direction: row; flex: 1; min-height: 0; overflow: hidden; }
+.chat-header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 0; border-radius: 0; flex-shrink: 0; min-width: 0; }
 .back-btn { background: transparent; border: 0; color: var(--text-dim); font-size: 13px; padding: 4px 8px; cursor: pointer; flex-shrink: 0; }
 .back-btn:hover { color: var(--accent); }
 .header-info { flex: 1; min-width: 0; }
@@ -377,9 +390,16 @@ function toggleMic(): void {
 .vehicle-name { overflow: hidden; text-overflow: ellipsis; }
 .header-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
 .engine-chip { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim); padding: 1px 8px; border-radius: 999px; font-size: 11px; }
-.header-actions { display: flex; gap: 6px; flex-shrink: 0; }
-.chat-layout { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .chat-column { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.chat-sidebar { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; background: var(--bg-panel); }
+.chat-sidebar.left { border-right: 1px solid var(--border); }
+.chat-sidebar.right { border-left: 1px solid var(--border); }
+.chat-sidebar > * { flex-shrink: 0; }
+.new-dialog-btn { margin: 12px; width: calc(100% - 24px); font-size: 13px; }
+.sidebar-toggle { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); padding: 0; cursor: pointer; flex-shrink: 0; }
+.sidebar-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.sidebar-toggle.active { border-color: var(--accent); color: var(--accent); }
+.toggle-icon { width: 18px; height: 18px; }
 .chat-messages { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
 .message-row { display: flex; flex-shrink: 0; }
 .message-row.user { justify-content: flex-end; }
@@ -433,15 +453,11 @@ function toggleMic(): void {
 .mic-btn.listening .mic-icon { animation: mic-pulse 1s ease-in-out infinite; }
 .chat-error { position: relative; margin: 8px 16px 0; }
 .close-error { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--danger-text); font-size: 16px; padding: 4px; cursor: pointer; }
-.right-panel { width: 380px; flex-shrink: 0; border-left: 1px solid var(--border); background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; }
-.panel-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.tab-btn { flex: 1; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--text-dim); padding: 8px; font-size: 13px; cursor: pointer; min-height: auto; }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 .panel-empty { padding: 24px; text-align: center; }
 .mobile-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 150; display: flex; flex-direction: column; }
 .mobile-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
 .close-btn { background: none; border: 0; color: var(--text-dim); font-size: 24px; padding: 0 4px; cursor: pointer; }
-@media (max-width: 1023px) { .right-panel { display: none; } }
+@media (max-width: 1023px) { .chat-sidebar { display: none; } }
 @media (min-width: 1024px) { .mobile-overlay { display: none; } }
 @media (max-width: 640px) {
   .chat-header { flex-wrap: wrap; row-gap: 4px; }
