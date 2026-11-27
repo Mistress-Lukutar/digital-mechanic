@@ -9,6 +9,8 @@ import type {
   ChatConversationItem,
   ChatTurnDetail,
   DocumentInfo,
+  EconomyPrices,
+  EconomicsResponse,
   FleetStats,
   LlmSettingsView,
   UsageRowItem,
@@ -406,5 +408,30 @@ export async function updateLlmSettings(params: {
     apiUrl('/api/admin/settings/llm'),
     'PUT',
     params,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Economy / pricing
+// ---------------------------------------------------------------------------
+
+/** GET /api/admin/economics/prices */
+export async function getEconomyPrices(): Promise<EconomyPrices> {
+  return apiGet<EconomyPrices>(apiUrl('/api/admin/economics/prices'))
+}
+
+/** PUT /api/admin/economics/prices */
+export async function saveEconomyPrices(prices: EconomyPrices): Promise<EconomyPrices> {
+  return apiSend<EconomyPrices>(apiUrl('/api/admin/economics/prices'), 'PUT', prices)
+}
+
+/** GET /api/admin/economics?machines=&period_days=&questions= */
+export async function getEconomics(
+  machines: number,
+  periodDays: number,
+  questions: number,
+): Promise<EconomicsResponse> {
+  return apiGet<EconomicsResponse>(
+    apiUrl(`/api/admin/economics?machines=${machines}&period_days=${periodDays}&questions=${questions}`),
   )
 }

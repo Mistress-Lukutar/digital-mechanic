@@ -289,6 +289,39 @@ const ru = {
   'admin.detail.step_error': 'Ошибка',
 
   // ---------------------------------------------------------------------------
+  // admin.econ.* — Economy tab
+  // ---------------------------------------------------------------------------
+  'admin.tab.econ': 'Экономика',
+  'admin.econ.title': 'Экономика сценария и парка',
+  'admin.econ.prices': 'Цены модели',
+  'admin.econ.model_label': 'Модель / источник прайса',
+  'admin.econ.input_price': 'Цена входа за 1 млн',
+  'admin.econ.output_price': 'Цена выхода за 1 млн',
+  'admin.econ.currency': 'Валюта',
+  'admin.econ.usd_rate': 'Курс ЦБ $',
+  'admin.econ.indexation': 'Индексация (разово), ₽',
+  'admin.econ.assumptions': 'Допущения',
+  'admin.econ.machines': 'Машин в парке',
+  'admin.econ.period': 'Периодичность проверки, дней',
+  'admin.econ.questions': 'Вопросов механика на проверку',
+  'admin.econ.save_prices': 'Сохранить цены',
+  'admin.econ.recalc': 'Рассчитать',
+  'admin.econ.export_csv': 'Экспорт CSV',
+  'admin.econ.stats': 'Замер стенда: ходов {n}, медиана входа {in}, выхода {out}',
+  'admin.econ.scenario': 'Сценарий (диагностика → ответ/заявка)',
+  'admin.econ.scenario_turns': 'Вызовов модели на сценарий',
+  'admin.econ.scenario_tokens_in': 'Токенов входа на сценарий',
+  'admin.econ.scenario_tokens_out': 'Токенов выхода на сценарий',
+  'admin.econ.scenario_cost': 'Стоимость сценария, ₽',
+  'admin.econ.fleet': 'Пересчёт на парк',
+  'admin.econ.checks_month': 'Проверок парка в месяц',
+  'admin.econ.scenarios_month': 'Сценариев в месяц',
+  'admin.econ.cost_month': 'Стоимость парка в месяц, ₽',
+  'admin.econ.cost_year': 'Стоимость парка в год, ₽',
+  'admin.econ.tokens_scenario': 'Токенов на сценарий',
+  'admin.econ.csv_title': 'Экономика «Цифровой механик»',
+
+  // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults
   // ---------------------------------------------------------------------------
   'confirm.ok': 'Подтвердить',

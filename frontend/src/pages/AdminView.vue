@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import type { UsageTotals, UsageRowItem, ChatTurnDetail, AdminUserItem, LlmSettingsView, AdminAlertItem } from '../types'
-import { getAdminUsageTotals, getAdminUsageRecent, getAdminUsers, createAdminUser, deleteAdminUser, resetAdminPassword, getLlmSettings, updateLlmSettings, getAdminUsageDetail, getAdminAlerts, getAdminAlertsUnread, markAdminAlertRead } from '../api'
+import type { UsageTotals, UsageRowItem, ChatTurnDetail, AdminUserItem, LlmSettingsView, AdminAlertItem, EconomyPrices, EconomicsResponse } from '../types'
+import { getAdminUsageTotals, getAdminUsageRecent, getAdminUsers, createAdminUser, deleteAdminUser, resetAdminPassword, getLlmSettings, updateLlmSettings, getAdminUsageDetail, getAdminAlerts, getAdminAlertsUnread, markAdminAlertRead, getEconomyPrices, saveEconomyPrices, getEconomics } from '../api'
 import { useConfirm } from '../composables/useConfirm'
 import { t } from '../i18n'
 
 const { confirm } = useConfirm()
 
-type TabKey = 'dashboard' | 'users' | 'alerts' | 'llm'
+type TabKey = 'dashboard' | 'users' | 'alerts' | 'econ' | 'llm'
 const activeTab = ref<TabKey>('dashboard')
 
 // Dashboard data
@@ -204,11 +204,103 @@ async function handleSaveLlm(): Promise<void> {
   }
 }
 
+// Economy data
+const econPrices = ref<EconomyPrices>({
+  input_price: 0.22, output_price: 0.88, currency: 'USD',
+  usd_rate: 82.313, model_label: '', indexation_cost: 0,
+})
+const econMachines = ref(50)
+const econPeriod = ref(14)
+const econQuestions = ref(3)
+const econResult = ref<EconomicsResponse | null>(null)
+const loadingEcon = ref(false)
+const econError = ref<string | null>(null)
+const savingPrices = ref(false)
+
+async function loadEcon(): Promise<void> {
+  loadingEcon.value = true
+  econError.value = null
+  try {
+    econPrices.value = await getEconomyPrices()
+    econResult.value = await getEconomics(econMachines.value, econPeriod.value, econQuestions.value)
+  } catch (e) {
+    if (e instanceof Error) econError.value = e.message
+  } finally {
+    loadingEcon.value = false
+  }
+}
+
+async function handleSavePrices(): Promise<void> {
+  savingPrices.value = true
+  econError.value = null
+  try {
+    econPrices.value = await saveEconomyPrices(econPrices.value)
+    econResult.value = await getEconomics(econMachines.value, econPeriod.value, econQuestions.value)
+  } catch (e) {
+    if (e instanceof Error) econError.value = e.message
+  } finally {
+    savingPrices.value = false
+  }
+}
+
+async function handleRecalc(): Promise<void> {
+  loadingEcon.value = true
+  econError.value = null
+  try {
+    econResult.value = await getEconomics(econMachines.value, econPeriod.value, econQuestions.value)
+  } catch (e) {
+    if (e instanceof Error) econError.value = e.message
+  } finally {
+    loadingEcon.value = false
+  }
+}
+
+function exportEconCsv(): void {
+  const r = econResult.value
+  if (!r) return
+  const lines: string[] = []
+  lines.push(t('admin.econ.csv_title'))
+  lines.push('')
+  lines.push(t('admin.econ.prices'))
+  lines.push(`${t('admin.econ.model_label')};${r.prices.model_label}`)
+  lines.push(`${t('admin.econ.input_price')};${r.prices.input_price}`)
+  lines.push(`${t('admin.econ.output_price')};${r.prices.output_price}`)
+  lines.push(`${t('admin.econ.currency')};${r.prices.currency}`)
+  lines.push(`${t('admin.econ.usd_rate')};${r.prices.usd_rate}`)
+  lines.push(`${t('admin.econ.indexation')};${r.indexation_cost_rub}`)
+  lines.push('')
+  lines.push(t('admin.econ.assumptions'))
+  lines.push(`${t('admin.econ.machines')};${r.assumptions.machines}`)
+  lines.push(`${t('admin.econ.period')};${r.assumptions.period_days}`)
+  lines.push(`${t('admin.econ.questions')};${r.assumptions.questions}`)
+  lines.push('')
+  lines.push(t('admin.econ.scenario'))
+  lines.push(`${t('admin.econ.scenario_turns')};${r.scenario.turns}`)
+  lines.push(`${t('admin.econ.scenario_tokens_in')};${r.scenario.input_tokens}`)
+  lines.push(`${t('admin.econ.scenario_tokens_out')};${r.scenario.output_tokens}`)
+  lines.push(`${t('admin.econ.scenario_cost')};${r.scenario.cost_rub}`)
+  lines.push('')
+  lines.push(t('admin.econ.fleet'))
+  lines.push(`${t('admin.econ.checks_month')};${r.fleet.checks_per_month}`)
+  lines.push(`${t('admin.econ.scenarios_month')};${r.fleet.scenarios_per_month}`)
+  lines.push(`${t('admin.econ.cost_month')};${r.fleet.cost_month_rub}`)
+  lines.push(`${t('admin.econ.cost_year')};${r.fleet.cost_year_rub}`)
+  const csv = '\ufeff' + lines.join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'economy-digital-mechanic.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 onMounted(() => {
   loadDashboard()
   loadUsers()
   loadLlmSettings()
   loadAlerts()
+  loadEcon()
 })
 
 function formatIso(value: string): string {
@@ -275,6 +367,10 @@ async function toggleDetailRow(id: number): Promise<void> {
         :class="['chip', { active: activeTab === 'alerts' }]"
         @click="activeTab = 'alerts'"
       >{{ t('admin.tab.alerts') }}<span v-if="alertsUnread > 0" class="tab-badge">{{ alertsUnread }}</span></button>
+      <button
+        :class="['chip', { active: activeTab === 'econ' }]"
+        @click="activeTab = 'econ'"
+      >{{ t('admin.tab.econ') }}</button>
       <button
         :class="['chip', { active: activeTab === 'llm' }]"
         @click="activeTab = 'llm'"
@@ -550,6 +646,99 @@ async function toggleDetailRow(id: number): Promise<void> {
             </tbody>
           </table>
         </div>
+      </template>
+    </section>
+
+    <!-- Economy tab -->
+    <section v-else-if="activeTab === 'econ'" class="tab-content">
+      <h4 class="section-title">{{ t('admin.econ.title') }}</h4>
+
+      <div v-if="econError" class="error-strip">{{ econError }}</div>
+      <div v-if="loadingEcon" class="dim">{{ t('admin.loading') }}</div>
+
+      <!-- Prices block -->
+      <h5>{{ t('admin.econ.prices') }}</h5>
+      <div class="econ-grid">
+        <div class="field">
+          <label class="label">{{ t('admin.econ.input_price') }}</label>
+          <input v-model.number="econPrices.input_price" type="number" step="0.01" />
+        </div>
+        <div class="field">
+          <label class="label">{{ t('admin.econ.output_price') }}</label>
+          <input v-model.number="econPrices.output_price" type="number" step="0.01" />
+        </div>
+        <div class="field">
+          <label class="label">{{ t('admin.econ.currency') }}</label>
+          <input v-model="econPrices.currency" type="text" />
+        </div>
+        <div class="field">
+          <label class="label">{{ t('admin.econ.usd_rate') }}</label>
+          <input v-model.number="econPrices.usd_rate" type="number" step="0.01" />
+        </div>
+        <div class="field">
+          <label class="label">{{ t('admin.econ.model_label') }}</label>
+          <input v-model="econPrices.model_label" type="text" />
+        </div>
+        <div class="field">
+          <label class="label">{{ t('admin.econ.indexation') }}</label>
+          <input v-model.number="econPrices.indexation_cost" type="number" step="0.01" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button :disabled="savingPrices" @click="handleSavePrices">{{ t('admin.econ.save_prices') }}</button>
+        <span v-if="savingPrices" class="dim">{{ t('admin.saving') }}</span>
+      </div>
+
+      <!-- Assumptions block -->
+      <h5>{{ t('admin.econ.assumptions') }}</h5>
+      <div class="econ-grid">
+        <div class="field">
+          <label class="label">{{ t('admin.econ.machines') }}</label>
+          <input v-model.number="econMachines" type="number" />
+        </div>
+        <div class="field">
+          <label class="label">{{ t('admin.econ.period') }}</label>
+          <input v-model.number="econPeriod" type="number" />
+        </div>
+        <div class="field">
+          <label class="label">{{ t('admin.econ.questions') }}</label>
+          <input v-model.number="econQuestions" type="number" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button :disabled="loadingEcon" @click="handleRecalc">{{ t('admin.econ.recalc') }}</button>
+        <button :disabled="!econResult" @click="exportEconCsv">{{ t('admin.econ.export_csv') }}</button>
+      </div>
+
+      <!-- Results -->
+      <template v-if="econResult">
+        <h5>{{ t('admin.econ.stats', { n: String(econResult.usage_stats.turns), in: String(econResult.usage_stats.median_input), out: String(econResult.usage_stats.median_output) }) }}</h5>
+
+        <table class="data-table">
+          <tbody>
+            <tr><td class="dim">{{ t('admin.econ.scenario_turns') }}</td><td><strong>{{ econResult.scenario.turns }}</strong></td></tr>
+            <tr><td class="dim">{{ t('admin.econ.scenario_tokens_in') }}</td><td><strong>{{ econResult.scenario.input_tokens }}</strong></td></tr>
+            <tr><td class="dim">{{ t('admin.econ.scenario_tokens_out') }}</td><td><strong>{{ econResult.scenario.output_tokens }}</strong></td></tr>
+            <tr><td class="dim">{{ t('admin.econ.scenario_cost') }}</td><td><strong>{{ econResult.scenario.cost_rub }} ₽</strong></td></tr>
+          </tbody>
+        </table>
+
+        <h5>{{ t('admin.econ.fleet') }}</h5>
+        <table class="data-table">
+          <tbody>
+            <tr><td class="dim">{{ t('admin.econ.checks_month') }}</td><td><strong>{{ econResult.fleet.checks_per_month }}</strong></td></tr>
+            <tr><td class="dim">{{ t('admin.econ.scenarios_month') }}</td><td><strong>{{ econResult.fleet.scenarios_per_month }}</strong></td></tr>
+            <tr><td class="dim">{{ t('admin.econ.cost_month') }}</td><td><strong>{{ econResult.fleet.cost_month_rub }} ₽</strong></td></tr>
+            <tr><td class="dim">{{ t('admin.econ.cost_year') }}</td><td><strong>{{ econResult.fleet.cost_year_rub }} ₽</strong></td></tr>
+            <tr><td class="dim">{{ t('admin.econ.tokens_scenario') }}</td><td><strong>{{ econResult.fleet.tokens_per_scenario }}</strong></td></tr>
+          </tbody>
+        </table>
+
+        <table class="data-table">
+          <tbody>
+            <tr><td class="dim">{{ t('admin.econ.indexation') }}</td><td><strong>{{ econResult.indexation_cost_rub }} ₽</strong></td></tr>
+          </tbody>
+        </table>
       </template>
     </section>
 
@@ -870,5 +1059,21 @@ async function toggleDetailRow(id: number): Promise<void> {
   padding: 1px 8px;
   border-radius: 999px;
   font-size: 11px;
+}
+
+/* Economy tab */
+.econ-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.econ-grid .field {
+  max-width: 300px;
+}
+
+.econ-grid input,
+.econ-grid select {
+  width: 100%;
 }
 </style>
