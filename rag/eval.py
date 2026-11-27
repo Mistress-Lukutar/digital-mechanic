@@ -8,8 +8,10 @@ Version: v0.1.1
 Runs the search engine in-process against the external eval sets
 (RAG_EVAL_DIR; the sets are not committed — golden.jsonl quotes the
 manuals) and prints hit@1/hit@5 (±1 page), MRR, the value check for the
-golden set and the refusal rate for the negative set. Run before every
-stage commit; the hit@5/MRR numbers go into the commit message.
+golden set, the refusal rate for the negative set and refusal rate +
+hit@5 for the overrefusal set (issue #15: questions on covered cells
+must be answered, not refused). Run before every stage commit; the
+hit@5/MRR numbers go into the commit message.
 
     python -m rag.eval --set all
 '''
@@ -38,6 +40,7 @@ _SET_FILES = {
     "golden": "golden.jsonl",
     "manual": "manual.jsonl",
     "negative": "negative.jsonl",
+    "overrefusal": "overrefusal.jsonl",
 }
 
 
@@ -149,7 +152,7 @@ def run_eval(
     '''Run the requested eval sets and return metrics.
 
     Args:
-        sets: Subset of {"golden", "manual", "negative"}.
+        sets: Subset of {"golden", "manual", "negative", "overrefusal"}.
         settings: Settings override (tests).
         engine: Pre-built engine override (tests).
         verbose: Print per-question outcomes.
@@ -231,6 +234,14 @@ def _run_set(
             if verbose:
                 print(f"  {case.qid}: refusal={response.no_instruction}")
             continue
+        if set_name == "overrefusal" and response.no_instruction:
+            # The engine × fault cell is covered: a refusal here is the
+            # over-refusal this set measures (issue #15 / eval item M2).
+            refusals += 1
+            failures.append(f"{case.qid}: over-refusal (cell covered)")
+            if verbose:
+                print(f"  {case.qid}: OVER-REFUSED")
+            continue
         rank = _page_hit(response.results, case.gold_pages)
         if rank is not None:
             ranks.append(rank)
@@ -282,6 +293,10 @@ def _run_set(
         result["mrr"] = (
             round(sum(1.0 / r for r in ranks) / total, 3) if total else None
         )
+    if set_name == "overrefusal":
+        # Case fails on refusal (above) or on a missed gold page (±1, the
+        # rank machinery below); both must be zero for a clean gate.
+        result["refusal_rate"] = round(refusals / total, 3) if total else None
     if set_name == "golden":
         result["value_checks"] = values_checked
         result["values_ok"] = values_ok if values_checked else None
@@ -299,13 +314,17 @@ def main() -> None:
     parser.add_argument(
         "--set",
         default="all",
-        choices=["all", "golden", "manual", "negative"],
+        choices=["all", "golden", "manual", "negative", "overrefusal"],
         help="which set(s) to run",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
-    sets = ["golden", "manual", "negative"] if args.set == "all" else [args.set]
+    sets = (
+        ["golden", "manual", "negative", "overrefusal"]
+        if args.set == "all"
+        else [args.set]
+    )
     metrics = run_eval(sets, verbose=args.verbose)
     for set_name, numbers in metrics.items():
         print(f"== {set_name} ==")
