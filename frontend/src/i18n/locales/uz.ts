@@ -73,6 +73,15 @@ const uz = {
   'history.trend_worsening': 'Score oxirgi {n} marta tekshiruvda oshdi — holat yomonlashmoqda',
   'history.trend_improving': 'Score oxirgi {n} marta tekshiruvda kamaydi — holat yaxshilanmoqda',
   'history.trend_stable': 'Score barqaror — yomonlashish belgilari yo\'q',
+  'history.ticket_details': 'Ariza {id}',
+  'history.page_abbr': 'bet',
+  'history.conclusion': 'Xulosa',
+  'history.urgency_label': 'Ustuvorlik',
+  'history.anomaly_type': 'Anomaliya turi',
+  'history.operations': 'Amaliyotlar',
+  'history.spare_parts': 'Ehtiyot qismlar',
+  'history.references': "Qo'llanma havolalari",
+  'history.priority_rationale': 'Ustuvorlik asoslami',
 
   // ---------------------------------------------------------------------------
   // chart.* — AnomalyChart

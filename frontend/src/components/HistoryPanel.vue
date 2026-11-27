@@ -4,6 +4,7 @@ import type { SessionRecord, TicketRecord } from '../types'
 import { getVehicleDetail } from '../api'
 import { formatIso } from '../api'
 import AnomalyChart from './AnomalyChart.vue'
+import AppModal from './AppModal.vue'
 import { t } from '../i18n'
 
 const props = defineProps<{
@@ -20,6 +21,7 @@ const sessions = ref<SessionRecord[]>([])
 const tickets = ref<TicketRecord[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+const selectedTicket = ref<TicketRecord | null>(null)
 
 async function load(): Promise<void> {
   if (!props.vehicleId) return
@@ -89,6 +91,42 @@ function getConclusion(payload: Record<string, unknown>): string {
 function getUrgency(payload: Record<string, unknown>): string {
   const u = payload.urgency
   return typeof u === 'string' ? u : 'medium'
+}
+
+function getAnomalyType(payload: Record<string, unknown>): string {
+  const a = payload.anomaly_type
+  return typeof a === 'string' && a ? a : ''
+}
+
+function getOperations(payload: Record<string, unknown>): string[] {
+  const o = payload.operations
+  return Array.isArray(o) ? o.filter((item): item is string => typeof item === 'string') : []
+}
+
+function getSpareParts(payload: Record<string, unknown>): string[] {
+  const p = payload.spare_parts
+  return Array.isArray(p) ? p.filter((item): item is string => typeof item === 'string') : []
+}
+
+interface ReferenceEntry { manual: string; pdf_page: number }
+
+function getReferences(payload: Record<string, unknown>): ReferenceEntry[] {
+  const r = payload.references
+  if (Array.isArray(r)) {
+    return r.filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === 'object' && item !== null
+    ).map(item => ({
+      manual: typeof item.manual === 'string' ? item.manual : '',
+      pdf_page: typeof item.pdf_page === 'number' ? item.pdf_page : 0,
+    }))
+  }
+  return []
+}
+
+function getPriorityRationale(payload: Record<string, unknown>): string {
+  const pr = payload.priority_rationale
+  return typeof pr === 'string' ? pr : ''
 }
 
 interface ScoreTrendWorsening { kind: 'worsening'; n: number }
@@ -187,7 +225,14 @@ const scoreTrend = computed<ScoreTrend>(() => {
         </div>
 
         <div v-else class="ticket-list">
-          <div v-for="t in tickets" :key="t.ticket_id" class="ticket-item">
+          <div
+            v-for="t in tickets" :key="t.ticket_id"
+            class="ticket-item"
+            role="button"
+            tabindex="0"
+            @click="selectedTicket = t"
+            @keydown.enter="selectedTicket = t"
+          >
             <span class="ticket-id mono">{{ t.ticket_id }}</span>
             <span class="ticket-date dim mono">{{ formatIso(t.created_at) }}</span>
 
@@ -201,6 +246,61 @@ const scoreTrend = computed<ScoreTrend>(() => {
         </div>
       </section>
     </template>
+
+    <!-- Ticket detail modal -->
+    <AppModal v-if="selectedTicket" :title="t('history.ticket_details', { id: selectedTicket.ticket_id })" wide @close="selectedTicket = null">
+      <template #default>
+        <div class="ticket-detail">
+          <div class="detail-section">
+            <h5>{{ t('history.conclusion') }}</h5>
+            <p class="mono">{{ getConclusion(selectedTicket.payload) }}</p>
+          </div>
+
+          <div class="detail-section">
+            <h5>{{ t('history.urgency_label') }}</h5>
+            <span :class="['badge', urgencyChipClass(getUrgency(selectedTicket.payload))]">
+              {{ urgencyLabel(getUrgency(selectedTicket.payload)) }}
+            </span>
+          </div>
+
+          <div v-if="getAnomalyType(selectedTicket.payload)" class="detail-section">
+            <h5>{{ t('history.anomaly_type') }}</h5>
+            <span class="anomaly-chip">{{ getAnomalyType(selectedTicket.payload) }}</span>
+          </div>
+
+          <div class="detail-section">
+            <h5>{{ t('history.operations') }}</h5>
+            <ol v-if="getOperations(selectedTicket.payload).length">
+              <li v-for="(op, i) in getOperations(selectedTicket.payload)" :key="i">{{ op }}</li>
+            </ol>
+            <span v-else class="dim">—</span>
+          </div>
+
+          <div class="detail-section">
+            <h5>{{ t('history.spare_parts') }}</h5>
+            <ul v-if="getSpareParts(selectedTicket.payload).length">
+              <li v-for="(part, i) in getSpareParts(selectedTicket.payload)" :key="i">{{ part }}</li>
+            </ul>
+            <span v-else class="dim">—</span>
+          </div>
+
+          <div class="detail-section">
+            <h5>{{ t('history.references') }}</h5>
+            <ul v-if="getReferences(selectedTicket.payload).length">
+              <li v-for="(ref, i) in getReferences(selectedTicket.payload)" :key="i">
+                {{ ref.manual }}, {{ t('history.page_abbr') }} {{ ref.pdf_page }}
+              </li>
+            </ul>
+            <span v-else class="dim">—</span>
+          </div>
+
+          <div v-if="getPriorityRationale(selectedTicket.payload)" class="detail-section">
+            <h5>{{ t('history.priority_rationale') }}</h5>
+            <p class="dim italic">{{ getPriorityRationale(selectedTicket.payload) }}</p>
+          </div>
+        </div>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -294,8 +394,15 @@ const scoreTrend = computed<ScoreTrend>(() => {
   flex-direction: column;
   gap: 4px;
   padding: 6px 8px;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--bg-input);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.ticket-item:hover {
+  border-color: var(--accent);
 }
 
 .ticket-id {
@@ -325,5 +432,41 @@ const scoreTrend = computed<ScoreTrend>(() => {
   width: 12px;
   height: 12px;
   flex-shrink: 0;
+}
+
+.ticket-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-section h5 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.detail-section .mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.detail-section ol,
+.detail-section ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.detail-section li {
+  margin-bottom: 2px;
+}
+
+.italic {
+  font-style: italic;
 }
 </style>

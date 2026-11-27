@@ -73,6 +73,15 @@ const hi = {
   'history.trend_worsening': 'Score पिछली {n} जाँचों में बढ़ रहा है — स्थिति खराब हो रही है',
   'history.trend_improving': 'Score पिछली {n} जाँचों में कम हो रहा है — स्थिति सुधर रही है',
   'history.trend_stable': 'Score स्थिर है — खराब होने के संकेत नहीं',
+  'history.ticket_details': 'आवेदन {id}',
+  'history.page_abbr': 'पृ.',
+  'history.conclusion': 'निष्कर्ष',
+  'history.urgency_label': 'प्राथमिकता',
+  'history.anomaly_type': 'विचलन प्रकार',
+  'history.operations': 'ऑपरेशन',
+  'history.spare_parts': 'पार्ट्स',
+  'history.references': 'मैन्युअल संदर्भ',
+  'history.priority_rationale': 'प्राथमिकता तर्क',
 
   // ---------------------------------------------------------------------------
   // chart.* — AnomalyChart
