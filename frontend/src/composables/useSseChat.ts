@@ -3,6 +3,7 @@ import { getAuthToken, apiUrl, formatApiDetail } from '../api'
 import { locale, t } from '../i18n'
 import type {
   AgentStepT,
+  ChatConversationDetail,
   ChatMessage,
   DiagnosticResult,
   TicketDraftEvent,
@@ -82,6 +83,7 @@ export function createSseChat(options: SseChatOptions) {
   const messages = ref<ChatMessage[]>([])
   const streaming = ref(false)
   const error = ref<string | null>(null)
+  const conversationId = ref<string | null>(null)
 
   let abortCtrl: AbortController | null = null
 
@@ -97,6 +99,7 @@ export function createSseChat(options: SseChatOptions) {
     messages.value = []
     streaming.value = false
     error.value = null
+    conversationId.value = null
     if (abortCtrl) {
       abortCtrl.abort()
       abortCtrl = null
@@ -121,6 +124,17 @@ export function createSseChat(options: SseChatOptions) {
       pendingStepMap.clear()
     }
     streaming.value = false
+  }
+
+  /** Synchronously replace local transcript with a persisted conversation. */
+  function loadConversation(detail: ChatConversationDetail): void {
+    if (streaming.value) stop()
+    messages.value = detail.messages.map((m) => {
+      const msg: ChatMessage = { role: m.role, text: m.text, steps: [] }
+      if (m.image) msg.image = m.image
+      return msg
+    })
+    conversationId.value = detail.conversation.id
   }
 
   async function send(
@@ -154,6 +168,7 @@ export function createSseChat(options: SseChatOptions) {
         session_id: sessionId,
         language: locale.value,
       }
+      if (conversationId.value) body.conversation_id = conversationId.value
       if (image) body.image = image
 
       const response = await fetch(url, {
@@ -367,6 +382,12 @@ export function createSseChat(options: SseChatOptions) {
         break
       }
 
+      case 'conversation': {
+        const cid = String(json.conversation_id ?? '')
+        if (cid) conversationId.value = cid
+        break
+      }
+
       default: {
         // Unknown event — ignore
         break
@@ -374,5 +395,5 @@ export function createSseChat(options: SseChatOptions) {
     }
   }
 
-  return { messages, streaming, error, resetLocal, send, stop }
+  return { messages, streaming, error, conversationId, resetLocal, loadConversation, send, stop }
 }
