@@ -15,12 +15,14 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from shared.models import SessionCheck, TicketPayload
+from shared.models import Reference, SessionCheck, TicketPayload
 
 from mechanic.api.deps import get_hub
 from mechanic.config import get_settings
 from mechanic.errors import MockApiError
 from mechanic.services.fleet import FleetError
+from mechanic.services.priority import FUEL_COMPATIBLE_FUELS
+from mechanic.services.rag_client import ManualManifest
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,43 @@ class TicketSubmitRequest(TicketPayload):
     '''
 
     override_confirmed: bool = False
+
+
+def _validate_references(
+    manifest: ManualManifest,
+    engine_model: str | None,
+    references: list[Reference],
+    username: str,
+) -> None:
+    """Reject references that do not resolve to a real manual page."""
+    for ref in references:
+        doc = manifest.find(ref.manual)
+        if doc is None:
+            logger.warning(
+                "reference manual %r not found in manifest (user %s)",
+                ref.manual,
+                username,
+            )
+            raise HTTPException(
+                status_code=422,
+                detail=f"ссылка на несуществующее руководство: {ref.manual}",
+            )
+        if ref.pdf_page > doc.pages:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"страница {ref.pdf_page} вне диапазона "
+                    f"руководства {doc.doc_id} ({doc.pages} стр.)"
+                ),
+            )
+        if engine_model is not None and engine_model not in doc.engines:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"руководство {doc.doc_id} не относится "
+                    f"к двигателю ТС ({engine_model})"
+                ),
+            )
 
 
 router = APIRouter(prefix="/api/tickets", tags=["tickets"])
@@ -99,6 +138,44 @@ async def submit_ticket(
                     ),
                 )
             override_used = True
+
+    # Fetch the vehicle card once for fuel/reference checks.
+    try:
+        vehicle_card = hub.fleet.get_vehicle(payload.vehicle_id)
+    except FleetError:
+        vehicle_card = None  # unknown vehicle → fuel/reference engine checks skipped
+
+    # Fuel-compatibility gate (mirror of the agent tool's check).
+    required_fuel = FUEL_COMPATIBLE_FUELS.get(payload.anomaly_type)
+    if required_fuel is not None and vehicle_card is not None:
+        fuel = (vehicle_card.fuel or "").strip().lower()
+        if fuel and required_fuel not in fuel:
+            hub.alerts.add(
+                kind="fuel_mismatch",
+                text=(
+                    f"Код {payload.anomaly_type} несовместим с топливом "
+                    f"«{vehicle_card.fuel}» ТС {payload.vehicle_id} (сессия "
+                    f"{payload.session_id}) — заявка отклонена на подаче."
+                ),
+                username=user.username,
+                vehicle_id=payload.vehicle_id,
+                session_id=payload.session_id,
+                engine_model=vehicle_card.engine_model,
+            )
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"код неисправности {payload.anomaly_type} противоречит "
+                    f"карточке ТС (топливо: {vehicle_card.fuel}) — заявка "
+                    "недоступна, сверьте диагностику и карточку машины"
+                ),
+            )
+
+    # References validation (defense-in-depth).
+    engine_model = vehicle_card.engine_model if vehicle_card is not None else None
+    _validate_references(
+        hub.manifest, engine_model, payload.references, user.username
+    )
 
     # Build a clean TicketPayload for everything downstream (TOiR, ticket_log).
     clean_payload = TicketPayload(

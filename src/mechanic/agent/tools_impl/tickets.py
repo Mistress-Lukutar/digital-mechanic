@@ -18,12 +18,9 @@ from collections.abc import Callable
 from pydantic import ValidationError
 
 from mechanic.agent.tools_base import ToolContext, ToolDef, ToolError, ToolOutcome
+from mechanic.services.priority import FUEL_COMPATIBLE_FUELS
 
 logger = logging.getLogger(__name__)
-
-# Fault codes tied to a specific fuel system: code -> fuel substring the
-# vehicle card must contain (lowercase). Extend as new codes demand.
-FUEL_COMPATIBLE_FUELS: dict[str, str] = {"F08": "дизель"}
 
 
 def _require_hub(ctx: ToolContext) -> object:  # ServiceHub

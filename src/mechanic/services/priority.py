@@ -25,6 +25,10 @@ CRITICAL_CODES: frozenset[str] = frozenset(
     {"F01", "F02", "F03", "F08", "F09", "F14"}
 )
 
+# Fault codes tied to a specific fuel system: code -> fuel substring the
+# vehicle card must contain (lowercase). Extend as new codes demand.
+FUEL_COMPATIBLE_FUELS: dict[str, str] = {"F08": "дизель"}
+
 
 class UrgencySuggestion(BaseModel):
     """Suggested urgency level for a diagnostic finding.

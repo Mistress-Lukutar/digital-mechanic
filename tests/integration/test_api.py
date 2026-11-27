@@ -981,3 +981,150 @@ async def test_admin_economics_endpoint(app_client: httpx.AsyncClient) -> None:
     assert data["assumptions"]["machines"] == 50
     assert data["assumptions"]["period_days"] == 14
     assert data["assumptions"]["questions"] == 3
+
+
+async def test_ticket_submit_f08_fuel_mismatch_rejected(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """F08 (дизельная топливоподача) on petrol vehicle → 422; alert created."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "M739BA198",
+        "session_id": "S-0102",
+        "anomaly_type": "F08",
+        "conclusion": "Жёсткая работа с резким стуком",
+        "urgency": "high",
+        "operations": ["Проверить топливную систему"],
+        "spare_parts": [],
+        "references": [{"manual": "ЗМЗ-5234.10 РК", "pdf_page": 50}],
+    }
+
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "топлива" in detail or "карточке" in detail
+
+    # Alert with kind fuel_mismatch exists for this vehicle.
+    alerts_resp = await app_client.get(
+        "/api/admin/alerts", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert alerts_resp.status_code == 200
+    alerts = alerts_resp.json()
+    fuel_alerts = [a for a in alerts if a["kind"] == "fuel_mismatch"]
+    assert len(fuel_alerts) >= 1
+    assert any(a["vehicle_id"] == "M739BA198" for a in fuel_alerts)
+
+
+async def test_ticket_submit_hallucinated_manual_rejected(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """Reference to non-existent manual → 422; no ticket created."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "M333YK47",
+        "session_id": "S-0005",
+        "anomaly_type": "F02",
+        "conclusion": "Стук в механизме газораспределения",
+        "urgency": "high",
+        "operations": ["Проверить ГРМ"],
+        "spare_parts": [],
+        "references": [{"manual": "Несуществующее руководство", "pdf_page": 10}],
+    }
+
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "несуществующее руководство" in detail
+
+    # No ticket was created — response must not contain ticket_id.
+    data = resp.json()
+    assert "ticket_id" not in data
+
+
+async def test_ticket_submit_page_out_of_range_rejected(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """Page beyond manual page count → 422."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "M333YK47",
+        "session_id": "S-0005",
+        "anomaly_type": "F02",
+        "conclusion": "Стук в механизме газораспределения",
+        "urgency": "high",
+        "operations": ["Проверить ГРМ"],
+        "spare_parts": [],
+        "references": [{"manual": "236.01.01 РК", "pdf_page": 999}],
+    }
+
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "страницу" in detail or "диапазон" in detail
+
+
+async def test_ticket_submit_wrong_engine_manual_rejected(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """Reference to manual for different engine → 422."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    # M333YK47 has engine ЯМЗ-236М2; ЗМЗ-5234.10 РК is for ЗМЗ-5234.10.
+    payload = {
+        "vehicle_id": "M333YK47",
+        "session_id": "S-0005",
+        "anomaly_type": "F02",
+        "conclusion": "Стук в механизме газораспределения",
+        "urgency": "high",
+        "operations": ["Проверить ГРМ"],
+        "spare_parts": [],
+        "references": [{"manual": "ЗМЗ-5234.10 РК", "pdf_page": 50}],
+    }
+
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "двигателю" in detail

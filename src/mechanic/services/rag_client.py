@@ -65,6 +65,20 @@ class ManualManifest:
         """Return all documents whose engine list contains *engine_model* (exact)."""
         return [d for d in self._docs.values() if engine_model in d.engines]
 
+    def find(self, manual: str) -> ManifestDoc | None:
+        """Resolve a manual reference to a manifest doc.
+
+        Exact doc_id first; falls back to a normalized comparison
+        (whitespace/guillemets) so agent-written «doc_id» variants match.
+        """
+        doc = self.doc(manual)
+        if doc is not None:
+            return doc
+        for candidate in self._docs.values():
+            if normalize_doc_id(candidate.doc_id) == normalize_doc_id(manual):
+                return candidate
+        return None
+
     def pdf_path(self, doc_id: str) -> Path | None:
         """Resolve the local PDF path for a document if it exists on disk."""
         doc = self._docs.get(doc_id)
