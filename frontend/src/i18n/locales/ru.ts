@@ -42,6 +42,8 @@ const ru = {
   'garage.counts_anomalies': 'Отклонений: {n}',
   'garage.counts_checks': 'Проверок: {m}',
   'garage.vehicle_id': 'Госномер',
+  'garage.fuel.diesel': 'дизель',
+  'garage.fuel.petrol': 'бензин',
 
   // ---------------------------------------------------------------------------
   // status.* — StatusCard
