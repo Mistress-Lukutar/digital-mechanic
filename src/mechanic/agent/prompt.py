@@ -2,8 +2,8 @@
 File:   prompt.py
 Brief:  System prompt builder for the digital mechanic agent with language selection.
 Author: Mistress-Lukutar
-Date:   2026-11-26
-Version: v0.1.1
+Date:   2026-11-27
+Version: v0.1.2
 
 Reads a template from prompts/system.md (or uses a fallback), fills in
 the vehicle context block and engine-specific documents block, then
@@ -67,9 +67,11 @@ def build_system_prompt(
 
     Reads the template from ``prompts/system.md`` (or uses a fallback),
     fills in the vehicle block and engine documents block, replaces
-    placeholders, and appends a language-rule block when *language* is not
-    ``"ru"`` (or when an unknown value is provided — it falls back to the
-    Russian rule).
+    placeholders, and appends a language-rule block that instructs the model
+    to answer in the language of the user's latest message, falling back to
+    the requested language. The *language* parameter accepts ``"ru"``,
+    ``"kk"``, ``"uz"``, ``"hi"``; unknown values fall back to ``"ru"`` (a
+    warning is logged).
 
     Args:
         hub: The :class:`~mechanic.services.hub.ServiceHub` instance.
@@ -181,28 +183,26 @@ def build_system_prompt(
     result = result.replace("{docs_block}", docs_block)
 
     # --- Append language block (blank-line separated) ---
+    # The answer language follows the language of the mechanic's latest
+    # question; the selected UI language is only the fallback when the
+    # question language cannot be determined.
     if language == "ru":
-        lang_block = (
-            "\n"
-            "## ЯЗЫК ОТВЕТА\n"
-            "\n"
-            "Отвечай на языке вопроса пользователя (по умолчанию — русский). "
-            "Цитаты\n"
-            "`[обозначение документа, стр. N]`, обозначения документов, цифры и\n"
-            "технические термины из руководства не переводи — приводи их так,\n"
-            "как в источнике."
-        )
+        default_line = "по умолчанию русский."
+        tail = "как в источнике."
     else:
         lang_name = LANGUAGE_NAMES[language]
-        lang_block = (
-            "\n"
-            "## ЯЗЫК ОТВЕТА\n"
-            "\n"
-            f"Отвечай на языке: {lang_name}. Цитаты\n"
-            "`[обозначение документа, стр. N]`, обозначения документов, цифры и\n"
-            "термины из руководства не переводи — приводи их так, как в источнике,\n"
-            "поясняя на языке ответа."
-        )
+        default_line = f"по умолчанию {lang_name}."
+        tail = "как в источнике, поясняя на языке ответа."
+    lang_block = (
+        "\n"
+        "## ЯЗЫК ОТВЕТА\n"
+        "\n"
+        "Отвечай на языке последнего вопроса механика. Если язык вопроса\n"
+        f"определить нельзя — {default_line} Цитаты\n"
+        "`[обозначение документа, стр. N]`, обозначения документов, цифры и\n"
+        "технические термины из руководства не переводи — приводи их так,\n"
+        f"{tail}"
+    )
 
     result += lang_block
 

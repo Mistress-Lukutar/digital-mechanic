@@ -236,7 +236,7 @@ async def chat(
             hub,
             conversations,
             llm_cfg,
-            language=body.language,
+            language=body.language or "ru",
             image=body.image,
         ):
             yield f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"

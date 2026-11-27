@@ -2,8 +2,8 @@
 File:   test_prompt.py
 Brief:  Tests for the language-aware system-prompt builder and ChatRequest model.
 Author: Mistress-Lukutar
-Date:   2026-11-26
-Version: v0.1.0
+Date:   2026-11-27
+Version: v0.1.1
 
 Verifies that build_system_prompt appends the correct language block for each
 supported locale, falls back to Russian on unknown values, and that the
@@ -59,13 +59,14 @@ class TestLanguageBlockRu:
     def test_default_ru_contains_question_language_rule(
         self, monkeypatch: Any
     ) -> None:
-        """Default (language="ru") → block with 'языку вопроса' and no 'казахский'."""
+        """Default (language="ru") -> new unified block with the
+        'последнего вопроса' rule and no 'казахский'."""
         hub = _build_test_hub()
         result = _prompt(hub)
 
         assert "## ЯЗЫК ОТВЕТА" in result
-        ru_msg = "Отвечай на языке вопроса пользователя (по умолчанию — русский)."
-        assert ru_msg in result
+        assert "Отвечай на языке последнего вопроса механика" in result
+        assert "по умолчанию русский." in result
         assert "казахский" not in result
 
 
@@ -79,7 +80,8 @@ class TestLanguageBlockKk:
 
         assert "## ЯЗЫК ОТВЕТА" in result
         assert "казахский (қазақша)" in result
-        assert "Отвечай на языке: казахский (қазақша)." in result
+        assert "по умолчанию казахский (қазақша)" in result
+        assert "Отвечай на языке последнего вопроса механика" in result
         assert "не переводи" in result
         assert "поясняя на языке ответа" in result
 
@@ -119,10 +121,21 @@ class TestLanguageBlockUnknownFallback:
             result = _prompt(hub, language="de")
 
         assert "## ЯЗЫК ОТВЕТА" in result
-        ru_msg = "Отвечай на языке вопроса пользователя (по умолчанию — русский)."
-        assert ru_msg in result
+        assert "Отвечай на языке последнего вопроса механика" in result
+        assert "по умолчанию русский." in result
         assert "казахский" not in result
         assert any("unknown language 'de'" in rec.message for rec in caplog.records)
+
+
+@pytest.mark.parametrize("lang", ("ru", "kk", "uz", "hi"))
+class TestQuestionLanguageRuleForAllLanguages:
+    """The new question-language rule appears for every UI language."""
+
+    def test_all_languages_contain_question_language_rule(self, lang: str) -> None:
+        """Every language code produces the 'последнего вопроса механика' line."""
+        hub = _build_test_hub()
+        result = _prompt(hub, language=lang)
+        assert "Отвечай на языке последнего вопроса механика" in result
 
 
 class TestChatRequestValidation:
