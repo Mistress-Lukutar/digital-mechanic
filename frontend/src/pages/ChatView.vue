@@ -286,6 +286,7 @@ const activeDocId = ref<string | null>(null)
 const activePage = ref<number | null>(null)
 const showTicketModal = ref(false)
 const ticketDraft = ref<TicketDraftEvent | null>(null)
+const ticketJustSubmitted = ref(false)
 
 // Diagnostic for the ticket gate UI: prefer the diag whose session matches
 // the draft, else the latest diag in the visible chat.
@@ -307,8 +308,15 @@ const historyRefreshKey = ref(0)
 
 function handleTicketSubmitted(_ticketId: string): void {
   historyRefreshKey.value++
+  ticketJustSubmitted.value = true
 }
-function handleTicketClose(): void { showTicketModal.value = false; ticketDraft.value = null }
+function handleTicketClose(): void {
+  showTicketModal.value = false
+  if (ticketJustSubmitted.value) {
+    ticketDraft.value = null
+    ticketJustSubmitted.value = false
+  }
+}
 
 async function handleNewDialog(): Promise<void> {
   if (!props.vehicleId) return
@@ -568,6 +576,19 @@ function toggleMic(): void {
         </div>
       </div>
 
+      <!-- Reopen ticket draft: the modal closes on Escape/overlay-click, the
+           draft must stay reachable until it is submitted or replaced. -->
+      <div v-if="ticketDraft && !showTicketModal && vehicleId" class="ticket-reopen-row">
+        <button class="ticket-reopen-btn" @click="showTicketModal = true">
+          <svg class="reopen-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+            <rect x="8" y="2" width="8" height="4" rx="1"/>
+            <path d="M9 12h6"/><path d="M9 16h6"/>
+          </svg>
+          {{ t('chat.ticket.reopen') }}
+        </button>
+      </div>
+
       <div class="input-row" v-if="vehicleId">
         <div v-if="attachedImage" class="image-preview-chip">
           <img :src="attachedImage" alt="" class="preview-thumb" />
@@ -783,4 +804,9 @@ function toggleMic(): void {
 .branch-switcher button { background: transparent; border: 0; color: var(--text-dim); cursor: pointer; padding: 2px 4px; font-size: 11px; line-height: 1; border-radius: 3px; }
 .branch-switcher button:hover:not(:disabled) { color: var(--accent); background: var(--bg-input); }
 .branch-switcher button:disabled { opacity: 0.35; cursor: default; }
+
+.ticket-reopen-row { display: flex; justify-content: center; padding: 0 16px 4px; flex-shrink: 0; }
+.ticket-reopen-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim); padding: 5px 14px; font-size: 12px; border-radius: 999px; cursor: pointer; }
+.ticket-reopen-btn:hover { border-color: var(--accent); color: var(--accent); }
+.reopen-icon { width: 14px; height: 14px; }
 </style>

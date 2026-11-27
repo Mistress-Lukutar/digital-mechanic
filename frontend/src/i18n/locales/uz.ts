@@ -112,6 +112,7 @@ const uz = {
   'chat.error.connection': 'Ulanish xatosi',
   'chat.mic.label': 'Ovozli kiritish',
   'chat.mic.listening': 'Tinglayapman…',
+  'chat.ticket.reopen': 'Ariza loyihasi',
   'chat.empty_vehicle': 'Parkdan arizani tanlang',
   'chat.reasoning.toggle': "Oʻylayapman…",
   'chat.attach.label': 'Rasmni biriktirish',
