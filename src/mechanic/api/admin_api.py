@@ -2,8 +2,8 @@
 File:   admin_api.py
 Brief:  Admin-only endpoints for usage, users and settings.
 Author: Mistress-Lukutar
-Date:   2026-11-26
-Version: v0.1.0
+Date:   2026-11-27
+Version: v0.2.0
 
 Provides the ``/api/admin`` router with usage totals/recent queries, user
 CRUD, and LLM settings management (GET masked / PUT to update).
@@ -99,6 +99,22 @@ async def usage_recent(
     clamped = max(1, min(limit, 200))
     records = hub.usage.recent(clamped)
     return [r.model_dump() for r in records]
+
+
+@router.get("/usage/{row_id}/detail")
+async def usage_detail(
+    row_id: int,
+    admin=Depends(require_admin),
+) -> dict:
+    """Return the detail dict for a specific usage log row."""
+    hub = get_hub()
+    detail = hub.usage.get_detail(row_id)
+    if detail is None:
+        raise HTTPException(
+            status_code=404,
+            detail="запись не найдена или детализация отсутствует",
+        )
+    return detail
 
 
 @router.get("/users")

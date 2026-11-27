@@ -3,7 +3,7 @@ File:   chat_api.py
 Brief:  Chat endpoint with SSE streaming, conversation reset, and language selection.
 Author: Mistress-Lukutar
 Date:   2026-11-27
-Version: v0.1.2
+Version: v0.2.0
 
 Provides the ``/api/chat`` router with a streaming chat endpoint that wraps
 the :class:`~mechanic.agent.loop.AgentLoop` and yields SSE-formatted events,
@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Literal
 
@@ -38,6 +39,34 @@ from mechanic.llm import AiProtocol, Endpoint, get_llm_client
 from mechanic.services.app_settings import LlmConfig, effective_llm_config
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_citations(text: str) -> list[dict]:
+    """Extract document citations from markdown text.
+
+    Matches the pattern ``[doc_id, стр. N]`` used by the frontend and
+    returns deduplicated entries capped at 20.
+
+    Args:
+        text: The full response text to scan for citations.
+
+    Returns:
+        A list of ``{"doc": ..., "page": ...}`` dicts in first-occurrence order.
+    """
+    pattern = r"\[([^<>,\[\]]+), стр\. (\d+)\]"
+    seen: set[tuple[str, int]] = set()
+    citations: list[dict] = []
+    for match in re.finditer(pattern, text):
+        doc_id = match.group(1).strip("«»").strip()
+        page = int(match.group(2))
+        pair = (doc_id, page)
+        if pair not in seen:
+            seen.add(pair)
+            citations.append({"doc": doc_id, "page": page})
+            if len(citations) >= 20:
+                break
+    return citations
+
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -196,6 +225,9 @@ async def chat(
     async def event_stream() -> object:  # AsyncIterator[str]
         """SSE event stream."""
         t0 = time.perf_counter()
+        answer_parts: list[str] = []
+        tools_used: list[str] = []
+        ticket_draft_info: dict | None = None
         async for name, payload in _chat_events(
             vehicle_id,
             body.message,
@@ -209,8 +241,28 @@ async def chat(
         ):
             yield f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
-            if name == "turn_done":
+            if name == "token":
+                answer_parts.append(payload.get("text", ""))
+            elif name == "tool_start":
+                tool_name = payload.get("name")
+                if tool_name is not None and tool_name not in tools_used:
+                    tools_used.append(tool_name)
+            elif name == "ticket_draft":
+                ticket_draft_info = {
+                    "anomaly_type": payload.get("payload", {}).get("anomaly_type"),
+                    "urgency": payload.get("payload", {}).get("urgency"),
+                }
+            elif name == "turn_done":
                 usage = payload.get("usage", {}) or {}
+                detail = {
+                    "question": body.message[:4000],
+                    "answer": "".join(answer_parts)[:4000],
+                    "tools": tools_used,
+                    "citations": _extract_citations("".join(answer_parts)),
+                    "ticket_draft": ticket_draft_info,
+                    "has_image": body.image is not None,
+                    "language": body.language,
+                }
                 hub.usage.record(
                     username=user.username,
                     kind="chat",
@@ -220,6 +272,7 @@ async def chat(
                     output_tokens=usage.get("output_tokens") or 0,
                     duration_ms=int((time.perf_counter() - t0) * 1000),
                     status="ok",
+                    detail=detail,
                 )
             elif name == "error":
                 hub.usage.record(
