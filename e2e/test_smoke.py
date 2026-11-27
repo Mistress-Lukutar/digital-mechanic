@@ -266,8 +266,6 @@ def test_logout_returns_to_login(page: Page, stand: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
 # Test 9: Forced password-change modal
 # ---------------------------------------------------------------------------
 
@@ -312,13 +310,9 @@ def test_forced_password_change_modal(
     page.get_by_role("button", name="Войти").click()
     page.wait_for_selector(".error-strip", state="visible")
 
-    # Refresh to get a fresh LoginView component (loading state resets).
-    page.goto(stand.base_url)
-    page.wait_for_selector("#login-user", state="visible")
-
-    # 9. New password must work: fill form, check consent, click Войти, wait for topbar.
-    page.fill("#login-user", stand.flagged_user)
+    # 9. Retry in place with the new password — exercises the submit button
+    # re-enabling after a failed attempt (loading resets on the error strip).
     page.fill("#login-pass", NEW_FLAGGED_PASSWORD)
     page.locator("#login-consent").check()
-    page.get_by_role("button", name="Войти").click(force=True)
+    page.get_by_role("button", name="Войти").click()
     page.wait_for_selector('button:has-text("Гараж")', state="visible")

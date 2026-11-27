@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { t } from '../i18n'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 
-defineProps<{
+const props = defineProps<{
   error: string | null
 }>()
 
@@ -23,6 +23,15 @@ function handleLogin(): void {
   loading.value = true
   emit('login', username.value.trim(), password.value)
 }
+
+// The parent owns the async login call; a reported error means the
+// attempt finished — re-enable the submit button so the user can retry.
+watch(
+  () => props.error,
+  (error) => {
+    if (error) loading.value = false
+  },
+)
 
 function dismissError(): void {
   emit('dismissedError')
