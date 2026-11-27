@@ -402,6 +402,8 @@ onMounted(restoreAuth)
   .nav-btn {
     font-size: 12px;
     padding: 6px 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
   }
 
   .topbar-user {

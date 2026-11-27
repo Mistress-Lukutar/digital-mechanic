@@ -307,6 +307,7 @@ const scoreTrend = computed<ScoreTrend>(() => {
 <style scoped>
 .history-panel {
   padding: 12px;
+  min-height: 0;
 }
 
 .section-title {
@@ -468,5 +469,27 @@ const scoreTrend = computed<ScoreTrend>(() => {
 
 .italic {
   font-style: italic;
+}
+
+@media (max-width: 1023px) {
+  .history-panel {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 640px) {
+  .session-date,
+  .session-scores,
+  .ticket-date {
+    font-size: 13px;
+  }
+
+  .session-anomaly .dim,
+  .ticket-info .dim,
+  .empty-hint {
+    font-size: 14px;
+  }
 }
 </style>

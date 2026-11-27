@@ -208,4 +208,19 @@ onUnmounted(() => {
   line-height: 1;
   flex-shrink: 0;
 }
+
+@media (max-width: 640px) {
+  .menu {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    min-width: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    z-index: 160;
+  }
+}
 </style>
