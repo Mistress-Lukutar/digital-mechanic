@@ -79,8 +79,6 @@ const uz = {
   // ---------------------------------------------------------------------------
   'chart.title': 'anomaly_score soʻnggi tekshiruvlar boʻyicha',
   'chart.no_data': 'Grafik uchun maʼlumot yetarli emas',
-  'chart.caption': 'Tarix koʻrsatiladi; bashorat qilinmaydi.',
-
   // ---------------------------------------------------------------------------
   // chat.* — ChatView
   // ---------------------------------------------------------------------------
