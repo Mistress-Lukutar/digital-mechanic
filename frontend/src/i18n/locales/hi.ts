@@ -44,6 +44,8 @@ const hi = {
   'garage.counts_anomalies': 'विचलन: {n}',
   'garage.counts_checks': 'जाँच: {m}',
   'garage.vehicle_id': 'राज्य सं.',
+  'garage.fuel.diesel': 'डीज़ल',
+  'garage.fuel.petrol': 'पेट्रोल',
 
   // ---------------------------------------------------------------------------
   // status.* — StatusCard

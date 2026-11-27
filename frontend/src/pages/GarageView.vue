@@ -49,6 +49,16 @@ function setFilter(group: GroupFilter): void {
   emit('update-filter', group)
 }
 
+// Fuel type label — translates backend Russian values to the active locale.
+function fuelLabel(fuel: string): string {
+  const key = fuel.toLowerCase().trim()
+  switch (key) {
+    case 'дизель': return t('garage.fuel.diesel')
+    case 'бензин': return t('garage.fuel.petrol')
+    default: return fuel
+  }
+}
+
 // Status badge helpers
 function statusLabel(status: VehicleItem['latest_status']): string {
   switch (status) {
@@ -190,7 +200,7 @@ onMounted(async (): Promise<void> => {
           </p>
           <div class="chips-row">
             <span v-if="v.engine_model" class="chip">{{ v.engine_model }}</span>
-            <span v-if="v.fuel" class="chip">{{ v.fuel }}</span>
+            <span v-if="v.fuel" class="chip">{{ fuelLabel(v.fuel) }}</span>
           </div>
 
           <div class="meta-row">

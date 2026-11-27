@@ -44,6 +44,8 @@ const uz = {
   'garage.counts_anomalies': 'Anomaliyalar: {n}',
   'garage.counts_checks': 'Tekshiruvlar: {m}',
   'garage.vehicle_id': 'Dav. №',
+  'garage.fuel.diesel': 'dizel',
+  'garage.fuel.petrol': 'benzin',
 
   // ---------------------------------------------------------------------------
   // status.* — StatusCard

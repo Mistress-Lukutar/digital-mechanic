@@ -44,6 +44,8 @@ const kk = {
   'garage.counts_anomalies': 'Ауытқулар: {n}',
   'garage.counts_checks': 'Тексерулер: {m}',
   'garage.vehicle_id': 'Мем. №',
+  'garage.fuel.diesel': 'дизель',
+  'garage.fuel.petrol': 'бензин',
 
   // ---------------------------------------------------------------------------
   // status.* — StatusCard
