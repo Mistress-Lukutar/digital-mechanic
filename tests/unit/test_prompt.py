@@ -216,3 +216,25 @@ class TestSystemPromptContent:
         assert (
             "было — стало" in content
         ), "The 'было — стало' comparison rule must be present"
+
+    def test_check_failed_requires_equipment_fix(self) -> None:
+        """The check_failed bullet requires equipment fix and bans improvisation."""
+        from mechanic.agent.prompt import PROMPTS_DIR
+
+        prompt_file = PROMPTS_DIR / "system.md"
+        if not prompt_file.exists():
+            pytest.skip("prompts/system.md not found")
+
+        content = prompt_file.read_text(encoding="utf-8")
+        assert (
+            "сначала нужно восстановить запись" in content
+        ), "check_failed bullet must contain 'сначала нужно восстановить запись'"
+        assert (
+            "повторить запись" in content
+        ), "check_failed bullet must contain 'повторить запись'"
+        assert (
+            "НЕ придумывай" in content
+        ), "check_failed bullet must ban equipment-procedure improvisation"
+        assert (
+            "осмотр" in content
+        ), "check_failed bullet must mention alternative inspection option"
