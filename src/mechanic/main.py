@@ -26,7 +26,9 @@ from mechanic.api.admin_api import router as admin_router
 from mechanic.api.auth_api import router as auth_router
 from mechanic.api.chat_api import router as chat_router
 from mechanic.api.chats_api import router as chats_router
-from mechanic.api.config_api import router as config_router  # noqa: F401 — registered below
+from mechanic.api.config_api import (
+    router as config_router,  # noqa: F401 — registered below
+)
 from mechanic.api.deps import get_hub, init_app_settings, init_hub
 from mechanic.api.documents_api import router as documents_router
 from mechanic.api.tickets_api import router as tickets_router

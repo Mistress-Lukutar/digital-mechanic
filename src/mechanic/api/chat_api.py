@@ -86,7 +86,8 @@ def _hydrate_store(
     Args:
         conversations: In-memory conversation store to populate.
         key: Conversation id used as the store key.
-        messages: Message dicts from :meth:`~mechanic.services.chats.ChatStore.get_messages`.
+        messages: Message dicts from
+        :meth:`~mechanic.services.chats.ChatStore.get_messages`.
     """
     for m in messages:
         if not m["text"]:
@@ -284,7 +285,8 @@ async def chat(
                 raise HTTPException(status_code=404, detail="сообщение не найдено")
             if target["role"] != "user":
                 raise HTTPException(
-                    status_code=400, detail="можно редактировать только сообщения пользователя"
+                    status_code=400,
+                    detail="можно редактировать только сообщения пользователя",
                 )
             prefix = (
                 chats_store.get_path_to(body.conversation_id, target["parent_id"])

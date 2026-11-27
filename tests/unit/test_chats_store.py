@@ -273,9 +273,9 @@ class TestEditSimulationSiblingBranch:
 
         # Build original linear chain: u1 -> a1 -> u2 -> a2
         id_u1 = store.add_message(conv_id, "user", "Hello")
-        id_a1 = store.add_message(conv_id, "assistant", "Hi there!")
-        id_u2 = store.add_message(conv_id, "user", "How are you?")
-        id_a2 = store.add_message(conv_id, "assistant", "I'm fine.")
+        _id_a1 = store.add_message(conv_id, "assistant", "Hi there!")
+        _id_u2 = store.add_message(conv_id, "user", "How are you?")
+        _id_a2 = store.add_message(conv_id, "assistant", "I'm fine.")
 
         # Now edit u2 by adding a sibling with explicit parent_id=u1.
         id_u2_prime = store.add_message(
@@ -386,7 +386,7 @@ class TestSwitchBranch:
         )["id"]
 
         id_u1 = store.add_message(conv_id, "user", "Hello")
-        id_a1 = store.add_message(conv_id, "assistant", "Hi there!")
+        _id_a1 = store.add_message(conv_id, "assistant", "Hi there!")
         id_u2 = store.add_message(conv_id, "user", "How are you?")
         id_a2 = store.add_message(conv_id, "assistant", "I'm fine.")
 
@@ -482,7 +482,8 @@ class TestGetMessage:
     def test_get_message_foreign_conversation(
         self, tmp_path: pytest.TempPath
     ) -> None:
-        """get_message() returns None when message id belongs to another conversation."""
+        """get_message() returns None for a message of another
+        conversation."""
         store = ChatStore(tmp_path / "chats21.db")
         conv_a_id = store.create_conversation(
             "user_eta", "veh_H1", "Conv A"
@@ -601,7 +602,7 @@ class TestDeleteConversationRemovesAllBranches:
 
         id_u1 = store.add_message(conv_id, "user", "Hello")
         _id_a1 = store.add_message(conv_id, "assistant", "Hi!")
-        id_u2 = store.add_message(conv_id, "user", "How are you?")
+        _id_u2 = store.add_message(conv_id, "user", "How are you?")
         _id_a2 = store.add_message(conv_id, "assistant", "Fine.")
 
         # Create a sibling branch.
