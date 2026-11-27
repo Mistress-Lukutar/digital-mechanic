@@ -238,3 +238,63 @@ class TestSystemPromptContent:
         assert (
             "осмотр" in content
         ), "check_failed bullet must mention alternative inspection option"
+
+
+class TestManualSpecificBlock:
+    """The manual-specific block is loaded from an external file."""
+
+    def _write_block(self, tmp_path: Path) -> Path:
+        """Write a minimal external block file and return its path."""
+        block = tmp_path / "system-manual.md"
+        block.write_text(
+            "## 11. Карта руководств\n\nВНЕШНИЙ-МАРКЕР-БЛОКА\n",
+            encoding="utf-8",
+        )
+        return block
+
+    def test_external_block_inserted_between_markers(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
+        """A configured PROMPT_MANUAL_FILE lands between the markers."""
+        from mechanic.agent import prompt as prompt_module
+
+        block = self._write_block(tmp_path)
+        monkeypatch.setattr(prompt_module, "MANUAL_BLOCK_PATH", block)
+        result = _prompt(_build_test_hub())
+
+        assert "ВНЕШНИЙ-МАРКЕР-БЛОКА" in result
+        start = result.find(prompt_module.MANUAL_BLOCK_START)
+        end = result.find(prompt_module.MANUAL_BLOCK_END)
+        assert start != -1 and end != -1 and start < end
+        assert "ВНЕШНИЙ-МАРКЕР-БЛОКА" in result[start:end]
+
+    def test_no_block_when_not_configured(self, monkeypatch: Any) -> None:
+        """Without PROMPT_MANUAL_FILE the skeleton note stays, no insertion."""
+        from mechanic.agent import prompt as prompt_module
+
+        monkeypatch.setattr(prompt_module, "MANUAL_BLOCK_PATH", None)
+        result = _prompt(_build_test_hub())
+
+        assert "ВНЕШНИЙ-МАРКЕР-БЛОКА" not in result
+        assert "PROMPT_MANUAL_FILE" in result  # the skeleton's note
+        assert prompt_module.MANUAL_BLOCK_START in result
+        assert prompt_module.MANUAL_BLOCK_END in result
+
+    def test_missing_block_file_keeps_prompt_usable(
+        self, tmp_path: Path, monkeypatch: Any, caplog: Any
+    ) -> None:
+        """A configured but missing file warns and still builds the prompt."""
+        import logging
+
+        from mechanic.agent import prompt as prompt_module
+
+        missing = tmp_path / "nope" / "system-manual.md"
+        monkeypatch.setattr(prompt_module, "MANUAL_BLOCK_PATH", missing)
+        with caplog.at_level(logging.WARNING, logger="mechanic.agent.prompt"):
+            result = _prompt(_build_test_hub())
+
+        assert "## 1. Роль и контекст" in result
+        assert any(
+            "PROMPT_MANUAL_FILE" in record.getMessage()
+            for record in caplog.records
+        )

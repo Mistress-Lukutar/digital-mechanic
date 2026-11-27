@@ -3,15 +3,21 @@ File:   prompt.py
 Brief:  System prompt builder for the digital mechanic agent with language selection.
 Author: Mistress-Lukutar
 Date:   2026-11-27
-Version: v0.1.2
+Version: v0.1.3
 
 Reads a template from prompts/system.md (or uses a fallback), fills in
 the vehicle context block and engine-specific documents block, then
 returns the complete system prompt string. Supports an optional *language*
 parameter to append a language-rule block for non-Russian responses.
 
+The manual-specific block (manual map and answer examples) quotes the
+copyrighted manuals, so it is not committed: it lives in an external file
+connected via the PROMPT_MANUAL_FILE setting and is inserted between the
+MANUAL-SPECIFIC markers when configured.
+
 The module-level PROMPTS_DIR constant can be monkeypatched by tests to
-point at alternative directories.
+point at alternative directories; MANUAL_BLOCK_PATH overrides the
+external block location the same way.
 '''
 
 from __future__ import annotations
@@ -24,6 +30,19 @@ logger = logging.getLogger(__name__)
 # Default prompts directory relative to CWD (repo root).
 # Tests may monkeypatch this to point at a temp dir.
 PROMPTS_DIR: Path = Path("prompts")
+
+# Markers framing the manual-specific block in prompts/system.md. The block
+# quotes the copyrighted manuals, so it lives in a directory external to the
+# repository (connected via PROMPT_MANUAL_FILE, same pattern as MANUALS_DIR)
+# and is never committed. Tests may monkeypatch MANUAL_BLOCK_PATH to point
+# at a fixture file.
+MANUAL_BLOCK_START = (
+    "<!-- ==================== MANUAL-SPECIFIC (participant B) ==================== -->"
+)
+MANUAL_BLOCK_END = (
+    "<!-- ==================== END MANUAL-SPECIFIC ==================== -->"
+)
+MANUAL_BLOCK_PATH: Path | None = None
 
 # Language display names for the language-block instruction.
 LANGUAGE_NAMES: dict[str, str] = {
@@ -66,12 +85,13 @@ def build_system_prompt(
     """Build the full system prompt for a given vehicle.
 
     Reads the template from ``prompts/system.md`` (or uses a fallback),
-    fills in the vehicle block and engine documents block, replaces
-    placeholders, and appends a language-rule block that instructs the model
-    to answer in the language of the user's latest message, falling back to
-    the requested language. The *language* parameter accepts ``"ru"``,
-    ``"kk"``, ``"uz"``, ``"hi"``; unknown values fall back to ``"ru"`` (a
-    warning is logged).
+    inserts the external manual-specific block when ``PROMPT_MANUAL_FILE``
+    is configured, fills in the vehicle block and engine documents block,
+    replaces placeholders, and appends a language-rule block that instructs
+    the model to answer in the language of the user's latest message,
+    falling back to the requested language. The *language* parameter
+    accepts ``"ru"``, ``"kk"``, ``"uz"``, ``"hi"``; unknown values fall
+    back to ``"ru"`` (a warning is logged).
 
     Args:
         hub: The :class:`~mechanic.services.hub.ServiceHub` instance.
@@ -99,6 +119,36 @@ def build_system_prompt(
         template = prompts_path.read_text(encoding="utf-8")
     else:
         template = FALLBACK_TEMPLATE
+
+    # Manual-specific block (manual map and answer examples): loaded from a
+    # file outside the repository — it quotes the copyrighted manuals, so it
+    # is connected via configuration like MANUALS_DIR, not committed. The
+    # skeleton keeps only the markers; without the file the prompt simply
+    # continues without the block.
+    manual_block = MANUAL_BLOCK_PATH
+    if manual_block is None:
+        from mechanic.config import get_settings
+
+        manual_block = get_settings().prompt_manual_file
+    if manual_block is not None:
+        manual_block = Path(manual_block)
+        start = template.find(MANUAL_BLOCK_START)
+        end = template.find(MANUAL_BLOCK_END)
+        if manual_block.is_file() and start != -1 and end != -1:
+            manual_md = manual_block.read_text(encoding="utf-8").strip()
+            template = (
+                template[: start + len(MANUAL_BLOCK_START)]
+                + "\n\n"
+                + manual_md
+                + "\n\n"
+                + template[end:]
+            )
+        elif not manual_block.is_file():
+            logger.warning(
+                "build_system_prompt: PROMPT_MANUAL_FILE '%s' not found — "
+                "the prompt continues without the manual-specific block",
+                manual_block,
+            )
 
     # Fetch vehicle data.
     from mechanic.services.fleet import FleetStore
@@ -209,4 +259,11 @@ def build_system_prompt(
     return result
 
 
-__all__: list[str] = ["PROMPTS_DIR", "LANGUAGE_NAMES", "build_system_prompt"]
+__all__: list[str] = [
+    "PROMPTS_DIR",
+    "MANUAL_BLOCK_PATH",
+    "MANUAL_BLOCK_START",
+    "MANUAL_BLOCK_END",
+    "LANGUAGE_NAMES",
+    "build_system_prompt",
+]

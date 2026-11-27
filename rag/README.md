@@ -89,7 +89,7 @@ drive the refusal behaviour the jury checks.
 |---|---|---|
 | `MANUALS_DIR` | `data/manuals` | manifest + PDF files (shared with the backend) |
 | `RAG_DATA_DIR` | `data/rag` | built artifacts (gitignored) |
-| `RAG_EVAL_DIR` | `data/eval` | committed question sets |
+| `RAG_EVAL_DIR` | `data/eval` | external question sets — not committed, point outside the repo |
 | `RAG_EMBED_MODEL` | `BAAI/bge-m3` | `none` disables the dense part |
 | `RAG_DEVICE` | `auto` | `cpu` or `cuda` |
 | `RAG_TIER_HIGH` / `RAG_TIER_MED` | `0.70` / `0.55` | tier thresholds |
@@ -107,6 +107,9 @@ ruff check rag
 python -m rag.eval --set all   # hit@1/hit@5 (+1 page), MRR, refusal rate
 ```
 
-Eval sets in `data/eval/` (see its README): golden values verified against
-rendered page images, section-lookup questions with gold pages, and
-must-refuse questions for the verified "no instructions" cells.
+Eval sets live OUTSIDE the repository (set `RAG_EVAL_DIR`, e.g. the
+sibling `../rag-eval` folder; see its README): golden values verified
+against rendered page images, section-lookup questions with gold pages,
+and must-refuse questions for the verified "no instructions" cells.
+`golden.jsonl` quotes the manuals' exact values, so the sets are never
+committed — same policy as the PDFs themselves.

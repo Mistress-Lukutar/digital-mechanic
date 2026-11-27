@@ -7,7 +7,7 @@ Version: v0.1.0
 
 Cleans assembled page text without touching meaning: glues hyphenated line
 breaks, joins letter-spaced headings ("Р Е З Ь Б О В Ы Х"), normalises number
-ranges to one form ("***REMOVED***" → "***REMOVED***") and keeps model prefixes
+ranges to one form ("95- 110" → "95-110") and keeps model prefixes
 ("ЯМЗ-\n5362") intact.
 '''
 
@@ -20,10 +20,10 @@ _HYPHEN_LOWER = re.compile(r"(?<=[а-яё])-(?:\s+)(?=[а-яё])")
 _HYPHEN_UPPER = re.compile(r"(?<=[А-ЯЁ])-(?:\s+)(?=[А-ЯЁ])")
 # Model prefix before a break ("ЯМЗ-", "5362-"): keep the hyphen, drop the break.
 _PREFIX_BREAK = re.compile(r"(?<=[А-ЯЁ0-9]{2})-(?:\s+)(?=[А-ЯЁ0-9])")
-# Ranges split by spaces or written with en/em dashes: "***REMOVED***", "***REMOVED***".
+# Ranges split by spaces or written with en/em dashes: "95- 110", "12…15,7".
 _RANGE_SPACES = re.compile(r"(?<=[0-9]) +[-–—] +(?=[0-9])")
 _RANGE_DASH = re.compile(r"(?<=[0-9])[–—](?=[0-9])")
-# En/em dash between numbers without spaces ("430–470").
+# En/em dash between numbers without spaces ("415–455").
 # (kept distinct from _RANGE_SPACES for readability of the rules)
 
 # A line where most space-separated tokens are single Cyrillic letters is a
@@ -213,7 +213,7 @@ def normalize_page_text(
     text = "\n".join(lines)
     # Broken-word glue needs the dictionary; cheap no-op without it.
     text = glue_broken_words(text, wordforms, fragment_forms)
-    # Range normalisation: one canonical form "***REMOVED***", "***REMOVED***".
+    # Range normalisation: one canonical form "415-455", "12…15,7".
     text = _RANGE_SPACES.sub("-", text)
     text = _RANGE_DASH.sub("-", text)
     return text

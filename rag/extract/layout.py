@@ -6,14 +6,14 @@ Date:   2026-11-26
 Version: v0.1.0
 
 ``page.get_text()`` returns words in PDF-object order, which is scrambled in
-the 236 RE tables ("− вертикальные 4 ... ***REMOVED*** ... 3-47)"). This module
+the 236 RE tables ("− вертикальные 4 ... 415-455 ... 1-45)"). This module
 rebuilds the visual order: words are derotated, grouped into visual lines by
 the y-centre, sorted by x inside a line, and joined with gap-aware rules:
 
 - gap below ``MICRO_GAP_RATIO * height``  → words glued without a space
   (the layer stores broken words like "ЗАТ" + "Я" + "ЖКИ" with zero gaps);
 - gap above ``COLUMN_GAP_RATIO * height`` → column boundary, rendered " | "
-  (table rows such as "− вертикальные | ***REMOVED*** ***REMOVED***");
+  (table rows such as "− вертикальные | 415-455 (41-45)");
 - otherwise → a single space.
 
 Tables drawn with ruled lines are handled by :mod:`rag.extract.tables`, which

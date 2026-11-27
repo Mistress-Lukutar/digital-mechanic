@@ -6,7 +6,7 @@ Date:   2026-11-26
 Version: v0.1.0
 
 Tokens keep designation- and value-like strings intact ("ямз-536",
-"***REMOVED***", "536.01.02") and expand them: ranges are indexed both whole
+"0,26-0,32", "536.01.02") and expand them: ranges are indexed both whole
 and by their boundaries, model designations also yield the prefix and the
 number. Alphabetic tokens are stemmed with the Russian Snowball stemmer.
 Known layer typos ("ЯМ3") are fixed before stemming.
@@ -20,7 +20,7 @@ from functools import lru_cache
 from Stemmer import Stemmer
 
 # Letters/digits with internal punctuation, both sides alphanumeric:
-# "ямз-536", "***REMOVED***", "536.01.02", "***REMOVED***".
+# "ямз-536", "0,26-0,32", "536.01.02", "12…15,7".
 _TOKEN = re.compile(
     r"[a-zа-яё0-9]+(?:[-.,…/+][a-zа-яё0-9]+)*", re.IGNORECASE
 )

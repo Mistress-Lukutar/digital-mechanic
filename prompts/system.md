@@ -152,6 +152,10 @@ are where the jury catches the agent.
 
 <!-- ==================== MANUAL-SPECIFIC (participant B) ==================== -->
 
-(Manual-specific content -- the manual map with quoted normative values and the answer examples -- lives in an external file connected via PROMPT_MANUAL_FILE; it quotes the copyrighted manuals and is never committed to the repository. See .env.example.)
+(Manual-specific content — the manual map with quoted normative values and
+the answer examples — lives in an external file connected via
+PROMPT_MANUAL_FILE; it quotes the copyrighted manuals and is never
+committed to the repository. See .env.example.)
+
 
 <!-- ==================== END MANUAL-SPECIFIC ==================== -->

@@ -18,13 +18,13 @@ from rag.index.tokenizer import normalize_text, tokenize
 
 def test_tokenize_keeps_designations() -> None:
     '''designations and ranges stay whole and gain expansions.'''
-    tokens = tokenize("Момент затяжки ЯМЗ-536, зазор ***REMOVED*** мм")
+    tokens = tokenize("Момент затяжки ЯМЗ-536, зазор 0,26-0,32 мм")
     assert "ямз-536" in tokens
     assert "ямз" in tokens
     assert "536" in tokens
-    assert "***REMOVED***" in tokens
-    assert "0,25" in tokens
-    assert "0,30" in tokens
+    assert "0,26-0,32" in tokens
+    assert "0,26" in tokens
+    assert "0,32" in tokens
 
 
 def test_tokenize_stems_and_fixes_typo() -> None:
