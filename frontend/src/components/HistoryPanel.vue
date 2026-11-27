@@ -139,13 +139,13 @@ const scoreTrend = computed<ScoreTrend>(() => {
       <AnomalyChart :sessions="sessions" />
 
       <span v-if="scoreTrend && scoreTrend.kind === 'worsening'" class="badge badge-warning trend-caption">
-        ▲ {{ t('history.trend_worsening', { n: scoreTrend.n }) }}
+        <svg class="trend-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>{{ t('history.trend_worsening', { n: scoreTrend.n }) }}
       </span>
       <span v-else-if="scoreTrend && scoreTrend.kind === 'improving'" class="badge badge-ok trend-caption">
-        ▼ {{ t('history.trend_improving', { n: scoreTrend.n }) }}
+        <svg class="trend-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 18l-9.5-9.5-5 5L1 6"/><path d="M17 18h6v-6"/></svg>{{ t('history.trend_improving', { n: scoreTrend.n }) }}
       </span>
       <span v-else-if="scoreTrend && scoreTrend.kind === 'stable'" class="chip trend-caption">
-        → {{ t('history.trend_stable') }}
+        <svg class="trend-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>{{ t('history.trend_stable') }}
       </span>
 
       <section class="history-section">
@@ -315,7 +315,15 @@ const scoreTrend = computed<ScoreTrend>(() => {
 }
 
 .trend-caption {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin: 4px 0 8px;
+}
+
+.trend-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
 }
 </style>

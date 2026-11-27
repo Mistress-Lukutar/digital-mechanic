@@ -4,11 +4,12 @@ import type { TicketDraftEvent, ChatMessage, DiagnosticResult } from '../types'
 import { t } from '../i18n'
 import { createSseChat } from '../composables/useSseChat'
 import { useSpeech } from '../composables/useSpeech'
-import { resetChat } from '../api'
+import { getChat } from '../api'
 import StatusCard from '../components/StatusCard.vue'
 import AgentStep from '../components/AgentStep.vue'
 import TicketForm from '../components/TicketForm.vue'
 import HistoryPanel from '../components/HistoryPanel.vue'
+import ChatsPanel from '../components/ChatsPanel.vue'
 import DocPanel from '../components/DocPanel.vue'
 import AppModal from '../components/AppModal.vue'
 import { renderAssistantHtml } from '../lib/markdown'
@@ -73,11 +74,30 @@ const micListening = speech.listening
 const messages = chat.messages
 const streaming = chat.streaming
 const chatError = chat.error
+// Top-level aliases: nested refs inside a plain object are NOT auto-unwrapped
+const activeConversationId = chat.conversationId
+
 const expandedReasoning = ref<Record<number, boolean>>({})
 const messageInput = ref('')
 const inputEl = ref<HTMLTextAreaElement | null>(null)
 const attachedImage = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+
+// Sidebar tab switcher — persisted to localStorage
+const activeTab = ref<'history' | 'chats'>(
+  (localStorage.getItem('chat.sidebar.tab') as 'history' | 'chats') || 'history',
+)
+
+function setActiveTab(tab: 'history' | 'chats'): void {
+  activeTab.value = tab
+  localStorage.setItem('chat.sidebar.tab', tab)
+}
+
+// Refresh key for ChatsPanel — bumps when streaming ends
+const chatsRefreshKey = ref(0)
+watch(() => streaming.value, (now, was) => {
+  if (was && !now) chatsRefreshKey.value++
+})
 
 function autoGrow(e: Event): void {
   const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'
@@ -248,8 +268,19 @@ function handleTicketClose(): void { showTicketModal.value = false; ticketDraft.
 
 async function handleNewDialog(): Promise<void> {
   if (!props.vehicleId) return
-  try { await resetChat(props.vehicleId) } catch { /* ignore */ }
   chat.resetLocal()
+}
+
+async function handleSelectConversation(conversationId: string): Promise<void> {
+  try {
+    const detail = await getChat(conversationId)
+    chat.loadConversation(detail)
+    if (isMobileLayout()) mobilePanel.value = null
+  } catch { /* keep current transcript on failure */ }
+}
+
+function handleConversationDeleted(deletedId: string): void {
+  if (activeConversationId.value === deletedId) chat.resetLocal()
 }
 
 function handleMdClick(e: MouseEvent): void {
@@ -296,8 +327,21 @@ function toggleMic(): void {
 <template>
   <div class="chat-page">
     <aside v-show="leftOpen" class="chat-sidebar left" :style="{ width: leftWidth + 'px' }">
+      <div class="sidebar-tabs">
+        <button :class="['sidebar-tab', { active: activeTab === 'history' }]" @click="setActiveTab('history')">{{ t('history.title') }}</button>
+        <button :class="['sidebar-tab', { active: activeTab === 'chats' }]" @click="setActiveTab('chats')">{{ t('chats.tab') }}</button>
+      </div>
       <button class="new-dialog-btn" :disabled="streaming" @click="handleNewDialog">{{ t('chat.new_dialog') }}</button>
-      <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
+      <HistoryPanel v-show="activeTab === 'history'" :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
+      <ChatsPanel
+        v-if="activeTab === 'chats'"
+        :vehicle-id="props.vehicleId"
+        :active-id="activeConversationId"
+        :refresh-key="chatsRefreshKey"
+        :disabled="streaming"
+        @select="handleSelectConversation"
+        @deleted="handleConversationDeleted"
+      />
       <div class="sidebar-resizer" @mousedown="startResize('left', $event)" @dblclick="resetWidth('left')" role="separator" aria-orientation="vertical" />
     </aside>
 
@@ -314,7 +358,12 @@ function toggleMic(): void {
             <path d="M3 6h18M3 12h18M3 18h18"/>
           </svg>
         </button>
-        <button class="back-btn" @click="emit('back')">← {{ t('chat.back') }}</button>
+        <button class="back-btn" @click="emit('back')">
+          <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+          </svg>
+          {{ t('chat.back') }}
+        </button>
         <div class="header-info">
           <div class="header-main">
             <span class="garage-badge">{{ header.garageNo }}</span>
@@ -354,7 +403,9 @@ function toggleMic(): void {
                   @click="expandedReasoning[idx] = !expandedReasoning[idx]"
                   :aria-expanded="!!expandedReasoning[idx]"
                 >
-                  <span :class="{ chevron: true, open: !!expandedReasoning[idx] }">▸</span>
+                  <svg :class="{ chevron: true, open: !!expandedReasoning[idx] }" class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
                   {{ t('chat.reasoning.toggle') }}
                 </button>
                 <div class="reasoning-body" v-show="expandedReasoning[idx]">{{ msg.reasoning }}</div>
@@ -424,7 +475,9 @@ function toggleMic(): void {
                 <line x1="12" y1="19" x2="12" y2="22"/>
               </svg>
             </button>
-            <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage">&uarr;</button>
+            <button v-if="!streaming" class="send-btn primary" :disabled="!messageInput.trim() || !vehicleId" @click="sendMessage"><svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
+            </svg></button>
             <button v-else class="stop-btn danger-solid" @click="chat.stop">{{ t('chat.stop') }}</button>
           </div>
         </div>
@@ -442,7 +495,20 @@ function toggleMic(): void {
           <h3>{{ t('chat.history') }}</h3>
           <button class="close-btn" @click="mobilePanel = null">&times;</button>
         </div>
-        <HistoryPanel :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
+        <div class="sidebar-tabs">
+          <button :class="['sidebar-tab', { active: activeTab === 'history' }]" @click="setActiveTab('history')">{{ t('history.title') }}</button>
+          <button :class="['sidebar-tab', { active: activeTab === 'chats' }]" @click="setActiveTab('chats')">{{ t('chats.tab') }}</button>
+        </div>
+        <HistoryPanel v-show="activeTab === 'history'" :vehicle-id="props.vehicleId" :refresh-key="historyRefreshKey" />
+        <ChatsPanel
+          v-if="activeTab === 'chats'"
+          :vehicle-id="props.vehicleId"
+          :active-id="activeConversationId"
+          :refresh-key="chatsRefreshKey"
+          :disabled="streaming"
+          @select="handleSelectConversation"
+          @deleted="handleConversationDeleted"
+        />
       </div>
 
       <div v-if="mobilePanel === 'doc'" class="mobile-overlay" @click.self="mobilePanel = null">
@@ -462,7 +528,8 @@ function toggleMic(): void {
 <style scoped>
 .chat-page { display: flex; flex-direction: row; flex: 1; min-height: 0; overflow: hidden; }
 .chat-header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 0; border-radius: 0; flex-shrink: 0; min-width: 0; }
-.back-btn { background: transparent; border: 0; color: var(--text-dim); font-size: 13px; padding: 4px 8px; cursor: pointer; flex-shrink: 0; }
+.back-btn { display: inline-flex; align-items: center; gap: 4px; background: transparent; border: 0; color: var(--text-dim); font-size: 13px; padding: 4px 8px; cursor: pointer; flex-shrink: 0; }
+.back-icon { width: 14px; height: 14px; }
 .back-btn:hover { color: var(--accent); }
 .header-info { flex: 1; min-width: 0; }
 .header-main { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -479,6 +546,9 @@ function toggleMic(): void {
 .chat-sidebar.right .sidebar-resizer { left: 0; }
 .sidebar-resizer:hover { background: var(--accent-dim); opacity: 0.4; }
 .chat-sidebar > * { flex-shrink: 0; }
+.sidebar-tabs { display: flex; gap: 4px; margin: 12px 12px 0; }
+.sidebar-tab { flex: 1; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; font-size: 12px; color: var(--text-dim); cursor: pointer; min-height: 32px; }
+.sidebar-tab.active { color: var(--accent); border-color: var(--accent); background: var(--bg-input); font-weight: 600; }
 .new-dialog-btn { margin: 12px; width: calc(100% - 24px); font-size: 13px; }
 .sidebar-toggle { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); padding: 0; cursor: pointer; flex-shrink: 0; }
 .sidebar-toggle:hover { border-color: var(--accent); color: var(--accent); }
@@ -529,6 +599,7 @@ function toggleMic(): void {
 .attach-btn { width: 36px; height: 36px; border-radius: 50%; background: transparent; border: 0; color: var(--text-dim); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; flex-shrink: 0; }
   .attach-btn:hover { background: var(--bg-input); color: var(--accent); }
 .attach-icon { width: 20px; height: 20px; }
+.send-icon { width: 20px; height: 20px; }
 .mic-btn { width: 44px; height: 44px; border-radius: 50%; background: transparent; border: 0; color: var(--text-dim); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; flex-shrink: 0; }
   .mic-btn:hover { background: var(--bg-input); color: var(--accent); }
 .mic-icon { width: 22px; height: 22px; }
@@ -554,7 +625,7 @@ function toggleMic(): void {
 }
 .reasoning-toggle { background: transparent; border: 0; color: var(--text-dim); font-size: 11px; cursor: pointer; padding: 0 2px; line-height: 1.2; display: inline-flex; align-items: center; gap: 4px; }
 .reasoning-toggle:hover { color: var(--accent); }
-.chevron { display: inline-block; transition: transform 0.15s ease; font-size: 9px; }
+.chevron { display: inline-block; transition: transform 0.15s ease; width: 12px; height: 12px; }
 .chevron.open { transform: rotate(90deg); }
 .reasoning-body { color: var(--text-dim); font-size: 12px; white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin: 4px 0; line-height: 1.4; }
 </style>

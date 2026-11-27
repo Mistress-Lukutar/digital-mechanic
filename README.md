@@ -115,7 +115,7 @@ cd frontend && npm run dev
 |---|---|
 | `src/mechanic/` | FastAPI-бэкенд: агентный цикл, инструменты агента, сервисы, API |
 | `shared/` | Контрактные Pydantic-модели (общие с RAG-модулем участника B) |
-| `frontend/` | Vue 3 + TypeScript SPA: гараж, SSE-чат с карточками, заявки, админка |
+| `frontend/` | Vue 3 + TypeScript SPA: гараж, SSE-чат с карточками, история чатов, встроенный PDF-просмотрщик, заявки, админка |
 | `data/` | Комплектные синтетические данные: `vehicles.json`, `fault_types.json`; `manuals/` — манифест документов (PDF поставляются отдельно) |
 | `vendor/` | Комплектные заглушки: Mock ML (`POST /diagnose`), Mock ТОиР (`POST /tickets`), OpenAPI-спеки |
 | `prompts/` | Системный промпт агента (`{vehicle_block}` / `{docs_block}`) |
