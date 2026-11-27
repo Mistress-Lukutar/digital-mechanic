@@ -72,8 +72,16 @@ async function apiGetInternal<T>(url: string, authHeader: string | null): Promis
   if (authHeader) headers['Authorization'] = `Bearer ${authHeader}`
   const response = await fetch(url, { headers })
   if (!response.ok) {
-    const detail = await response.text()
-    throw new ApiError(response.status, detail || `HTTP ${response.status}`)
+    // FastAPI errors are JSON {detail: ...} — format like apiSendInternal;
+    // fall back to raw text for non-JSON bodies (e.g. proxy errors).
+    let message = await response.text()
+    try {
+      const payload = JSON.parse(message)
+      if (payload?.detail) message = formatApiDetail(payload.detail)
+    } catch {
+      /* keep raw text */
+    }
+    throw new ApiError(response.status, message || `HTTP ${response.status}`)
   }
   return (await response.json()) as T
 }
