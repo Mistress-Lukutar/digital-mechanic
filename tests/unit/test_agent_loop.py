@@ -695,3 +695,72 @@ async def test_multimodal_user_turn_with_image() -> None:
     assert len(msg_parts) == 2
     assert isinstance(msg_parts[0], TextPart)
     assert isinstance(msg_parts[1], ImagePart)
+
+
+# ======================================================================
+# Test 14 — store_key defaults to vehicle_id (default behaviour unchanged)
+# ======================================================================
+
+
+async def test_store_key_defaults_to_vehicle_id() -> None:
+    """Two sends with no store_key accumulate in the same store entry."""
+    client = FakeLLMClient([
+        FakeLLMClient.text_turn("first"),
+        FakeLLMClient.text_turn("second"),
+    ])
+
+    loop = make_loop(client)
+    await collect(loop.run("V1", "msg 1"))
+    await collect(loop.run("V1", "msg 2"))
+
+    store = loop._store
+    history = store.history("V1")
+    assert len(history) == 4  # user, assistant, user, assistant
+    roles = [t.role for t in history]
+    assert roles == ["user", "assistant", "user", "assistant"]
+
+
+# ======================================================================
+# Test 15 — distinct store_keys produce independent histories
+# ======================================================================
+
+
+async def test_store_key_isolates_histories() -> None:
+    """store_key='convA' vs 'convB' with same vehicle_id produce separate histories."""
+    client = FakeLLMClient([
+        FakeLLMClient.text_turn("a1"),
+        FakeLLMClient.text_turn("a2"),
+        FakeLLMClient.text_turn("b1"),
+        FakeLLMClient.text_turn("b2"),
+        FakeLLMClient.text_turn("none"),
+    ])
+
+    loop = make_loop(client)
+
+    # convA: two messages
+    await collect(loop.run("V1", "a_msg_1", store_key="convA"))
+    await collect(loop.run("V1", "a_msg_2", store_key="convA"))
+
+    # convB: two messages
+    await collect(loop.run("V1", "b_msg_1", store_key="convB"))
+    await collect(loop.run("V1", "b_msg_2", store_key="convB"))
+
+    # store_key=None (defaults to vehicle_id): one message
+    await collect(loop.run("V1", "none_msg"))
+
+    # convA history: 4 turns
+    hist_a = loop._store.history("convA")
+    assert len(hist_a) == 4
+    roles_a = [t.role for t in hist_a]
+    assert roles_a == ["user", "assistant", "user", "assistant"]
+
+    # convB history: 4 turns
+    hist_b = loop._store.history("convB")
+    assert len(hist_b) == 4
+    roles_b = [t.role for t in hist_b]
+    assert roles_b == ["user", "assistant", "user", "assistant"]
+
+    # vehicle_id history (store_key=None): 2 turns
+    hist_v = loop._store.history("V1")
+    assert len(hist_v) == 2
+    assert [t.role for t in hist_v] == ["user", "assistant"]

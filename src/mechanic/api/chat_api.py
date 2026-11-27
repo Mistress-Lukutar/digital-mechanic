@@ -3,12 +3,17 @@ File:   chat_api.py
 Brief:  Chat endpoint with SSE streaming, conversation reset, and language selection.
 Author: Mistress-Lukutar
 Date:   2026-11-27
-Version: v0.2.0
+Version: v0.3.0
 
 Provides the ``/api/chat`` router with a streaming chat endpoint that wraps
 the :class:`~mechanic.agent.loop.AgentLoop` and yields SSE-formatted events,
 plus a reset endpoint to clear a vehicle's conversation history. Supports an
 optional ``language`` field on ``ChatRequest`` for non-Russian responses.
+
+Conversation persistence: each chat creates or resumes a stored conversation
+in :class:`~mechanic.services.chats.ChatStore`; the in-memory
+:class:`~mechanic.agent.conversations.ConversationStore` is hydrated from
+SQLite so that LLM context survives backend restarts.
 
 Multimodal support: ``ChatRequest`` accepts an optional ``image`` data-URL
 that is forwarded into the agent turn as a multimodal content part.
@@ -35,7 +40,7 @@ from mechanic.api.deps import (
     get_hub,
 )
 from mechanic.errors import FleetError
-from mechanic.llm import AiProtocol, Endpoint, get_llm_client
+from mechanic.llm import AiProtocol, Endpoint, TextPart, get_llm_client
 from mechanic.services.app_settings import LlmConfig, effective_llm_config
 
 logger = logging.getLogger(__name__)
@@ -82,12 +87,14 @@ class ChatRequest(BaseModel):
         session_id: Optional session identifier for the vehicle check.
         language: Target response language (ru, kk, uz, hi); defaults to ru.
         image: Optional data-URL image (``data:image/...``). Must be ≤ 2 100 000 chars.
+        conversation_id: Resumed conversation ID; a new one is created if absent.
     """
 
     message: str
     session_id: str | None = None
     language: Literal["ru", "kk", "uz", "hi"] | None = None
     image: str | None = None
+    conversation_id: str | None = None
 
     @field_validator("image")
     @classmethod
@@ -159,6 +166,7 @@ async def _chat_events(
     llm_cfg: LlmConfig,
     language: Literal["ru", "kk", "uz", "hi"] | None = None,
     image: str | None = None,
+    store_key: str | None = None,
 ) -> object:  # AsyncIterator[tuple[str, dict]]
     """Generate SSE events from the agent loop.
 
@@ -172,6 +180,7 @@ async def _chat_events(
         llm_cfg: Effective LLM configuration.
         language: Target response language (ru/kk/uz/hi).
         image: Optional data-URL image for multimodal input.
+        store_key: Key for conversation storage; defaults to vehicle_id.
 
     Yields:
         (event_name, payload) tuples from the agent loop.
@@ -199,7 +208,7 @@ async def _chat_events(
     )
 
     async for name, payload in loop.run(
-        vehicle_id, message, session_id, username, image=image
+        vehicle_id, message, session_id, username, image=image, store_key=store_key
     ):
         yield (name, payload)
 
@@ -213,6 +222,7 @@ async def chat(
     """Stream a chat response for *vehicle_id* via SSE."""
     hub = get_hub()
     conversations = get_conversations()
+    chats_store = hub.chats
 
     # Check vehicle exists BEFORE streaming.
     try:
@@ -222,12 +232,46 @@ async def chat(
 
     llm_cfg = effective_llm_config(hub.settings, get_app_settings())
 
+    # Resolve or create the conversation.
+    if body.conversation_id:
+        conv = chats_store.get_conversation(body.conversation_id)
+        if conv is None:
+            raise HTTPException(status_code=404, detail="чат не найден")
+        if conv["username"] != user.username or conv["vehicle_id"] != vehicle_id:
+            raise HTTPException(status_code=404, detail="чат не найден")
+        # Hydrate in-memory store when it has no turns for this key.
+        if not conversations.history(body.conversation_id):
+            for m in chats_store.get_messages(body.conversation_id):
+                if not m["text"]:
+                    continue
+                if m["role"] == "user":
+                    conversations.add_user_message(
+                        body.conversation_id, m["text"], image=m["image"]
+                    )
+                elif m["role"] == "assistant":
+                    conversations.add_assistant_parts(
+                        body.conversation_id, [TextPart(text=m["text"])]
+                    )
+        conversation_id = body.conversation_id
+    else:
+        conv = chats_store.create_conversation(user.username, vehicle_id)
+        conversation_id = conv["id"]
+
+    # Persist the user turn right away.
+    chats_store.add_message(conversation_id, "user", body.message, image=body.image)
+
+    store_key = conversation_id
+
     async def event_stream() -> object:  # AsyncIterator[str]
         """SSE event stream."""
         t0 = time.perf_counter()
         answer_parts: list[str] = []
         tools_used: list[str] = []
         ticket_draft_info: dict | None = None
+        conv_payload = json.dumps(
+            {"conversation_id": conversation_id}, ensure_ascii=False
+        )
+        yield f"event: conversation\ndata: {conv_payload}\n\n"
         async for name, payload in _chat_events(
             vehicle_id,
             body.message,
@@ -238,6 +282,7 @@ async def chat(
             llm_cfg,
             language=body.language or "ru",
             image=body.image,
+            store_key=store_key,
         ):
             yield f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
@@ -253,12 +298,13 @@ async def chat(
                     "urgency": payload.get("payload", {}).get("urgency"),
                 }
             elif name == "turn_done":
+                answer_text = "".join(answer_parts)
                 usage = payload.get("usage", {}) or {}
                 detail = {
                     "question": body.message[:4000],
-                    "answer": "".join(answer_parts)[:4000],
+                    "answer": answer_text[:4000],
                     "tools": tools_used,
-                    "citations": _extract_citations("".join(answer_parts)),
+                    "citations": _extract_citations(answer_text),
                     "ticket_draft": ticket_draft_info,
                     "has_image": body.image is not None,
                     "language": body.language,
@@ -274,7 +320,10 @@ async def chat(
                     status="ok",
                     detail=detail,
                 )
+                if answer_text:
+                    chats_store.add_message(conversation_id, "assistant", answer_text)
             elif name == "error":
+                error_text = "".join(answer_parts)
                 hub.usage.record(
                     username=user.username,
                     kind="chat",
@@ -286,6 +335,8 @@ async def chat(
                     status="error",
                     error=payload.get("message", "")[:300],
                 )
+                if error_text:
+                    chats_store.add_message(conversation_id, "assistant", error_text)
 
     return StreamingResponse(
         event_stream(),

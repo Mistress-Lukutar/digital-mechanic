@@ -1,14 +1,18 @@
 '''
 File:   conversations.py
-Brief:  In-memory per-vehicle conversation store feeding the LLM turns.
+Brief:  In-memory conversation store keyed by an opaque conversation key,
+        feeding the LLM turns.
 Author: Mistress-Lukutar
 Date:   2026-11-26
 Version: v0.1.0
 
-One conversation per vehicle: the FSM keeps the chat attached to the
-selected vehicle, so the vehicle id is the conversation key. Persistence
-across backend restarts is out of hackathon scope; a refresh of the UI
-does not reset the LLM context because the store lives server-side.
+Keyed by an opaque conversation key (usually a persisted conversation id;
+vehicle_id remains the legacy key). One conversation per key: the FSM keeps
+the chat attached to the selected vehicle, so the vehicle id is still used
+as the key in most callers. Persistence across backend restarts is handled
+by hydrating this store from :class:`~mechanic.services.chats.ChatStore`; a
+refresh of the UI does not reset the LLM context because the store lives
+server-side.
 '''
 
 from __future__ import annotations
@@ -74,3 +78,7 @@ class ConversationStore:
     def reset(self, vehicle_id: str) -> None:
         '''Drop the conversation for a vehicle (the "new check" action).'''
         self._turns.pop(vehicle_id, None)
+
+    def forget(self, key: str) -> None:
+        '''Drop stored turns for *key* without raising when it is absent.'''
+        self._turns.pop(key, None)
