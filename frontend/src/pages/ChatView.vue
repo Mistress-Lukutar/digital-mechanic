@@ -4,7 +4,7 @@ import type { TicketDraftEvent, ChatMessage, DiagnosticResult } from '../types'
 import { t } from '../i18n'
 import { createSseChat } from '../composables/useSseChat'
 import { useSpeech } from '../composables/useSpeech'
-import { getChat } from '../api'
+import { getChat, switchChatBranch } from '../api'
 import StatusCard from '../components/StatusCard.vue'
 import AgentStep from '../components/AgentStep.vue'
 import TicketForm from '../components/TicketForm.vue'
@@ -15,7 +15,8 @@ import AppModal from '../components/AppModal.vue'
 import { renderAssistantHtml } from '../lib/markdown'
 
 const SIDEBAR_MIN = 240
-const SIDEBAR_MAX = 560
+// 3x the previous 560 cap so a sidebar can be pulled out to near-full-screen width
+const SIDEBAR_MAX = 1680
 const SIDEBAR_DEFAULT = 380
 
 function loadSidebarWidth(key: string): number {
@@ -83,6 +84,10 @@ const inputEl = ref<HTMLTextAreaElement | null>(null)
 const attachedImage = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 
+// Edit / branch state
+const editingIndex = ref<number | null>(null)
+const editingText = ref('')
+
 // Sidebar tab switcher — persisted to localStorage
 const activeTab = ref<'history' | 'chats'>(
   (localStorage.getItem('chat.sidebar.tab') as 'history' | 'chats') || 'history',
@@ -95,8 +100,23 @@ function setActiveTab(tab: 'history' | 'chats'): void {
 
 // Refresh key for ChatsPanel — bumps when streaming ends
 const chatsRefreshKey = ref(0)
-watch(() => streaming.value, (now, was) => {
-  if (was && !now) chatsRefreshKey.value++
+watch(() => streaming.value, async (now, was) => {
+  if (was && !now) {
+    chatsRefreshKey.value++
+    try {
+      const detail = await getChat(activeConversationId.value!)
+      if (detail.messages.length === messages.value.length) {
+        detail.messages.forEach((m, i) => {
+          const local = messages.value[i]
+          local.id = m.id
+          local.siblingIndex = m.sibling_index
+          local.siblingCount = m.sibling_count
+          local.prevSiblingId = m.prev_sibling_id
+          local.nextSiblingId = m.next_sibling_id
+        })
+      }
+    } catch { /* ignore — edit buttons stay hidden until next load */ }
+  }
 })
 
 function autoGrow(e: Event): void {
@@ -259,6 +279,23 @@ const activeDocId = ref<string | null>(null)
 const activePage = ref<number | null>(null)
 const showTicketModal = ref(false)
 const ticketDraft = ref<TicketDraftEvent | null>(null)
+
+// Diagnostic for the ticket gate UI: prefer the diag whose session matches
+// the draft, else the latest diag in the visible chat.
+const ticketDiag = computed<DiagnosticResult | null>(() => {
+  const list = messages.value as (ChatMessage & { _diag?: DiagnosticResult })[]
+  const sid = ticketDraft.value?.session_id
+  for (let i = list.length - 1; i >= 0; i--) {
+    const d = list[i]?._diag
+    if (d && sid && d.session_id === sid) return d
+  }
+  for (let i = list.length - 1; i >= 0; i--) {
+    const d = list[i]?._diag
+    if (d) return d
+  }
+  return null
+})
+
 const historyRefreshKey = ref(0)
 
 function handleTicketSubmitted(_ticketId: string): void {
@@ -281,6 +318,39 @@ async function handleSelectConversation(conversationId: string): Promise<void> {
 
 function handleConversationDeleted(deletedId: string): void {
   if (activeConversationId.value === deletedId) chat.resetLocal()
+}
+
+// ---------------------------------------------------------------------------
+// Edit / branch helpers
+// ---------------------------------------------------------------------------
+
+function startEdit(idx: number): void {
+  if (streaming.value) return
+  editingIndex.value = idx
+  editingText.value = messages.value[idx].text
+}
+
+function cancelEdit(): void {
+  editingIndex.value = null
+  editingText.value = ''
+}
+
+async function saveEdit(idx: number): Promise<void> {
+  const text = editingText.value.trim()
+  if (!text) return
+  editingIndex.value = null
+  try {
+    await chat.editMessage(props.vehicleId, idx, text)
+  } catch { /* keep current transcript on failure */ }
+}
+
+async function switchBranch(messageId: number | null | undefined): Promise<void> {
+  if (!messageId || streaming.value || !activeConversationId.value) return
+  try {
+    const detail = await switchChatBranch(activeConversationId.value, messageId)
+    expandedReasoning.value = {}
+    chat.loadConversation(detail)
+  } catch { /* keep current transcript on failure */ }
 }
 
 function handleMdClick(e: MouseEvent): void {
@@ -416,10 +486,48 @@ function toggleMic(): void {
             </div>
           </template>
           <template v-else>
-            <div class="bubble user-bubble">
-              <img v-if="msg.image" :src="msg.image" class="user-image-thumb" />
-              {{ msg.text }}
-            </div>
+            <!-- Editing mode -->
+            <template v-if="editingIndex === idx">
+              <div class="bubble user-bubble edit-mode">
+                <textarea
+                  class="edit-textarea"
+                  v-model="editingText"
+                  rows="3"
+                  @keydown.enter.exact.prevent="saveEdit(idx)"
+                  @keydown.escape="cancelEdit()"
+                ></textarea>
+                <div class="edit-actions">
+                  <button class="edit-action-btn save" @click="saveEdit(idx)">{{ t('chat.edit.save') }}</button>
+                  <button class="edit-action-btn cancel" @click="cancelEdit()">{{ t('chat.edit.cancel') }}</button>
+                </div>
+              </div>
+            </template>
+            <!-- Normal mode -->
+            <template v-else>
+              <div class="user-bubble-wrap">
+                <div class="bubble user-bubble" style="position:relative;">
+                  <img v-if="msg.image" :src="msg.image" class="user-image-thumb" />
+                  {{ msg.text }}
+                  <!-- Edit button -->
+                  <button
+                    v-if="msg.id !== undefined && !streaming"
+                    class="edit-btn"
+                    :title="t('chat.edit.label')"
+                    @click="startEdit(idx)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                    </svg>
+                  </button>
+                </div>
+                <!-- Branch switcher -->
+                <div v-if="msg.siblingCount && msg.siblingCount > 1" class="branch-switcher">
+                  <button :disabled="!msg.prevSiblingId || streaming" @click="switchBranch(msg.prevSiblingId!)">‹</button>
+                  <span>{{ msg.siblingIndex }}/{{ msg.siblingCount }}</span>
+                  <button :disabled="!msg.nextSiblingId || streaming" @click="switchBranch(msg.nextSiblingId!)">›</button>
+                </div>
+              </div>
+            </template>
           </template>
         </div>
 
@@ -522,7 +630,7 @@ function toggleMic(): void {
       </div>
 
     <AppModal v-if="showTicketModal && ticketDraft" wide title="Заявка на дефектовку" @close="handleTicketClose">
-      <TicketForm :draft="ticketDraft" :vehicle-id="props.vehicleId" @submitted="handleTicketSubmitted" @close="handleTicketClose" />
+      <TicketForm :draft="ticketDraft" :vehicle-id="props.vehicleId" :diag="ticketDiag" @submitted="handleTicketSubmitted" @close="handleTicketClose" />
     </AppModal>
   </div>
 </template>
@@ -631,4 +739,22 @@ function toggleMic(): void {
 .chevron { display: inline-block; transition: transform 0.15s ease; width: 12px; height: 12px; }
 .chevron.open { transform: rotate(90deg); }
 .reasoning-body { color: var(--text-dim); font-size: 12px; white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin: 4px 0; line-height: 1.4; }
+
+/* Edit / branch */
+.edit-btn { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: transparent; border: 0; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0; transition: opacity 0.15s ease, color 0.15s ease; }
+.message-row.user:hover .edit-btn { opacity: 1; }
+.edit-btn:hover { color: var(--accent); background: var(--bg-input); }
+.edit-btn:focus { opacity: 1; outline: 1px solid var(--accent); }
+.edit-btn svg { width: 14px; height: 14px; }
+.user-bubble-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.edit-textarea { background: transparent; border: 0; padding: 8px 10px; min-height: 60px; max-height: 200px; font-size: 14px; font-family: inherit; resize: vertical; width: 100%; color: var(--text-on-accent); }
+.edit-textarea:focus { outline: 1px solid var(--accent); border-radius: var(--radius-sm); }
+.edit-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
+.edit-action-btn { font-size: 12px; padding: 3px 10px; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-dim); }
+.edit-action-btn.save:hover { background: var(--accent-dim); color: var(--text-on-accent); border-color: var(--accent); }
+.edit-action-btn.cancel:hover { color: var(--danger-text); border-color: var(--danger-text); }
+.branch-switcher { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-dim); }
+.branch-switcher button { background: transparent; border: 0; color: var(--text-dim); cursor: pointer; padding: 2px 4px; font-size: 11px; line-height: 1; border-radius: 3px; }
+.branch-switcher button:hover:not(:disabled) { color: var(--accent); background: var(--bg-input); }
+.branch-switcher button:disabled { opacity: 0.35; cursor: default; }
 </style>

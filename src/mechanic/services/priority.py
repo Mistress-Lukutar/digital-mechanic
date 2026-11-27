@@ -83,7 +83,7 @@ def suggest_urgency(
             rationale=(
                 f"Приоритет высокий: критичный узел «{fault_title}» "
                 f"(score {score_display}, confidence {conf_display}) "
-                f"— риск отказа в рейсе."
+                f"— поставить на дефектовку до выпуска в рейс."
             ),
         )
 
@@ -93,8 +93,9 @@ def suggest_urgency(
             urgency="medium",
             rationale=(
                 f"Приоритет средний: критичный узел «{fault_title}», "
-                f"но показания умеренные (score {score_display}, "
-                f"confidence {conf_display})."
+                f"показания умеренные (score {score_display}, "
+                f"confidence {conf_display}) — дефектовка на ближайшем ТО, "
+                f"работа под наблюдением."
             ),
         )
 
@@ -104,7 +105,8 @@ def suggest_urgency(
             urgency="medium",
             rationale=(
                 f"Приоритет средний: узел «{fault_title}» значительно отклоняется "
-                f"от нормы (score {score_display})."
+                f"от нормы (score {score_display}) — дефектовка на ближайшем ТО, "
+                f"работа под наблюдением."
             ),
         )
 
@@ -113,15 +115,15 @@ def suggest_urgency(
         return UrgencySuggestion(
             urgency="low",
             rationale=(
-                f"Приоритет низкий: «{fault_title}» существенно не влияет "
-                f"на готовность к рейсу (score {score_display}, "
-                f"confidence {conf_display})."
+                f"Приоритет низкий: «{fault_title}» — машина работает, "
+                f"узел проверяется на следующей проверке "
+                f"(score {score_display}, confidence {conf_display})."
             ),
         )
     return UrgencySuggestion(
         urgency="low",
         rationale=(
-            f"Приоритет низкий: «{fault_title}» существенно не влияет "
-            f"на готовность к рейсу."
+            f"Приоритет низкий: «{fault_title}» — машина работает, "
+            f"узел проверяется на следующей проверке."
         ),
     )

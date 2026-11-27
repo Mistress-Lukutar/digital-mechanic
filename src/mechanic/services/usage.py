@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import statistics
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -227,6 +228,32 @@ class UsageLog:
             input_tokens=row["input_tokens"],
             output_tokens=row["output_tokens"],
         )
+
+    def chat_token_stats(self) -> dict:
+        """Median input/output tokens over chat-kind rows with tokens.
+
+        Returns:
+            Dict with keys ``turns``, ``median_input``, ``median_output``
+            (0 values when no rows).
+        """
+        cursor = self._conn.execute(
+            """
+            SELECT input_tokens, output_tokens
+            FROM requests
+            WHERE kind = 'chat' AND (input_tokens > 0 OR output_tokens > 0)
+            """
+        )
+        rows = cursor.fetchall()
+        if not rows:
+            return {"turns": 0, "median_input": 0, "median_output": 0}
+
+        input_values = [r["input_tokens"] for r in rows]
+        output_values = [r["output_tokens"] for r in rows]
+        return {
+            "turns": len(rows),
+            "median_input": statistics.median(input_values),
+            "median_output": statistics.median(output_values),
+        }
 
     def recent(self, limit: int = 50) -> list[UsageRow]:
         """Return the most recent request log entries.

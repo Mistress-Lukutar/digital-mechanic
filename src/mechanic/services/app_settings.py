@@ -43,6 +43,26 @@ class LlmConfig(BaseModel):
     max_output_tokens: int | None = None
 
 
+class EconomyPrices(BaseModel):
+    '''Token prices for the economics calculator.
+
+    Attributes:
+        input_price: Price per 1 000 000 input tokens.
+        output_price: Price per 1 000 000 output tokens.
+        currency: "USD" or "RUB".
+        usd_rate: Central-bank RUB/USD rate used when currency == "USD".
+        model_label: Human-readable model/pricing source label.
+        indexation_cost: One-off manual-indexing cost in RUB (separate line).
+    '''
+
+    input_price: float = 0.22
+    output_price: float = 0.88
+    currency: str = "USD"
+    usd_rate: float = 82.313
+    model_label: str = "Qwen3-30B-A3B (Alibaba Model Studio)"
+    indexation_cost: float = 0.0
+
+
 class AppSettings:
     '''Key-value settings store backed by SQLite (WAL mode).
 
@@ -127,6 +147,31 @@ class AppSettings:
         with self._lock:
             self._conn.execute("DELETE FROM app_settings WHERE key = ?", (key,))
             self._conn.commit()
+
+    def get_economy_prices(self) -> EconomyPrices:
+        """Return stored :class:`EconomyPrices`, or a default instance.
+
+        When the key is absent or the stored JSON cannot be parsed,
+        a default ``EconomyPrices`` is returned so callers never fail.
+
+        Returns:
+            :class:`EconomyPrices` instance.
+        """
+        try:
+            data = self.get("economy_prices")
+            if data is None:
+                return EconomyPrices()
+            return EconomyPrices(**data)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return EconomyPrices()
+
+    def save_economy_prices(self, prices: EconomyPrices) -> None:
+        """Persist *prices* to the settings store.
+
+        Args:
+            prices: :class:`EconomyPrices` instance to save.
+        """
+        self.set("economy_prices", prices.model_dump())
 
     def close(self) -> None:
         """Close the database connection."""

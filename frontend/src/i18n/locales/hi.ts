@@ -110,10 +110,13 @@ const hi = {
   'chat.error.connection': 'कनेक्शन त्रुटि',
   'chat.mic.label': 'वॉइस इनपुट',
   'chat.mic.listening': 'सुन रहा हूँ…',
-  'chat.empty_vehicle': 'फ़्लीट से अनुरोध चुनें या इतिहास से चैट खोलें',
+  'chat.empty_vehicle': 'फ़्लीट से अनुरोध चुनें',
   'chat.reasoning.toggle': 'सोच रहा हूँ…',
   'chat.attach.label': 'छवि संलग्न करें',
   'chat.attach.remove': 'छवि हटाएँ',
+  'chat.edit.label': 'संपादित करें',
+  'chat.edit.save': 'भेजें',
+  'chat.edit.cancel': 'रद्द करें',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel
@@ -163,6 +166,10 @@ const hi = {
   'ticket.validation.ref_manual': 'संदर्भ #{n}: मैन्युअल बताएँ',
   'ticket.validation.ref_page': 'संदर्भ #{n}: पृष्ठ संख्या ≥ 1 होनी चाहिए',
   'ticket.error.create': 'टिकट बनाने में त्रुटि',
+  'ticket.floor_hint': 'टिकट जमा करने की सीमा: 0.50',
+  'ticket.floor_blocked': 'आत्मविश्वास 0.50 की सीमा से नीचे — टिकट अनुपलब्ध है, रिकॉर्ड दोहराएँ',
+  'ticket.warning_notice': 'रिकॉर्डिंग गुणवत्ता चेतावनी — परिणाम की आत्मविश्वासीयता कम हो गई है, पुनः रिकॉर्ड करने की सिफारिश की जाती है।',
+  'ticket.override_checkbox': 'रिकॉर्डिंग गुणवत्ता चेतावनी को ध्यान में रखते हुए टिकट की पुष्टि करता हूँ',
 
   // ---------------------------------------------------------------------------
   // doc.* — DocPanel
@@ -202,6 +209,7 @@ const hi = {
   // ---------------------------------------------------------------------------
   'admin.tab.dashboard': 'डैशबोर्ड',
   'admin.tab.users': 'उपयोगकर्ता',
+  'admin.tab.alerts': 'अलर्ट',
   'admin.tab.llm': 'LLM सेटिंग्स',
   'admin.dashboard.title': 'उपयोग डैशबोर्ड',
   'admin.stat.requests': 'अनुरोध',
@@ -220,6 +228,16 @@ const hi = {
   'admin.table.output_tokens': 'आउटपुट टोकन',
   'admin.table.duration': 'अवधि (ms)',
   'admin.table.status': 'स्थिति',
+  'admin.alerts.title': 'अनोद्य स्थितियों के अलर्ट',
+  'admin.alerts.empty': 'कोई अलर्ट नहीं',
+  'admin.alerts.refresh': 'रिफ़्रेश',
+  'admin.alerts.mark_read': 'पढ़ा गया',
+  'admin.alerts.read': 'पढ़ा हुआ',
+  'admin.alerts.col.time': 'समय',
+  'admin.alerts.col.kind': 'प्रकार',
+  'admin.alerts.col.text': 'स्थिति',
+  'admin.alerts.col.where': 'कौन / कहाँ',
+  'admin.alerts.col.status': 'स्थिति',
   'admin.error_label': 'त्रुटि',
   'admin.no_records': 'कोई रिकॉर्ड नहीं',
   'admin.users.title': 'उपयोगकर्ता',
@@ -263,6 +281,47 @@ const hi = {
   'admin.detail_hint': '"chat" पंक्ति पर क्लिक — प्रश्न, उत्तर और उद्धरण',
   'admin.detail_loading': 'लोड हो रहा है…',
   'admin.detail_error': 'विवरण अनुपलब्ध',
+  'admin.detail.steps': 'चरण',
+  'admin.detail.step_tool': 'उपकरण',
+  'admin.detail.step_args': 'तर्क',
+  'admin.detail.step_status': 'स्थिति',
+  'admin.detail.step_time': 'समय',
+  'admin.detail.step_summary': 'सारांश',
+  'admin.detail.step_ok': 'OK',
+  'admin.detail.step_error': 'त्रुटि',
+
+  // ---------------------------------------------------------------------------
+  // admin.econ.* — Economy tab
+  // ---------------------------------------------------------------------------
+  'admin.tab.econ': 'अर्थव्यवस्था',
+  'admin.econ.title': 'दृश्य और बेड़ा अर्थव्यवस्था',
+  'admin.econ.prices': 'मॉडल मूल्य',
+  'admin.econ.model_label': 'मॉडल / मूल्य स्रोत',
+  'admin.econ.input_price': 'इनपुट मूल्य प्रति 1 मिलियन',
+  'admin.econ.output_price': 'आउटपुट मूल्य प्रति 1 मिलियन',
+  'admin.econ.currency': 'मुद्रा',
+  'admin.econ.usd_rate': 'सीबी $ दर',
+  'admin.econ.indexation': 'महंगाई (एक बार), ₽',
+  'admin.econ.assumptions': 'धारणाएं',
+  'admin.econ.machines': 'बेड़े में मशीनें',
+  'admin.econ.period': 'जाँच आवृत्ति, दिन',
+  'admin.econ.questions': 'मैकेनिक जाँच प्रश्न',
+  'admin.econ.save_prices': 'मूल्य सहेजें',
+  'admin.econ.recalc': 'पुनः गणना',
+  'admin.econ.export_csv': 'CSV निर्यात',
+  'admin.econ.stats': 'स्टैंड माप: {n} टर्न्स, इनपुट मध्यिका {in}, आउटपुट {out}',
+  'admin.econ.scenario': 'दृश्य (निदान → उत्तर/आवेदन)',
+  'admin.econ.scenario_turns': 'मॉडल को दृश्य कॉल',
+  'admin.econ.scenario_tokens_in': 'दृश्य इनपुट टोकन',
+  'admin.econ.scenario_tokens_out': 'दृश्य आउटपुट टोकन',
+  'admin.econ.scenario_cost': 'दृश्य लागत, ₽',
+  'admin.econ.fleet': 'बेड़ा पुनः गणना',
+  'admin.econ.checks_month': 'मासिक बेड़ा जाँच',
+  'admin.econ.scenarios_month': 'मासिक दृश्य',
+  'admin.econ.cost_month': 'मासिक बेड़ा लागत, ₽',
+  'admin.econ.cost_year': 'वार्षिक बेड़ा लागत, ₽',
+  'admin.econ.tokens_scenario': 'दृश्य पर टोकन',
+  'admin.econ.csv_title': '"डिजिटल मैकेनिक" अर्थव्यवस्था',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults

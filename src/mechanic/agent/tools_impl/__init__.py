@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 
 from mechanic.agent.tools_base import ToolContext, ToolRegistry
+from mechanic.agent.tools_impl.report_issue import make_report_issue_tool
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,9 @@ def build_registry(hub: object) -> ToolRegistry:  # ServiceHub
     from mechanic.agent.tools_impl.diagnostics import make_get_diagnostic_result_tool
     from mechanic.agent.tools_impl.documents import make_show_document_tool
     from mechanic.agent.tools_impl.manuals import make_search_manuals_tool
+    from mechanic.agent.tools_impl.report_issue import (
+        make_report_issue_tool,
+    )
     from mechanic.agent.tools_impl.tickets import make_create_ticket_tool
     from mechanic.agent.tools_impl.vehicles import make_get_vehicle_info_tool
 
@@ -66,6 +70,7 @@ def build_registry(hub: object) -> ToolRegistry:  # ServiceHub
     reg.register(make_search_manuals_tool()(hub))
     reg.register(make_get_vehicle_info_tool()(hub))
     reg.register(make_create_ticket_tool()(hub))
+    reg.register(make_report_issue_tool()(hub))
     reg.register(make_show_document_tool()(hub))
 
     return reg
@@ -78,5 +83,6 @@ __all__: list[str] = [
     "make_search_manuals_tool",
     "make_get_vehicle_info_tool",
     "make_create_ticket_tool",
+    "make_report_issue_tool",
     "make_show_document_tool",
 ]

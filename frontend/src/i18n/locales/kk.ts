@@ -110,10 +110,13 @@ const kk = {
   'chat.error.connection': 'Байланыс қатесі',
   'chat.mic.label': 'Дауыспен енгізу',
   'chat.mic.listening': 'Тыңдау…',
-  'chat.empty_vehicle': 'Парктен өтінішті таңдаңыз немесе тарихтан чатты ашыңыз',
+  'chat.empty_vehicle': 'Парктен өтінішті таңдаңыз',
   'chat.reasoning.toggle': 'Ойлану…',
   'chat.attach.label': 'Суретті тіркеп',
   'chat.attach.remove': 'Суретті алып тастау',
+  'chat.edit.label': 'Өңдеу',
+  'chat.edit.save': 'Жіберу',
+  'chat.edit.cancel': 'Болдырмау',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel
@@ -163,6 +166,10 @@ const kk = {
   'ticket.validation.ref_manual': 'Сілтеме #{n}: нұсқаулықты көрсетіңіз',
   'ticket.validation.ref_page': 'Сілтеме #{n}: бет кемінде 1 болуы керек',
   'ticket.error.create': 'Өтініш жасау қатесі',
+  'ticket.floor_hint': 'Заявканы қабылдау шегі: 0,50',
+  'ticket.floor_blocked': 'Сенімділік 0,50 шегінен төмен — өтініш қолжетімсіз, жазбаны қайталаңыз',
+  'ticket.warning_notice': 'Жазба сапасы ескерту — нәтиженің сенімділігі төмендеді, қайта жазу ұсынылады.',
+  'ticket.override_checkbox': 'Жазба сапасы туралы ескеруді ескере отырып өтінішті растаймын',
 
   // ---------------------------------------------------------------------------
   // doc.* — DocPanel
@@ -202,6 +209,7 @@ const kk = {
   // ---------------------------------------------------------------------------
   'admin.tab.dashboard': 'Дашборд',
   'admin.tab.users': 'Пайдаланушылар',
+  'admin.tab.alerts': 'Оповещениелер',
   'admin.tab.llm': 'LLM баптаулары',
   'admin.dashboard.title': 'Пайдалану дашборды',
   'admin.stat.requests': 'Сұраныстар',
@@ -220,6 +228,16 @@ const kk = {
   'admin.table.output_tokens': 'Шығыс токендері',
   'admin.table.duration': 'Ұзақтық (мс)',
   'admin.table.status': 'Статус',
+  'admin.alerts.title': 'Стандартты емес жағдайлар туралы оповещениелер',
+  'admin.alerts.empty': 'Оповещениелер жоқ',
+  'admin.alerts.refresh': 'Жаңарту',
+  'admin.alerts.mark_read': 'Оқылды',
+  'admin.alerts.read': 'оқылған',
+  'admin.alerts.col.time': 'Уақыт',
+  'admin.alerts.col.kind': 'Түрі',
+  'admin.alerts.col.text': 'Жағдай',
+  'admin.alerts.col.where': 'Кім / қайда',
+  'admin.alerts.col.status': 'Статус',
   'admin.error_label': 'Қате',
   'admin.no_records': 'Жазбалар жоқ',
   'admin.users.title': 'Пайдаланушылар',
@@ -263,6 +281,47 @@ const kk = {
   'admin.detail_hint': '«chat» жолын басу — сұрақ, жауап және дереккөздер',
   'admin.detail_loading': 'Жүктелуде…',
   'admin.detail_error': 'Толық ақпарат қолжетімсіз',
+  'admin.detail.steps': 'Қадамдар',
+  'admin.detail.step_tool': 'Құрал',
+  'admin.detail.step_args': 'Аргументтер',
+  'admin.detail.step_status': 'Күйі',
+  'admin.detail.step_time': 'Уақыт',
+  'admin.detail.step_summary': 'Түйін',
+  'admin.detail.step_ok': 'OK',
+  'admin.detail.step_error': 'Қате',
+
+  // ---------------------------------------------------------------------------
+  // admin.econ.* — Economy tab
+  // ---------------------------------------------------------------------------
+  'admin.tab.econ': 'Экономика',
+  'admin.econ.title': 'Сценарий мен парк экономикасы',
+  'admin.econ.prices': 'Модель бағалары',
+  'admin.econ.model_label': 'Модель / баға көзі',
+  'admin.econ.input_price': 'Кіру бағасы 1 млн-ға',
+  'admin.econ.output_price': 'Шығу бағасы 1 млн-ға',
+  'admin.econ.currency': 'Валюта',
+  'admin.econ.usd_rate': 'ЦБ $ бағамы',
+  'admin.econ.indexation': 'Индексация (бір рет), ₽',
+  'admin.econ.assumptions': 'Допущения',
+  'admin.econ.machines': 'Парктағы машиналар саны',
+  'admin.econ.period': 'Тексеру жиілігі, күн',
+  'admin.econ.questions': 'Механик тексеру сұрақтары',
+  'admin.econ.save_prices': 'Бағаларды сақтау',
+  'admin.econ.recalc': 'Қайта есептеу',
+  'admin.econ.export_csv': 'CSV экспорттау',
+  'admin.econ.stats': 'Стенд өлшемі: {n} жүріс, кіру медианасы {in}, шығу {out}',
+  'admin.econ.scenario': 'Сценарий (диагностика → жауап/өтініш)',
+  'admin.econ.scenario_turns': 'Модельге сценарий шақырулары',
+  'admin.econ.scenario_tokens_in': 'Сценарий кіріс токендері',
+  'admin.econ.scenario_tokens_out': 'Сценарий шығыс токендері',
+  'admin.econ.scenario_cost': 'Сценарий құны, ₽',
+  'admin.econ.fleet': 'Парққа қайта есептеу',
+  'admin.econ.checks_month': 'Айына парк тексерулері',
+  'admin.econ.scenarios_month': 'Айына сценарийлер',
+  'admin.econ.cost_month': 'Айына парк құны, ₽',
+  'admin.econ.cost_year': 'Жылына парк құны, ₽',
+  'admin.econ.tokens_scenario': 'Сценарийге токендер',
+  'admin.econ.csv_title': '«Цифровой механик» экономикасы',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults

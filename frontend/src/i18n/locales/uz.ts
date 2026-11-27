@@ -110,10 +110,13 @@ const uz = {
   'chat.error.connection': 'Ulanish xatosi',
   'chat.mic.label': 'Ovozli kiritish',
   'chat.mic.listening': 'Tinglayapman…',
-  'chat.empty_vehicle': 'Parkdan arizani tanlang yoki tarixdan chatni oching',
+  'chat.empty_vehicle': 'Parkdan arizani tanlang',
   'chat.reasoning.toggle': "Oʻylayapman…",
   'chat.attach.label': 'Rasmni biriktirish',
   'chat.attach.remove': 'Rasmni olib tashlash',
+  'chat.edit.label': 'Tahrirlash',
+  'chat.edit.save': 'Yuborish',
+  'chat.edit.cancel': 'Bekor qilish',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel
@@ -163,6 +166,10 @@ const uz = {
   'ticket.validation.ref_manual': 'Havola #{n}: qoʻllanmani koʻrsating',
   'ticket.validation.ref_page': 'Havola #{n}: bet raqami ≥ 1 boʻlishi kerak',
   'ticket.error.create': 'Ariza yaratish xatosi',
+  'ticket.floor_hint': 'Ariza qabul qilish chegarasi: 0,50',
+  'ticket.floor_blocked': 'Ishonchlilik 0,50 chegarasidan past — ariza mavjud emas, yozuvni takrorlang',
+  'ticket.warning_notice': 'Yozuv sifati ogohlantirish — natija ishonchliligi pasaygan, qayta yozuv tavsiya etiladi.',
+  'ticket.override_checkbox': 'Yozuv sifati haqidagi ogohlantirishni hisobga olgan holda arizani tasdiqlayman',
 
   // ---------------------------------------------------------------------------
   // doc.* — DocPanel
@@ -202,6 +209,7 @@ const uz = {
   // ---------------------------------------------------------------------------
   'admin.tab.dashboard': 'Dashboard',
   'admin.tab.users': 'Foydalanuvchilar',
+  'admin.tab.alerts': 'Ogohlantirishlar',
   'admin.tab.llm': 'LLM sozlamalari',
   'admin.dashboard.title': 'Foydalanish dashboardi',
   'admin.stat.requests': 'Soʻrovlar',
@@ -220,6 +228,16 @@ const uz = {
   'admin.table.output_tokens': 'Chiq.tokenlar',
   'admin.table.duration': 'Davomiyligi (ms)',
   'admin.table.status': 'Holat',
+  'admin.alerts.title': 'Nodavriy holatlar haqida ogohlantirishlar',
+  'admin.alerts.empty': 'Ogohlantirishlar yoʻq',
+  'admin.alerts.refresh': 'Yangilash',
+  'admin.alerts.mark_read': 'Oʻqildi',
+  'admin.alerts.read': 'oʻqilgan',
+  'admin.alerts.col.time': 'Vaqt',
+  'admin.alerts.col.kind': 'Turi',
+  'admin.alerts.col.text': 'Holat',
+  'admin.alerts.col.where': 'Kim / qayerda',
+  'admin.alerts.col.status': 'Holat',
   'admin.error_label': 'Xato',
   'admin.no_records': 'Yozuvlar yoʻq',
   'admin.users.title': 'Foydalanuvchilar',
@@ -263,6 +281,47 @@ const uz = {
   'admin.detail_hint': '"chat" qatorini bosish — savol, javob va iqtiboslar',
   'admin.detail_loading': 'Yuklanmoqda…',
   'admin.detail_error': 'Tafsilotlar mavjud emas',
+  'admin.detail.steps': 'Qadamlar',
+  'admin.detail.step_tool': 'Vosita',
+  'admin.detail.step_args': 'Argumentlar',
+  'admin.detail.step_status': 'Holati',
+  'admin.detail.step_time': 'Vaqt',
+  'admin.detail.step_summary': 'Xulosa',
+  'admin.detail.step_ok': 'OK',
+  'admin.detail.step_error': 'Xato',
+
+  // ---------------------------------------------------------------------------
+  // admin.econ.* — Economy tab
+  // ---------------------------------------------------------------------------
+  'admin.tab.econ': 'Iqtisodiyot',
+  'admin.econ.title': 'Ssenariy va park iqtisodiyoti',
+  'admin.econ.prices': 'Model narxlari',
+  'admin.econ.model_label': 'Model / narx manbasi',
+  'admin.econ.input_price': 'Kirish narxi 1 mln uchun',
+  'admin.econ.output_price': 'Chiqish narxi 1 mln uchun',
+  'admin.econ.currency': 'Valyuta',
+  'admin.econ.usd_rate': 'CB $ kursi',
+  'admin.econ.indexation': 'Indeksatsiya (bir martalik), ₽',
+  'admin.econ.assumptions': 'Farazlar',
+  'admin.econ.machines': 'Parkdagi mashinalar soni',
+  'admin.econ.period': 'Tekshiruv chastotaligi, kun',
+  'admin.econ.questions': 'Mexanik tekshiruv savollari',
+  'admin.econ.save_prices': 'Narxlarni saqlash',
+  'admin.econ.recalc': "Qayta hisoblash",
+  'admin.econ.export_csv': 'CSV eksport',
+  'admin.econ.stats': 'Poligon oʻlchovi: {n} yurish, kirish medianasi {in}, chiqish {out}',
+  'admin.econ.scenario': 'Ssenariy (diagnostika → javob/ariza)',
+  'admin.econ.scenario_turns': 'Modelga ssenariy chaqiruvlari',
+  'admin.econ.scenario_tokens_in': 'Ssenariy kiruvchi tokenlar',
+  'admin.econ.scenario_tokens_out': 'Ssenariy chiquvchi tokenlar',
+  'admin.econ.scenario_cost': 'Ssenariy narxi, ₽',
+  'admin.econ.fleet': "Parkga qayta hisob",
+  'admin.econ.checks_month': 'Oyiga park tekshiruvlari',
+  'admin.econ.scenarios_month': 'Oyiga ssenariylar',
+  'admin.econ.cost_month': 'Oyiga park narxi, ₽',
+  'admin.econ.cost_year': 'Yilga park narxi, ₽',
+  'admin.econ.tokens_scenario': 'Ssenariyga tokenlar',
+  'admin.econ.csv_title': '"Raqamli mexanik" iqtisodiyoti',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults

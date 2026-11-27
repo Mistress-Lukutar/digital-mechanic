@@ -41,6 +41,37 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Scrollbars — thin, dark, matching the theme
+   --------------------------------------------------------------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ---------------------------------------------------------------------------
    Typography
    --------------------------------------------------------------------------- */
 
@@ -248,6 +279,16 @@ textarea:focus {
   margin: 8px 0;
   font-size: 13px;
   cursor: pointer;
+}
+
+.warning-strip {
+  border: 1px solid var(--warning);
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 13px;
 }
 
 .info-strip {

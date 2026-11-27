@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     app_port: int = 8000
     app_data_dir: Path = Path("data")
     manuals_dir: Path = Path("data/manuals")
+
+    # Confidence floor for tickets: below it the agent must not create a
+    # ticket and recommends re-recording (customer-accepted 0.50 threshold).
+    confidence_ticket_floor: float = 0.50
+
     # Built frontend served by the API process when the directory exists
     # (single-process deployment; dev without a build is unaffected).
     static_dir: Path = Path("static/dist")

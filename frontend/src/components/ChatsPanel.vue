@@ -223,6 +223,11 @@ async function handleDelete(id: string): Promise<void> {
 .chat-delete-btn {
   width: 28px;
   height: 28px;
+  /* Override the global `button` touch-target rules — without these the
+     28px button keeps 6px/14px padding, leaving 0px of content width and
+     flex-shrinking the svg icon to zero. */
+  min-height: 0;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
