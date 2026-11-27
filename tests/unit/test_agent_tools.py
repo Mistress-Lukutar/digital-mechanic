@@ -542,6 +542,7 @@ class TestBuildRegistry:
             "search_manuals",
             "get_vehicle_info",
             "create_ticket",
+            "report_issue",
             "show_document",
         ]
 
@@ -684,3 +685,56 @@ class TestCreateTicketFuelMismatch:
         assert isinstance(result, ToolOutcome)
         assert result.event is not None
         assert result.event[0] == "ticket_draft"
+
+
+class TestReportIssue:
+    """Tests for report_issue tool."""
+
+    @pytest.mark.asyncio
+    async def test_report_issue_creates_alert(self) -> None:
+        """Valid issue → str response with alert in store."""
+        hub = _build_test_hub()
+        context = ctx(
+            vehicle_id="M333YK47",
+            session_id="S-0005",
+            hub=hub,
+        )
+        context.username = "tester-mech"
+
+        from mechanic.agent.tools_impl.report_issue import (
+            make_report_issue_tool,
+        )
+
+        tool_def = make_report_issue_tool()(context.services)  # type: ignore[arg-type]
+        result = await tool_def.executor(
+            {"issue": "В руководстве нет процедуры проверки X, механик ждёт ответа"},
+            context,
+        )
+
+        assert isinstance(result, str)
+        assert "передана администратору" in result
+
+        alerts = hub.alerts.recent()
+        assert len(alerts) >= 1
+        alert = alerts[0]
+        assert alert.kind == "agent_report"
+        assert alert.username == "tester-mech"
+        assert alert.vehicle_id == "M333YK47"
+        assert alert.engine_model == "ЯМЗ-236М2"
+
+    @pytest.mark.asyncio
+    async def test_report_issue_requires_text(self) -> None:
+        """Empty args → ToolError."""
+        hub = _build_test_hub()
+        context = ctx(vehicle_id="M333YK47", hub=hub)
+
+        from mechanic.agent.tools_impl.report_issue import (
+            make_report_issue_tool,
+        )
+
+        tool_def = make_report_issue_tool()(context.services)  # type: ignore[arg-type]
+
+        with pytest.raises(ToolError) as exc_info:
+            await tool_def.executor({}, context)
+
+        assert "issue" in str(exc_info.value).lower()
