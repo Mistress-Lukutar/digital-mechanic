@@ -215,6 +215,7 @@ async def _chat_events(
     language: Literal["ru", "kk", "uz", "hi"] | None = None,
     image: str | None = None,
     store_key: str | None = None,
+    conversation_id: str | None = None,
 ) -> object:  # AsyncIterator[tuple[str, dict]]
     """Generate SSE events from the agent loop.
 
@@ -229,6 +230,8 @@ async def _chat_events(
         language: Target response language (ru/kk/uz/hi).
         image: Optional data-URL image for multimodal input.
         store_key: Key for conversation storage; defaults to vehicle_id.
+        conversation_id: Current conversation id, passed to the prompt builder
+            so past-discussion lookups can exclude it.
 
     Yields:
         (event_name, payload) tuples from the agent loop.
@@ -242,7 +245,10 @@ async def _chat_events(
         protocol=protocol,
     )
     registry = _build_registry(hub)
-    system_prompt = build_system_prompt(hub, vehicle_id, language=language)
+    system_prompt = build_system_prompt(
+        hub, vehicle_id, language=language, username=username,
+        conversation_id=conversation_id,
+    )
 
     loop = AgentLoop(
         client=client,
@@ -361,6 +367,7 @@ async def chat(
             language=body.language or "ru",
             image=body.image,
             store_key=store_key,
+            conversation_id=conversation_id,
         ):
             yield f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 

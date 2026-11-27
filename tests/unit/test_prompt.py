@@ -20,6 +20,9 @@ from typing import Any
 import pytest
 
 from mechanic.api.chat_api import ChatRequest
+from mechanic.config import Settings
+from mechanic.services.chats import ChatStore
+from mechanic.services.hub import ServiceHub
 
 # ---------------------------------------------------------------------------
 # Reuse the hub builder from test_agent_tools so no real services are needed.
@@ -46,6 +49,35 @@ def _prompt(hub: Any, vehicle_id: str = "M333YK47", **kwargs: object) -> str:
     from mechanic.agent.prompt import build_system_prompt
 
     return build_system_prompt(hub, vehicle_id, **kwargs)  # type: ignore[arg-type]
+
+
+def _build_hub_with_chats(tmp_path: Path) -> ServiceHub:
+    """Build a minimal ServiceHub with a fresh ChatStore at *tmp_path*.
+
+    Args:
+        tmp_path: pytest temporary directory.
+
+    Returns:
+        A :class:`~mechanic.services.hub.ServiceHub` whose ``chats`` attribute
+        points to an empty :class:`~mechanic.services.chats.ChatStore`.
+    """
+    settings = Settings(_env_file=None, app_data_dir=REPO_ROOT / "data")
+    base_hub = _build_test_hub()
+
+    hub = ServiceHub(
+        settings=settings,
+        fleet=base_hub.fleet,
+        ml=base_hub.ml,
+        toir=base_hub.toir,
+        rag=base_hub.rag,
+        manifest=base_hub.manifest,
+        ticket_log=base_hub.ticket_log,
+        chats=ChatStore(tmp_path / "chats.db"),
+        usage=base_hub.usage,
+        alerts=base_hub.alerts,
+        auth=base_hub.auth,
+    )
+    return hub
 
 
 # ---------------------------------------------------------------------------
@@ -238,3 +270,48 @@ class TestSystemPromptContent:
         assert (
             "осмотр" in content
         ), "check_failed bullet must mention alternative inspection option"
+
+
+class TestPastDiscussions:
+    """Tests for the past-discussions block in build_system_prompt."""
+
+    def test_block_absent_without_history(self, tmp_path: Path) -> None:
+        """Empty ChatStore → no «ПРОШЛЫЕ ОБСУЖДЕНИЯ» in the prompt."""
+        hub = _build_hub_with_chats(tmp_path)
+        result = _prompt(hub, "M333YK47", username="mech")
+
+        assert "## ПРОШЛЫЕ ОБСУЖДЕНИЯ" not in result
+
+    def test_block_lists_recent_conversations(self, tmp_path: Path) -> None:
+        """Two conversations → prompt contains title, tail, and continuation rule."""
+        hub = _build_hub_with_chats(tmp_path)
+        conv = hub.chats.create_conversation(
+            "mech", "M333YK47", title="Зазоры клапанов"
+        )
+        hub.chats.add_message(conv["id"], "user", "Какой зазор?")
+        hub.chats.add_message(conv["id"], "assistant", "***REMOVED*** мм")
+
+        result = _prompt(
+            hub, "M333YK47", username="mech", conversation_id=None
+        )
+
+        assert "## ПРОШЛЫЕ ОБСУЖДЕНИЯ" in result
+        assert "Зазоры клапанов" in result
+        assert "***REMOVED*** мм" in result
+        assert "на чём остановились" in result
+
+    def test_block_excludes_current_conversation(self, tmp_path: Path) -> None:
+        """Only one conversation → excluded when passed as current id."""
+        hub = _build_hub_with_chats(tmp_path)
+        conv = hub.chats.create_conversation(
+            "mech", "M333YK47", title="Зазоры клапанов"
+        )
+        hub.chats.add_message(conv["id"], "user", "Какой зазор?")
+        hub.chats.add_message(conv["id"], "assistant", "***REMOVED*** мм")
+
+        result = _prompt(
+            hub, "M333YK47", username="mech", conversation_id=conv["id"]
+        )
+
+        assert "Зазоры клапанов" not in result
+        assert "## ПРОШЛЫЕ ОБСУЖДЕНИЯ" not in result
