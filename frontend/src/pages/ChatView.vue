@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, nextTick, watch, computed, onBeforeUnmount } from 'vue'
+import { ref, nextTick, watch, computed, onBeforeUnmount, onMounted } from 'vue'
 import type { TicketDraftEvent, ChatMessage, DiagnosticResult } from '../types'
 import { t } from '../i18n'
 import { createSseChat } from '../composables/useSseChat'
 import { useSpeech } from '../composables/useSpeech'
-import { getChat, switchChatBranch } from '../api'
+import { getChat, listChats, switchChatBranch } from '../api'
 import StatusCard from '../components/StatusCard.vue'
 import AgentStep from '../components/AgentStep.vue'
 import TicketForm from '../components/TicketForm.vue'
@@ -165,6 +165,11 @@ async function sendMessage(): Promise<void> {
   scrollToBottom()
 }
 
+async function quickSend(action: { label: string; text: string }): Promise<void> {
+  messageInput.value = action.text
+  await sendMessage()
+}
+
 function scrollToBottom(): void {
   const el = document.querySelector('.chat-messages')
   if (el) el.scrollTop = el.scrollHeight
@@ -259,6 +264,8 @@ onBeforeUnmount(() => {
   }
 })
 
+onMounted(() => { void restoreLastConversation() })
+
 function isMobileLayout(): boolean {
   return window.matchMedia('(max-width: 1023px)').matches
 }
@@ -314,6 +321,18 @@ async function handleSelectConversation(conversationId: string): Promise<void> {
     chat.loadConversation(detail)
     if (isMobileLayout()) mobilePanel.value = null
   } catch { /* keep current transcript on failure */ }
+}
+
+async function restoreLastConversation(): Promise<void> {
+  if (!props.vehicleId) return
+  try {
+    const convs = await listChats(props.vehicleId)
+    if (convs.length === 0) return
+    const detail = await getChat(convs[0].id)
+    // User may have started typing/sending while we fetched — don't clobber.
+    if (messages.value.length > 0 || streaming.value) return
+    chat.loadConversation(detail)
+  } catch { /* start with an empty chat on failure */ }
 }
 
 function handleConversationDeleted(deletedId: string): void {
@@ -537,7 +556,7 @@ function toggleMic(): void {
 
         <!-- Quick actions: centered in the chat area when empty with vehicle -->
         <div v-if="!streaming && messages.length === 0 && vehicleId" class="quick-actions">
-          <button v-for="action in quickActions" :key="action.label" class="quick-chip" @click="messageInput = action.text">{{ action.label }}</button>
+          <button v-for="action in quickActions" :key="action.label" class="quick-chip" @click="quickSend(action)">{{ action.label }}</button>
         </div>
 
         <!-- Empty vehicle banner: centered when no vehicle selected -->
