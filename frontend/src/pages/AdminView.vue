@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import type { UsageTotals, UsageRowItem, ChatTurnDetail, AdminUserItem, LlmSettingsView } from '../types'
-import { getAdminUsageTotals, getAdminUsageRecent, getAdminUsers, createAdminUser, deleteAdminUser, resetAdminPassword, getLlmSettings, updateLlmSettings, getAdminUsageDetail } from '../api'
+import type { UsageTotals, UsageRowItem, ChatTurnDetail, AdminUserItem, LlmSettingsView, AdminAlertItem } from '../types'
+import { getAdminUsageTotals, getAdminUsageRecent, getAdminUsers, createAdminUser, deleteAdminUser, resetAdminPassword, getLlmSettings, updateLlmSettings, getAdminUsageDetail, getAdminAlerts, getAdminAlertsUnread, markAdminAlertRead } from '../api'
 import { useConfirm } from '../composables/useConfirm'
 import { t } from '../i18n'
 
 const { confirm } = useConfirm()
 
-type TabKey = 'dashboard' | 'users' | 'llm'
+type TabKey = 'dashboard' | 'users' | 'alerts' | 'llm'
 const activeTab = ref<TabKey>('dashboard')
 
 // Dashboard data
@@ -107,6 +107,47 @@ async function handleResetPassword(username: string): Promise<void> {
   }
 }
 
+// Alerts data
+const alerts = ref<AdminAlertItem[]>([])
+const alertsUnread = ref(0)
+const loadingAlerts = ref(false)
+const alertsError = ref<string | null>(null)
+
+async function loadAlerts(): Promise<void> {
+  loadingAlerts.value = true
+  alertsError.value = null
+  try {
+    const [items, unread] = await Promise.all([
+      getAdminAlerts(100),
+      getAdminAlertsUnread(),
+    ])
+    alerts.value = items
+    alertsUnread.value = unread.unread
+  } catch (e) {
+    if (e instanceof Error) alertsError.value = e.message
+  } finally {
+    loadingAlerts.value = false
+  }
+}
+
+async function handleMarkRead(id: number): Promise<void> {
+  try {
+    await markAdminAlertRead(id)
+    await loadAlerts()
+  } catch (e) {
+    if (e instanceof Error) alertsError.value = e.message
+  }
+}
+
+function alertWhere(a: AdminAlertItem): string {
+  const parts: string[] = []
+  if (a.username) parts.push(a.username)
+  if (a.vehicle_id) parts.push(a.vehicle_id)
+  if (a.session_id) parts.push(a.session_id)
+  if (a.engine_model) parts.push(a.engine_model)
+  return parts.join(' · ') || '—'
+}
+
 // LLM settings
 const llmSettings = ref<LlmSettingsView | null>(null)
 const loadingLlm = ref(false)
@@ -167,6 +208,7 @@ onMounted(() => {
   loadDashboard()
   loadUsers()
   loadLlmSettings()
+  loadAlerts()
 })
 
 function formatIso(value: string): string {
@@ -219,6 +261,10 @@ async function toggleDetailRow(id: number): Promise<void> {
         :class="['chip', { active: activeTab === 'users' }]"
         @click="activeTab = 'users'"
       >{{ t('admin.tab.users') }}</button>
+      <button
+        :class="['chip', { active: activeTab === 'alerts' }]"
+        @click="activeTab = 'alerts'"
+      >{{ t('admin.tab.alerts') }}<span v-if="alertsUnread > 0" class="tab-badge">{{ alertsUnread }}</span></button>
       <button
         :class="['chip', { active: activeTab === 'llm' }]"
         @click="activeTab = 'llm'"
@@ -415,6 +461,55 @@ async function toggleDetailRow(id: number): Promise<void> {
           <div v-if="users.length === 0" class="dim" style="padding: 16px; text-align: center;">
             {{ t('admin.no_users') }}
           </div>
+        </div>
+      </template>
+    </section>
+
+    <!-- Alerts tab -->
+    <section v-if="activeTab === 'alerts'" class="tab-content">
+      <h4 class="section-title">{{ t('admin.alerts.title') }}</h4>
+
+      <div class="table-actions">
+        <button :disabled="loadingAlerts" @click="loadAlerts()">{{ t('admin.alerts.refresh') }}</button>
+      </div>
+
+      <div v-if="alertsError" class="error-strip">{{ alertsError }}</div>
+
+      <div v-if="loadingAlerts" class="dim">{{ t('admin.loading') }}</div>
+
+      <template v-else>
+        <div v-if="alerts.length === 0" class="dim" style="padding: 16px; text-align: center;">
+          {{ t('admin.alerts.empty') }}
+        </div>
+
+        <div v-else class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ t('admin.alerts.col.time') }}</th>
+                <th>{{ t('admin.alerts.col.kind') }}</th>
+                <th>{{ t('admin.alerts.col.text') }}</th>
+                <th>{{ t('admin.alerts.col.where') }}</th>
+                <th>{{ t('admin.alerts.col.status') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="a in alerts" :key="a.id" :class="{ 'unread-row': !a.is_read }">
+                <td class="mono">{{ formatIso(a.ts) }}</td>
+                <td><span class="chip">{{ a.kind }}</span></td>
+                <td style="max-width: 400px; white-space: normal; word-break: break-word;">{{ a.text }}</td>
+                <td class="dim mono">{{ alertWhere(a) }}</td>
+                <td>
+                  <template v-if="a.is_read">
+                    <span class="dim">{{ t('admin.alerts.read') }}</span>
+                  </template>
+                  <template v-else>
+                    <button style="padding: 2px 8px; font-size: 12px; min-height: auto;" @click="handleMarkRead(a.id)">{{ t('admin.alerts.mark_read') }}</button>
+                  </template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </template>
     </section>
@@ -699,5 +794,22 @@ async function toggleDetailRow(id: number): Promise<void> {
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* Alert tab badge */
+.tab-badge {
+  display: inline-block;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 999px;
+}
+
+/* Unread alert row accent */
+.unread-row {
+  font-weight: 600;
+  border-left: 3px solid var(--danger);
 }
 </style>

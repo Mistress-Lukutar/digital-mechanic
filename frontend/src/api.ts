@@ -1,6 +1,7 @@
 // Thin fetch helpers for the Digital Mechanic API.
 
 import type {
+  AdminAlertItem,
   AdminUserItem,
   AuthMeResponse,
   AuthTokenResponse,
@@ -362,6 +363,25 @@ export async function resetAdminPassword(
     'POST',
     { new_password: newPassword },
   )
+}
+
+// ---------------------------------------------------------------------------
+// Admin — alerts
+// ---------------------------------------------------------------------------
+
+/** GET /api/admin/alerts?limit=N */
+export async function getAdminAlerts(limit: number = 50): Promise<AdminAlertItem[]> {
+  return apiGet<AdminAlertItem[]>(apiUrl(`/api/admin/alerts?limit=${limit}`))
+}
+
+/** GET /api/admin/alerts/unread_count */
+export async function getAdminAlertsUnread(): Promise<{ unread: number }> {
+  return apiGet<{ unread: number }>(apiUrl('/api/admin/alerts/unread_count'))
+}
+
+/** POST /api/admin/alerts/{id}/read */
+export async function markAdminAlertRead(id: number): Promise<{ status: string }> {
+  return apiSend<{ status: string }>(apiUrl(`/api/admin/alerts/${id}/read`), 'POST')
 }
 
 // ---------------------------------------------------------------------------
