@@ -14,6 +14,7 @@ a ``run()`` function for ``uvicorn`` via the console script entry point.
 from __future__ import annotations
 
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -32,6 +33,11 @@ from mechanic.api.tickets_api import router as tickets_router
 from mechanic.api.vehicles_api import router as vehicles_router
 from mechanic.config import Settings, get_settings
 from mechanic.errors import MechanicError
+
+# CPython 3.13 and the Windows registry map ".mjs" to "text/plain", but
+# browsers refuse ES modules (and module workers) with a non-JavaScript
+# MIME type, which breaks the Vite-bundled pdf.js worker (issue #12).
+mimetypes.add_type("text/javascript", ".mjs")
 
 logger = logging.getLogger(__name__)
 
