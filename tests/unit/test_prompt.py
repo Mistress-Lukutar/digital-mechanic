@@ -359,7 +359,7 @@ class TestPastDiscussions:
             "mech", "M333YK47", title="Зазоры клапанов"
         )
         hub.chats.add_message(conv["id"], "user", "Какой зазор?")
-        hub.chats.add_message(conv["id"], "assistant", "***REMOVED*** мм")
+        hub.chats.add_message(conv["id"], "assistant", "0,26-0,32 мм")
 
         result = _prompt(
             hub, "M333YK47", username="mech", conversation_id=None
@@ -367,7 +367,7 @@ class TestPastDiscussions:
 
         assert "## ПРОШЛЫЕ ОБСУЖДЕНИЯ" in result
         assert "Зазоры клапанов" in result
-        assert "***REMOVED*** мм" in result
+        assert "0,26-0,32 мм" in result
         assert "на чём остановились" in result
 
     def test_block_excludes_current_conversation(self, tmp_path: Path) -> None:
@@ -377,7 +377,7 @@ class TestPastDiscussions:
             "mech", "M333YK47", title="Зазоры клапанов"
         )
         hub.chats.add_message(conv["id"], "user", "Какой зазор?")
-        hub.chats.add_message(conv["id"], "assistant", "***REMOVED*** мм")
+        hub.chats.add_message(conv["id"], "assistant", "0,26-0,32 мм")
 
         result = _prompt(
             hub, "M333YK47", username="mech", conversation_id=conv["id"]
