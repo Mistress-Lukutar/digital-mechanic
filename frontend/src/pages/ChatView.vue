@@ -742,7 +742,10 @@ function toggleMic(): void {
 .chat-error { position: relative; margin: 8px 16px 0; }
 .close-error { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--danger-text); font-size: 16px; padding: 4px; cursor: pointer; }
 .panel-empty { padding: 24px; text-align: center; }
-.mobile-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 150; display: flex; flex-direction: column; }
+/* Full-screen sheet: opaque page surface. var(--overlay) is translucent and
+   meant for modal backdrops — with it the topbar (locale chip, nav) bleeds
+   through the transparent panel body right at the tab row. */
+.mobile-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 150; display: flex; flex-direction: column; }
 .mobile-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-panel); border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .mobile-overlay > .mobile-panel-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .close-btn { background: none; border: 0; color: var(--text-dim); font-size: 24px; padding: 0 4px; cursor: pointer; }
