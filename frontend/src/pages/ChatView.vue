@@ -279,6 +279,23 @@ const activeDocId = ref<string | null>(null)
 const activePage = ref<number | null>(null)
 const showTicketModal = ref(false)
 const ticketDraft = ref<TicketDraftEvent | null>(null)
+
+// Diagnostic for the ticket gate UI: prefer the diag whose session matches
+// the draft, else the latest diag in the visible chat.
+const ticketDiag = computed<DiagnosticResult | null>(() => {
+  const list = messages.value as (ChatMessage & { _diag?: DiagnosticResult })[]
+  const sid = ticketDraft.value?.session_id
+  for (let i = list.length - 1; i >= 0; i--) {
+    const d = list[i]?._diag
+    if (d && sid && d.session_id === sid) return d
+  }
+  for (let i = list.length - 1; i >= 0; i--) {
+    const d = list[i]?._diag
+    if (d) return d
+  }
+  return null
+})
+
 const historyRefreshKey = ref(0)
 
 function handleTicketSubmitted(_ticketId: string): void {
@@ -613,7 +630,7 @@ function toggleMic(): void {
       </div>
 
     <AppModal v-if="showTicketModal && ticketDraft" wide title="Заявка на дефектовку" @close="handleTicketClose">
-      <TicketForm :draft="ticketDraft" :vehicle-id="props.vehicleId" @submitted="handleTicketSubmitted" @close="handleTicketClose" />
+      <TicketForm :draft="ticketDraft" :vehicle-id="props.vehicleId" :diag="ticketDiag" @submitted="handleTicketSubmitted" @close="handleTicketClose" />
     </AppModal>
   </div>
 </template>
