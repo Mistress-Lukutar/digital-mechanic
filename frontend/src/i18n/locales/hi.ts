@@ -110,7 +110,7 @@ const hi = {
   'chat.error.connection': 'कनेक्शन त्रुटि',
   'chat.mic.label': 'वॉइस इनपुट',
   'chat.mic.listening': 'सुन रहा हूँ…',
-  'chat.empty_vehicle': 'फ़्लीट से अनुरोध चुनें या इतिहास से चैट खोलें',
+  'chat.empty_vehicle': 'फ़्लीट से अनुरोध चुनें',
   'chat.reasoning.toggle': 'सोच रहा हूँ…',
   'chat.attach.label': 'छवि संलग्न करें',
   'chat.attach.remove': 'छवि हटाएँ',

@@ -108,7 +108,7 @@ const ru = {
   'chat.error.connection': 'Ошибка соединения',
   'chat.mic.label': 'Голосовой ввод',
   'chat.mic.listening': 'Слушаю…',
-  'chat.empty_vehicle': 'Выберите заявку в парке или откройте чат из истории',
+  'chat.empty_vehicle': 'Выберите заявку в парке',
   'chat.reasoning.toggle': 'Думаю…',
   'chat.attach.label': 'Прикрепить изображение',
   'chat.attach.remove': 'Убрать изображение',

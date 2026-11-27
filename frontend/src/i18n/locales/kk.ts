@@ -110,7 +110,7 @@ const kk = {
   'chat.error.connection': 'Байланыс қатесі',
   'chat.mic.label': 'Дауыспен енгізу',
   'chat.mic.listening': 'Тыңдау…',
-  'chat.empty_vehicle': 'Парктен өтінішті таңдаңыз немесе тарихтан чатты ашыңыз',
+  'chat.empty_vehicle': 'Парктен өтінішті таңдаңыз',
   'chat.reasoning.toggle': 'Ойлану…',
   'chat.attach.label': 'Суретті тіркеп',
   'chat.attach.remove': 'Суретті алып тастау',
