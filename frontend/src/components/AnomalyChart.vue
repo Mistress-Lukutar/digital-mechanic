@@ -146,7 +146,6 @@ const rotateLabels = points.length > 4
       </template>
     </svg>
 
-    <p class="chart-caption dim">{{ t('chart.caption') }}</p>
   </div>
 </template>
 
@@ -187,8 +186,4 @@ const rotateLabels = points.length > 4
   font-weight: 600;
 }
 
-.chart-caption {
-  font-size: 10px;
-  margin: 4px 0 0;
-}
 </style>
