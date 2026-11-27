@@ -1,14 +1,10 @@
-# Engine manuals — not distributed with the repository
+# Руководства по двигателям — не распространяются с репозиторием
 
-Factory repair and operation manuals are copyrighted works, so **the PDF files
-and any text extracted from them are not included in this repository** (and must
-never enter its history).
+Заводские руководства по ремонту и эксплуатации являются объектами авторского права, поэтому **PDF-файлы и любой текст, извлечённый из них, не включены в этот репозиторий** (и никогда не должны попадать в его историю).
 
-To run the knowledge-base features locally, obtain the six issued manuals from
-the hackathon materials and place the files in this folder using exactly the
-file names from `manifest.json`:
+Для запуска локально функций базы знаний получите шесть выпущенных руководств из материалов хакатона и поместите файлы в эту папку с точными именами файлов из `manifest.json`:
 
-| doc_id (specification §3) | Expected file name | Engines |
+| doc_id (раздел 3 спецификации) | Ожидаемое имя файла | Двигатели |
 |---|---|---|
 | `236-3902150-Б РЭ` | `yamz-236_re_2010.pdf` | ЯМЗ-236М2 |
 | `236.01.01 РК` | `yamz-236_rk_2014.pdf` | ЯМЗ-236М2 |
@@ -17,10 +13,6 @@ file names from `manifest.json`:
 | `ЗМЗ-5234.10 РК` | `zmz-5234_rk_2025.pdf` | ЗМЗ-5234.10 |
 | `ЗМЗ-409 РЭТОиР` | `zmz-40904-40905_rk_2025.pdf` | ЗМЗ-40904.10, ЗМЗ-40905.10 |
 
-Alternatively, point the application at an external, access-controlled location
-via the `MANUALS_DIR` variable in `.env` — the external knowledge base is
-connected through configuration, not committed to Git.
+Либо укажите приложению на внешнее место с контролем доступа через переменную `MANUALS_DIR` в `.env` — внешняя база знаний подключается через конфигурацию, а не коммитится в Git.
 
-With no manuals available the application still runs: diagnostics, fleet views
-and ticketing work; the document panel and manual search degrade to an explicit
-"manual files unavailable" answer instead of invented content.
+При отсутствии руководств приложение продолжает работать: диагностика, виды парка и работа с заявками функционируют; панель документов и поиск по руководствам выдают явный ответ «файлы руководств недоступны» вместо вымышленного контента.
