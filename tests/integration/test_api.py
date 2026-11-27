@@ -24,7 +24,7 @@ import pytest
 from httpx import ASGITransport
 
 from mechanic.llm import StopReason, TextDelta, TurnComplete
-from mechanic.llm.types import ChatRequest
+from mechanic.llm.types import ChatRequest, ToolCall, ToolCallsReady
 
 # ---------------------------------------------------------------------------
 # Paths and constants.
@@ -843,3 +843,96 @@ async def test_ticket_submit_blocked_bad_quality(app_client: httpx.AsyncClient) 
     assert resp.status_code == 422, resp.text
     detail = resp.json()["detail"]
     assert "повторите запись" in detail
+
+
+# ---------------------------------------------------------------------------
+# Fake LLM client that yields one tool call then final text.
+# ---------------------------------------------------------------------------
+
+
+class FakeToolLLMClient:
+    """Fake LLM that yields a tool call followed by a final response."""
+
+    async def stream_chat(
+        self, request: ChatRequest
+    ) -> AsyncIterator[TextDelta | ToolCallsReady | TurnComplete]:
+        yield ToolCallsReady(
+            tool_calls=[
+                ToolCall(
+                    call_id="call_1",
+                    name="get_diagnostic_result",
+                    arguments_json=json.dumps({"vehicle_id": "M333YK47"}),
+                )
+            ],
+        )
+        yield TextDelta("диагноз получен")
+        yield TurnComplete(
+            stop_reason=StopReason.END_TURN,
+            input_tokens=10,
+            output_tokens=5,
+        )
+
+    async def fetch_models(self, base_url: str, api_key: str) -> list:
+        return []
+
+
+async def test_admin_usage_detail_contains_agent_steps(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """POST /api/chat → tool call → GET detail → steps present."""
+    admin_token = await _admin_login(app_client)
+
+    # Create mech2 user.
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech2", "password": "mech-pass-2", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech2_token = await _login(app_client, "mech2", "mech-pass-2")
+
+    # Patch the chat module's client factory with our tool-calling fake.
+    import mechanic.api.chat_api as chat_api_module
+
+    original_get_llm = chat_api_module.get_llm_client
+    chat_api_module.get_llm_client = (  # type: ignore[assignment]
+        lambda protocol, transport=None: FakeToolLLMClient()
+    )
+
+    try:
+        resp = await app_client.post(
+            "/api/chat/M333YK47",
+            json={"message": "проверь диагностику"},
+            headers={"Authorization": f"Bearer {mech2_token}"},
+        )
+        assert resp.status_code == 200
+
+        # Find the chat usage record.
+        from mechanic.api.deps import get_hub
+
+        hub = get_hub()
+        recent = hub.usage.recent(200)
+        chat_records = [r for r in recent if r.kind == "chat"]
+        assert chat_records, f"No chat records: {[r.kind for r in recent]}"
+
+        # Get the newest chat record (last in list).
+        latest = chat_records[-1]
+        detail_resp = await app_client.get(
+            f"/api/admin/usage/{latest.id}/detail",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert detail_resp.status_code == 200
+        detail = detail_resp.json()
+
+        # Assert steps are present and contain the tool call.
+        assert "steps" in detail
+        steps = detail["steps"]
+        assert isinstance(steps, list)
+        assert len(steps) >= 1
+        assert steps[0]["tool"] == "get_diagnostic_result"
+        assert steps[0]["ok"] is True
+        assert "arguments" in steps[0]
+        args = steps[0]["arguments"]
+        assert isinstance(args, dict)
+        assert "vehicle_id" in args
+    finally:
+        chat_api_module.get_llm_client = original_get_llm

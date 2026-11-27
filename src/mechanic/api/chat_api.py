@@ -78,6 +78,23 @@ def _extract_citations(text: str) -> list[dict]:
     return citations
 
 
+def _compact_args(args: object) -> object:
+    """Shrink tool-call arguments for the usage-log trace.
+
+    Dicts keep their keys with stringified values truncated to 120 chars
+    (max 10 keys); anything else becomes a truncated string.
+    """
+    if isinstance(args, dict):
+        out: dict[str, str] = {}
+        for i, (k, v) in enumerate(args.items()):
+            if i >= 10:
+                break
+            text = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+            out[str(k)] = text[:120]
+        return out
+    return str(args)[:200]
+
+
 def _hydrate_store(
     conversations: ConversationStore, key: str, messages: list[dict]
 ) -> None:
@@ -326,6 +343,9 @@ async def chat(
         answer_parts: list[str] = []
         tools_used: list[str] = []
         ticket_draft_info: dict | None = None
+        agent_steps: list[dict] = []
+        current_step: dict | None = None
+        step_started: float | None = None
         conv_payload = json.dumps(
             {"conversation_id": conversation_id}, ensure_ascii=False
         )
@@ -350,6 +370,26 @@ async def chat(
                 tool_name = payload.get("name")
                 if tool_name is not None and tool_name not in tools_used:
                     tools_used.append(tool_name)
+                step_started = time.perf_counter()
+                agent_steps.append(
+                    {
+                        "tool": tool_name,
+                        "arguments": _compact_args(payload.get("arguments")),
+                        "ok": None,
+                        "summary": "",
+                        "duration_ms": 0,
+                    }
+                )
+                current_step = agent_steps[-1]
+            elif name == "tool_result":
+                if current_step is not None:
+                    current_step["ok"] = not payload.get("is_error", False)
+                    current_step["summary"] = str(payload.get("summary", ""))[:200]
+                    if step_started is not None:
+                        current_step["duration_ms"] = int(
+                            (time.perf_counter() - step_started) * 1000
+                        )
+                    current_step = None
             elif name == "ticket_draft":
                 ticket_draft_info = {
                     "anomaly_type": payload.get("payload", {}).get("anomaly_type"),
@@ -366,6 +406,7 @@ async def chat(
                     "ticket_draft": ticket_draft_info,
                     "has_image": body.image is not None,
                     "language": body.language,
+                    "steps": agent_steps[:20],
                 }
                 hub.usage.record(
                     username=user.username,
@@ -392,6 +433,12 @@ async def chat(
                     duration_ms=int((time.perf_counter() - t0) * 1000),
                     status="error",
                     error=payload.get("message", "")[:300],
+                    detail={
+                        "question": body.message[:4000],
+                        "tools": tools_used,
+                        "steps": agent_steps[:20],
+                        "language": body.language,
+                    },
                 )
                 if error_text:
                     chats_store.add_message(conversation_id, "assistant", error_text)
