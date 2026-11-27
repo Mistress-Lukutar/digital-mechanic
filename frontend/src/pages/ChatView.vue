@@ -15,7 +15,8 @@ import AppModal from '../components/AppModal.vue'
 import { renderAssistantHtml } from '../lib/markdown'
 
 const SIDEBAR_MIN = 240
-const SIDEBAR_MAX = 560
+// 3x the previous 560 cap so a sidebar can be pulled out to near-full-screen width
+const SIDEBAR_MAX = 1680
 const SIDEBAR_DEFAULT = 380
 
 function loadSidebarWidth(key: string): number {
