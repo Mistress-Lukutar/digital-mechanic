@@ -73,6 +73,15 @@ const kk = {
   'history.trend_worsening': 'Score соңғы {n} тексеруде өсіп келеді — жағдай нашарлап барада',
   'history.trend_improving': 'Score соңғы {n} тексеруде төмендеп келеді — жағдай жақсарып барада',
   'history.trend_stable': 'Score тұрақты — нашарлау белгілері жоқ',
+  'history.ticket_details': 'Қолданба {id}',
+  'history.page_abbr': 'бет',
+  'history.conclusion': 'Қорытынды',
+  'history.urgency_label': 'Басымдық',
+  'history.anomaly_type': 'Ауытқу түрі',
+  'history.operations': 'Операциялар',
+  'history.spare_parts': 'Бөлшектер',
+  'history.references': 'Нұсқаулық сілтемелері',
+  'history.priority_rationale': 'Басымдық негіздемесі',
 
   // ---------------------------------------------------------------------------
   // chart.* — AnomalyChart

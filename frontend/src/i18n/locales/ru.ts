@@ -71,6 +71,15 @@ const ru = {
   'history.trend_worsening': 'Score растёт {n} проверок подряд — состояние ухудшается',
   'history.trend_improving': 'Score снижается {n} проверок подряд — состояние улучшается',
   'history.trend_stable': 'Score стабилен — без признаков ухудшения',
+  'history.ticket_details': 'Заявка {id}',
+  'history.page_abbr': 'стр.',
+  'history.conclusion': 'Заключение',
+  'history.urgency_label': 'Приоритет',
+  'history.anomaly_type': 'Тип отклонения',
+  'history.operations': 'Операции',
+  'history.spare_parts': 'Запчасти',
+  'history.references': 'Ссылки на руководство',
+  'history.priority_rationale': 'Обоснование приоритета',
 
   // ---------------------------------------------------------------------------
   // chart.* — AnomalyChart
