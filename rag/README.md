@@ -15,7 +15,11 @@ from the PDFs lands in gitignored `data/rag/`; this is guarded by tests
 ## One-command setup
 
 Place the issued PDFs (any file names — the two Russian-named files from
-the hackathon bundle are recognised too) into a directory, then:
+the hackathon bundle are recognised too) into a directory — at deploy
+time they can be fetched from the shared storage link: set
+`MANUALS_DOWNLOAD_URL` in the gitignored `.env` and run
+`python scripts/fetch_manuals.py` (the link itself is never committed).
+Then:
 
 ```bash
 python -m rag.setup --from "C:\\path\\to\\pdfs"
