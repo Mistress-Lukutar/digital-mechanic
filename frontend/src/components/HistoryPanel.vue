@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import type { SessionRecord, TicketRecord } from '../types'
 import { getVehicleDetail } from '../api'
 import { formatIso } from '../api'
@@ -90,6 +90,33 @@ function getUrgency(payload: Record<string, unknown>): string {
   const u = payload.urgency
   return typeof u === 'string' ? u : 'medium'
 }
+
+interface ScoreTrendWorsening { kind: 'worsening'; n: number }
+interface ScoreTrendImproving { kind: 'improving'; n: number }
+type ScoreTrend = ScoreTrendWorsening | ScoreTrendImproving | { kind: 'stable' } | null
+
+const scoreTrend = computed<ScoreTrend>(() => {
+  const points = sessions.value
+    .filter(s => s.anomaly_score != null && s.checked_at != null)
+    .sort((a, b) => (a.checked_at ?? '').localeCompare(b.checked_at ?? ''))
+    .slice(-5)
+
+  if (points.length < 3) return null
+
+  const scores = points.map(p => p.anomaly_score!)
+
+  // Strict consecutive run terminating at the latest check — the caption
+  // promises «{n} подряд», so any counter-direction break ends the run.
+  let rises = 0
+  for (let i = scores.length - 1; i > 0 && scores[i] > scores[i - 1]; i--) rises++
+  let falls = 0
+  for (let i = scores.length - 1; i > 0 && scores[i] < scores[i - 1]; i--) falls++
+
+  if (rises >= 2) return { kind: 'worsening', n: rises + 1 }
+  if (falls >= 2) return { kind: 'improving', n: falls + 1 }
+  return { kind: 'stable' }
+})
+
 </script>
 
 <template>
@@ -110,6 +137,16 @@ function getUrgency(payload: Record<string, unknown>): string {
     <!-- Sessions section -->
     <template v-else>
       <AnomalyChart :sessions="sessions" />
+
+      <span v-if="scoreTrend && scoreTrend.kind === 'worsening'" class="badge badge-warning trend-caption">
+        ▲ {{ t('history.trend_worsening', { n: scoreTrend.n }) }}
+      </span>
+      <span v-else-if="scoreTrend && scoreTrend.kind === 'improving'" class="badge badge-ok trend-caption">
+        ▼ {{ t('history.trend_improving', { n: scoreTrend.n }) }}
+      </span>
+      <span v-else-if="scoreTrend && scoreTrend.kind === 'stable'" class="chip trend-caption">
+        → {{ t('history.trend_stable') }}
+      </span>
 
       <section class="history-section">
         <h4 class="section-title">{{ t('history.checks_section') }}</h4>
@@ -275,5 +312,10 @@ function getUrgency(payload: Record<string, unknown>): string {
   align-items: center;
   gap: 6px;
   font-size: 12px;
+}
+
+.trend-caption {
+  display: inline-block;
+  margin: 4px 0 8px;
 }
 </style>

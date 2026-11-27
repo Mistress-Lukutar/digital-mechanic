@@ -70,6 +70,9 @@ const uz = {
   'history.urgency.high': 'Yuqori',
   'history.urgency.medium': 'Oʻrtacha',
   'history.urgency.low': 'Past',
+  'history.trend_worsening': 'Score oxirgi {n} marta tekshiruvda oshdi — holat yomonlashmoqda',
+  'history.trend_improving': 'Score oxirgi {n} marta tekshiruvda kamaydi — holat yaxshilanmoqda',
+  'history.trend_stable': 'Score barqaror — yomonlashish belgilari yo\'q',
 
   // ---------------------------------------------------------------------------
   // chart.* — AnomalyChart
