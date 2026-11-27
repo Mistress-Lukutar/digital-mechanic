@@ -687,6 +687,37 @@ class TestCreateTicketFuelMismatch:
         assert result.event[0] == "ticket_draft"
 
 
+class TestCreateTicketCheckFailed:
+    """Deterministic check_failed gate in create_ticket."""
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_blocked_on_check_failed(self) -> None:
+        """Real check_failed session (P456AT178/S-0003) → ToolError, no draft.
+
+        Mirrors the POST /api/tickets status gate: a failed recording can
+        never carry a ticket draft (ТЗ: сбой проверки → не диагностировать).
+        """
+        hub = _build_test_hub()
+        context = ctx(vehicle_id="P456AT178", session_id="S-0003", hub=hub)
+
+        from mechanic.agent.tools_impl.tickets import make_create_ticket_tool
+
+        tool_def = make_create_ticket_tool()(context.services)  # type: ignore[arg-type]
+        args = {
+            "anomaly_type": "F01",
+            "conclusion": "Стук клапанов",
+            "operations": ["Отрегулировать клапаны"],
+            "references": [{"manual": "236.01.01 РК", "pdf_page": 50}],
+        }
+
+        with pytest.raises(ToolError) as exc_info:
+            await tool_def.executor(args, context)
+
+        message = str(exc_info.value)
+        assert "check_failed" in message
+        assert "повторить проверку" in message
+
+
 class TestReportIssue:
     """Tests for report_issue tool."""
 

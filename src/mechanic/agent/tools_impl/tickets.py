@@ -72,6 +72,17 @@ async def _execute_create_ticket(
     except Exception as exc:
         raise ToolError(str(exc)) from None
 
+    # Deterministic check_failed gate (ТЗ: сбой проверки → не диагностировать)
+    # — mirror of the POST /api/tickets gate: a failed recording can never
+    # carry a ticket draft, regardless of what the agent was asked to do.
+    if session_record.status == "check_failed":
+        raise ToolError(
+            f"Проверка {session_record.session_id} ТС {vehicle_id} завершилась "
+            "сбоем записи (check_failed). Запись непригодна: НЕ собирай заявку "
+            "и не ставь диагнозов. Скажи механику, что сначала нужно "
+            "восстановить условия записи и повторить проверку."
+        )
+
     # Step 3: determine urgency and rationale.
     anomaly_type: str | None = args.get("anomaly_type")
     if not anomaly_type:
