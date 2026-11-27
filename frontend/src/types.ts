@@ -113,6 +113,12 @@ export interface ChatConversationItem {
 
 /** One persisted message inside a conversation. */
 export interface ChatHistoryMessage {
+  id: number
+  parent_id: number | null
+  sibling_index: number
+  sibling_count: number
+  prev_sibling_id: number | null
+  next_sibling_id: number | null
   role: 'user' | 'assistant'
   text: string
   image: string | null
@@ -135,6 +141,11 @@ export interface AgentStepT {
 }
 
 export interface ChatMessage {
+  id?: number
+  siblingIndex?: number
+  siblingCount?: number
+  prevSiblingId?: number | null
+  nextSiblingId?: number | null
   role: 'user' | 'assistant'
   text: string
   steps: AgentStepT[]
@@ -273,6 +284,13 @@ export interface ChatTurnDetail {
   ticket_draft: { anomaly_type: string | null; urgency: string | null } | null
   has_image: boolean
   language: string | null
+  steps?: {
+    tool: string
+    arguments: unknown
+    ok: boolean | null
+    summary: string
+    duration_ms: number
+  }[]
 }
 
 export interface AdminUserItem {
@@ -280,6 +298,46 @@ export interface AdminUserItem {
   role: string
   must_change_password: boolean
   created_at: string
+}
+
+export interface AdminAlertItem {
+  id: number
+  ts: string
+  username: string | null
+  vehicle_id: string | null
+  session_id: string | null
+  engine_model: string | null
+  kind: string
+  text: string
+  is_read: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Economy / pricing
+// ---------------------------------------------------------------------------
+
+export interface EconomyPrices {
+  input_price: number
+  output_price: number
+  currency: string
+  usd_rate: number
+  model_label: string
+  indexation_cost: number
+}
+
+export interface EconomicsResponse {
+  prices: EconomyPrices
+  assumptions: { machines: number; period_days: number; questions: number }
+  usage_stats: { turns: number; median_input: number; median_output: number }
+  scenario: { turns: number; input_tokens: number; output_tokens: number; cost_rub: number }
+  fleet: {
+    checks_per_month: number
+    scenarios_per_month: number
+    cost_month_rub: number
+    cost_year_rub: number
+    tokens_per_scenario: number
+  }
+  indexation_cost_rub: number
 }
 
 // ---------------------------------------------------------------------------

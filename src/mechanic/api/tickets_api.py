@@ -15,12 +15,26 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from shared.models import TicketPayload
+from shared.models import SessionCheck, TicketPayload
 
 from mechanic.api.deps import get_hub
+from mechanic.config import get_settings
 from mechanic.errors import MockApiError
+from mechanic.services.fleet import FleetError
 
 logger = logging.getLogger(__name__)
+
+
+class TicketSubmitRequest(TicketPayload):
+    '''Submit body: ticket payload plus the mechanic's explicit override.
+
+    ``override_confirmed`` is required True for sessions with
+    ``signal_quality == "warning"`` (mechanic consciously confirmed the
+    ticket after the recording-quality warning).
+    '''
+
+    override_confirmed: bool = False
+
 
 router = APIRouter(prefix="/api/tickets", tags=["tickets"])
 
@@ -45,32 +59,96 @@ async def _auth_user(request: Request) -> object:  # TokenUser
 
 @router.post("")
 async def submit_ticket(
-    payload: TicketPayload,
+    payload: TicketSubmitRequest,
     user=Depends(_auth_user),
 ) -> dict:
     """Submit a defect-inspection ticket to the Mock TOiR service."""
     hub = get_hub()
+
+    # Quality gate (customer rules: bad / below-floor → never; warning →
+    # only after the mechanic's explicit confirmation).
+    session: SessionCheck | None = None
     try:
-        result = await hub.toir.submit_ticket(payload)
+        session = hub.fleet.get_session(payload.vehicle_id, payload.session_id)
+    except FleetError:
+        session = None  # unknown session → gate skipped
+    override_used = False
+    if session is not None:
+        floor = get_settings().confidence_ticket_floor
+        confidence = session.confidence
+        if session.signal_quality == "bad":
+            raise HTTPException(
+                status_code=422,
+                detail="качество записи bad — заявка недоступна, повторите запись",
+            )
+        if confidence is not None and confidence < floor:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"уверенность {confidence} ниже порога {floor} — "
+                    "заявка недоступна, повторите запись"
+                ),
+            )
+        if session.signal_quality == "warning":
+            if not payload.override_confirmed:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "качество записи с предупреждением — подтвердите "
+                        "заявку чекбоксом в форме или повторите запись"
+                    ),
+                )
+            override_used = True
+
+    # Build a clean TicketPayload for everything downstream (TOiR, ticket_log).
+    clean_payload = TicketPayload(
+        **payload.model_dump(exclude={"override_confirmed"})
+    )
+
+    try:
+        result = await hub.toir.submit_ticket(clean_payload)
     except MockApiError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
-    hub.ticket_log.add(result, payload, username=user.username)
+    hub.ticket_log.add(result, clean_payload, username=user.username)
     hub.usage.record(
         username=user.username,
         kind="ticket_submit",
         vehicle_id=payload.vehicle_id,
         status="ok",
+        detail=(
+            {
+                "override_confirmed": True,
+                "signal_quality": session.signal_quality,
+                "confidence": session.confidence,
+            }
+            if override_used
+            else None
+        ),
     )
+
+    if override_used:
+        hub.alerts.add(
+            kind="warning_override",
+            text=(
+                f"Механик {user.username} подтвердил заявку по ТС "
+                f"{payload.vehicle_id} (сессия {payload.session_id}) при "
+                f"качестве записи warning (confidence {session.confidence})."
+            ),
+            username=user.username,
+            vehicle_id=payload.vehicle_id,
+            session_id=payload.session_id,
+        )
+
     return {
         "ticket_id": result.ticket_id,
         "status": result.status,
         "ticket_record": {
             "ticket_id": result.ticket_id,
-            "vehicle_id": payload.vehicle_id,
-            "session_id": payload.session_id,
-            "anomaly_type": payload.anomaly_type,
-            "urgency": payload.urgency,
+            "vehicle_id": clean_payload.vehicle_id,
+            "session_id": clean_payload.session_id,
+            "anomaly_type": clean_payload.anomaly_type,
+            "urgency": clean_payload.urgency,
         },
     }
 

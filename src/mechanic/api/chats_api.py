@@ -1,12 +1,14 @@
 '''
 File:   chats_api.py
-Brief:  Chat conversation listing, retrieval and deletion endpoints.
+Brief:  Chat conversation listing, retrieval, deletion, and branch-switch
+        endpoints.
 Author: Mistress-Lukutar
 Date:   2026-11-27
-Version: v0.1.0
+Version: v0.2.0
 
 Provides the ``/api/chats`` router with endpoints for listing conversations,
-fetching individual chat threads with messages, and deleting conversations.
+fetching individual chat threads with messages, deleting conversations, and
+switching the active branch of a conversation.
 '''
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from mechanic.api.deps import current_user, get_conversations, get_hub
 from mechanic.services.auth import TokenUser
@@ -44,6 +47,37 @@ async def get_chat(
     return {
         "conversation": conv,
         "messages": get_hub().chats.get_messages(conversation_id),
+    }
+
+
+class BranchRequest(BaseModel):
+    """Branch-switch request body.
+
+    Attributes:
+        message_id: Message whose branch should become active.
+    """
+
+    message_id: int
+
+
+@router.post("/{conversation_id}/branch")
+async def switch_branch(
+    conversation_id: str,
+    body: BranchRequest,
+    user: TokenUser = Depends(current_user),
+) -> dict:
+    """Activate the branch containing *message_id* and return the dialog."""
+    hub = get_hub()
+    conv = hub.chats.get_conversation(conversation_id)
+    if conv is None or conv["username"] != user.username:
+        raise HTTPException(status_code=404, detail="чат не найден")
+    if not hub.chats.switch_branch(conversation_id, body.message_id):
+        raise HTTPException(status_code=404, detail="сообщение не найдено")
+    # Force re-hydration of the in-memory LLM store from the new path.
+    get_conversations().forget(conversation_id)
+    return {
+        "conversation": conv,
+        "messages": hub.chats.get_messages(conversation_id),
     }
 
 

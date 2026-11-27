@@ -443,3 +443,716 @@ async def test_chats_missing_vehicle_id_422(app_client: httpx.AsyncClient) -> No
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Helpers shared from test_chat_conversations.py pattern.
+# ---------------------------------------------------------------------------
+
+
+class _FakeLLMClient:
+    """Minimal fake that yields token + turn_done events and records turns."""
+
+    last_turns: list | None = None  # module-level for test inspection
+
+    async def stream_chat(self, request):  # noqa: D401
+        """Yield a text delta followed by turn_complete with usage."""
+        from mechanic.llm.types import StopReason, TextDelta, TurnComplete
+
+        _FakeLLMClient.last_turns = list(request.turns)
+        yield TextDelta("ответ")
+        yield TurnComplete(
+            stop_reason=StopReason.END_TURN,
+            input_tokens=10,
+            output_tokens=5,
+        )
+
+    async def fetch_models(self, base_url: str, api_key: str) -> list:
+        return []
+
+
+def _parse_sse_events(text: str) -> list[dict]:
+    """Parse SSE-formatted text into event dicts."""
+    import json
+
+    events: list[dict] = []
+    current_event: dict | None = None
+    for line in text.split("\n"):
+        if line.startswith("event: "):
+            current_event = {"event": line[7:], "data": ""}
+        elif line.startswith("data: "):
+            if current_event is not None:
+                current_event["data"] += line[6:]
+        elif line == "" and current_event is not None:
+            try:
+                current_event["_parsed_data"] = json.loads(current_event["data"])
+            except (json.JSONDecodeError, ValueError):
+                pass
+            events.append(current_event)
+            current_event = None
+    return events
+
+
+# ---------------------------------------------------------------------------
+# Tests — Message-edit (branching) API.
+# ---------------------------------------------------------------------------
+
+
+async def test_edit_flow_happy_path(app_client: httpx.AsyncClient) -> None:
+    """Edit a user message via SSE → new sibling created, old branch preserved."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "editer", "password": "edit-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    editer_token = await _login(app_client, "editer", "edit-pass-1")
+
+    import mechanic.api.chat_api as chat_api
+
+    original_get_llm = chat_api.get_llm_client
+    chat_api.get_llm_client = lambda protocol, transport=None: _FakeLLMClient()  # type: ignore[assignment]
+
+    try:
+        # 1. First POST — creates conversation with initial message.
+        resp1 = await app_client.post(
+            "/api/chat/M333YK47",
+            json={"message": "original question"},
+            headers={"Authorization": f"Bearer {editer_token}"},
+        )
+        assert resp1.status_code == 200
+
+        events1 = _parse_sse_events(resp1.text)
+        conv_event = next(e for e in events1 if e["event"] == "conversation")
+        cid = conv_event["_parsed_data"]["conversation_id"]
+
+        # 2. Fetch messages to find the user message id.
+        from mechanic.api.deps import get_hub
+
+        _hub = get_hub()
+        msg_resp = await app_client.get(
+            f"/api/chats/{cid}",
+            headers={"Authorization": f"Bearer {editer_token}"},
+        )
+        assert msg_resp.status_code == 200
+        msg_data = msg_resp.json()
+        messages = msg_data["messages"]
+        user_msg = [m for m in messages if m["role"] == "user"][0]
+        original_user_id = user_msg["id"]
+
+        # Verify initial state: sibling_count == 1, sibling_index == 1.
+        assert user_msg["sibling_count"] == 1
+        assert user_msg["sibling_index"] == 1
+
+        # 3. Edit the user message via SSE (new text).
+        resp2 = await app_client.post(
+            "/api/chat/M333YK47",
+            json={
+                "message": "edited question text",
+                "conversation_id": cid,
+                "edit_message_id": original_user_id,
+            },
+            headers={"Authorization": f"Bearer {editer_token}"},
+        )
+        assert resp2.status_code == 200
+
+        # Consume SSE to completion.
+        events2 = _parse_sse_events(resp2.text)
+        conv_event2 = next(e for e in events2 if e["event"] == "conversation")
+        assert conv_event2["_parsed_data"]["conversation_id"] == cid
+
+        # 4. After edit: active path should show NEW user text.
+        msg_resp2 = await app_client.get(
+            f"/api/chats/{cid}",
+            headers={"Authorization": f"Bearer {editer_token}"},
+        )
+        assert msg_resp2.status_code == 200
+        updated_data = msg_resp2.json()
+        updated_messages = updated_data["messages"]
+
+        # Find the user message on active path — should be the new one.
+        edited_user_msgs = [m for m in updated_messages if m["role"] == "user"]
+        assert len(edited_user_msgs) == 1
+        assert edited_user_msgs[0]["text"] == "edited question text"
+
+        # The edited user entry should have sibling_count == 2.
+        assert edited_user_msgs[0]["sibling_count"] == 2
+        # It is the second sibling (newer).
+        assert edited_user_msgs[0]["sibling_index"] == 2
+
+        # The assistant answer follows the edited user message.
+        roles = [m["role"] for m in updated_messages]
+        assert roles[-1] == "assistant"
+
+        # 5. Old branch rows still exist: switch to old and verify.
+        from mechanic.llm.types import StopReason, TextDelta, TurnComplete
+
+        class _OldBranchLLM:
+            async def stream_chat(self, request):
+                _FakeLLMClient.last_turns = list(request.turns)
+                yield TextDelta("old branch answer")
+                yield TurnComplete(
+                    stop_reason=StopReason.END_TURN,
+                    input_tokens=5,
+                    output_tokens=3,
+                )
+
+            async def fetch_models(self, base_url: str, api_key: str) -> list:
+                return []
+
+        original_get_llm2 = chat_api.get_llm_client
+        chat_api.get_llm_client = lambda protocol, transport=None: _OldBranchLLM()  # type: ignore[assignment]
+        try:
+            resp_switch = await app_client.post(
+                f"/api/chats/{cid}/branch",
+                json={"message_id": original_user_id},
+                headers={"Authorization": f"Bearer {editer_token}"},
+            )
+            assert resp_switch.status_code == 200
+            switch_data = resp_switch.json()
+            old_messages = switch_data["messages"]
+            old_user = [m for m in old_messages if m["role"] == "user"][0]
+            assert old_user["text"] == "original question"
+            # Old sibling has index 1.
+            assert old_user["sibling_index"] == 1
+        finally:
+            chat_api.get_llm_client = original_get_llm2
+
+    finally:
+        chat_api.get_llm_client = original_get_llm
+
+
+async def test_branch_switch_round_trip(app_client: httpx.AsyncClient) -> None:
+    """Switch between sibling branches via POST /branch and verify content."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "brtr-user", "password": "brtr-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    brtr_token = await _login(app_client, "brtr-user", "brtr-pass-1")
+
+    import mechanic.api.chat_api as chat_api
+
+    original_get_llm = chat_api.get_llm_client
+    chat_api.get_llm_client = lambda protocol, transport=None: _FakeLLMClient()  # type: ignore[assignment]
+
+    try:
+        # Create a conversation with an initial user message.
+        resp1 = await app_client.post(
+            "/api/chat/M333YK47",
+            json={"message": "first question"},
+            headers={"Authorization": f"Bearer {brtr_token}"},
+        )
+        assert resp1.status_code == 200
+
+        events1 = _parse_sse_events(resp1.text)
+        cid = next(
+            e["_parsed_data"]["conversation_id"]
+            for e in events1
+            if e["event"] == "conversation"
+        )
+
+        from mechanic.api.deps import get_hub
+        _hub = get_hub()
+        msg_resp = await app_client.get(
+            f"/api/chats/{cid}",
+            headers={"Authorization": f"Bearer {brtr_token}"},
+        )
+        user_msg_id = [
+            m["id"] for m in msg_resp.json()["messages"]
+            if m["role"] == "user"
+        ][0]
+
+        # Edit to create a sibling.
+        resp_edit = await app_client.post(
+            "/api/chat/M333YK47",
+            json={
+                "message": "edited question",
+                "conversation_id": cid,
+                "edit_message_id": user_msg_id,
+            },
+            headers={"Authorization": f"Bearer {brtr_token}"},
+        )
+        assert resp_edit.status_code == 200
+
+        # Capture the new user message id immediately after edit.
+        from mechanic.api.deps import get_hub as get_hub2
+        _hub2 = get_hub2()
+        all_msg_resp = await app_client.get(
+            f"/api/chats/{cid}",
+            headers={"Authorization": f"Bearer {brtr_token}"},
+        )
+        new_user_msg_id = [
+            m["id"]
+            for m in all_msg_resp.json()["messages"]
+            if m["text"] == "edited question"
+        ][0]
+
+        # --- Switch to OLD branch (original message) ---
+        from mechanic.llm.types import StopReason, TextDelta, TurnComplete
+
+        class _OldLLM:
+            async def stream_chat(self, request):
+                yield TextDelta("old answer")
+                yield TurnComplete(
+                    stop_reason=StopReason.END_TURN,
+                    input_tokens=5,
+                    output_tokens=3,
+                )
+
+            async def fetch_models(self, base_url: str, api_key: str) -> list:
+                return []
+
+        chat_api.get_llm_client = lambda protocol, transport=None: _OldLLM()  # type: ignore[assignment]
+        try:
+            resp_old = await app_client.post(
+                f"/api/chats/{cid}/branch",
+                json={"message_id": user_msg_id},
+                headers={"Authorization": f"Bearer {brtr_token}"},
+            )
+            assert resp_old.status_code == 200
+            old_data = resp_old.json()
+            old_messages = old_data["messages"]
+            old_user = [m for m in old_messages if m["role"] == "user"][0]
+            assert old_user["text"] == "first question"
+            assert old_user["sibling_index"] == 1
+
+            # --- Switch to NEW branch (edited message) ---
+            resp_new = await app_client.post(
+                f"/api/chats/{cid}/branch",
+                json={"message_id": new_user_msg_id},
+                headers={"Authorization": f"Bearer {brtr_token}"},
+            )
+            assert resp_new.status_code == 200
+            new_data = resp_new.json()
+            new_messages = new_data["messages"]
+            new_user = [m for m in new_messages if m["role"] == "user"][0]
+            assert new_user["text"] == "edited question"
+            assert new_user["sibling_index"] == 2
+        finally:
+            chat_api.get_llm_client = original_get_llm
+
+    finally:
+        chat_api.get_llm_client = original_get_llm
+
+
+async def test_edit_no_conversation_id_400(app_client: httpx.AsyncClient) -> None:
+    """edit_message_id without conversation_id → 400."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "valuser", "password": "val-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    val_token = await _login(app_client, "valuser", "val-pass-1")
+
+    resp = await app_client.post(
+        "/api/chat/M333YK47",
+        json={
+            "message": "hi",
+            "edit_message_id": 42,
+        },
+        headers={"Authorization": f"Bearer {val_token}"},
+    )
+    assert resp.status_code == 400
+
+
+async def test_edit_nonexistent_message_404(app_client: httpx.AsyncClient) -> None:
+    """edit_message_id pointing to a nonexistent message → 404."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "valuser2", "password": "valpass-2", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    val_token = await _login(app_client, "valuser2", "valpass-2")
+
+    import mechanic.api.chat_api as chat_api
+    from mechanic.api.deps import get_hub
+
+    hub = get_hub()
+    original_get_llm = chat_api.get_llm_client
+    chat_api.get_llm_client = lambda protocol, transport=None: _FakeLLMClient()  # type: ignore[assignment]
+
+    try:
+        # Seed a conversation so that conversation_id exists.
+        conv = hub.chats.create_conversation("valuser2", "M333YK47")
+        cid = conv["id"]
+        hub.chats.add_message(cid, "user", "hello")
+        hub.chats.add_message(cid, "assistant", "hi")
+
+        resp = await app_client.post(
+            "/api/chat/M333YK47",
+            json={
+                "message": "hi",
+                "conversation_id": cid,
+                "edit_message_id": 999999,
+            },
+            headers={"Authorization": f"Bearer {val_token}"},
+        )
+        assert resp.status_code == 404
+    finally:
+        chat_api.get_llm_client = original_get_llm
+
+
+async def test_edit_assistant_message_400(app_client: httpx.AsyncClient) -> None:
+    """edit_message_id pointing to an assistant message → 400."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "valuser3", "password": "val-pass-3", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    val_token = await _login(app_client, "valuser3", "val-pass-3")
+
+    import mechanic.api.chat_api as chat_api
+    from mechanic.api.deps import get_hub
+
+    hub = get_hub()
+    original_get_llm = chat_api.get_llm_client
+    chat_api.get_llm_client = lambda protocol, transport=None: _FakeLLMClient()  # type: ignore[assignment]
+
+    try:
+        # Seed a conversation with user + assistant messages.
+        conv = hub.chats.create_conversation("valuser3", "M333YK47")
+        cid = conv["id"]
+        hub.chats.add_message(cid, "user", "hello")
+        hub.chats.add_message(cid, "assistant", "hi there")
+
+        # Get the assistant message id.
+        all_msgs = hub.chats.get_messages(cid)
+        assistant_msg_id = [m["id"] for m in all_msgs if m["role"] == "assistant"][0]
+
+        resp = await app_client.post(
+            "/api/chat/M333YK47",
+            json={
+                "message": "new text",
+                "conversation_id": cid,
+                "edit_message_id": assistant_msg_id,
+            },
+            headers={"Authorization": f"Bearer {val_token}"},
+        )
+        assert resp.status_code == 400
+    finally:
+        chat_api.get_llm_client = original_get_llm
+
+
+async def test_edit_foreign_user_404(app_client: httpx.AsyncClient) -> None:
+    """edit_message_id on another user's conversation → 404."""
+    admin_token = await _admin_login(app_client)
+
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "foreign-owner", "password": "fo-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "foreign-editer", "password": "fe-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    _owner_token = await _login(app_client, "foreign-owner",
+                                "fo-pass-1")
+    editer_token = await _login(app_client, "foreign-editer", "fe-pass-1")
+
+    import mechanic.api.chat_api as chat_api
+    from mechanic.api.deps import get_hub
+
+    hub = get_hub()
+    original_get_llm = chat_api.get_llm_client
+    chat_api.get_llm_client = lambda protocol, transport=None: _FakeLLMClient()  # type: ignore[assignment]
+
+    try:
+        # Owner creates a conversation.
+        conv = hub.chats.create_conversation("foreign-owner", "M333YK47")
+        cid = conv["id"]
+        hub.chats.add_message(cid, "user", "owner's message")
+        hub.chats.add_message(cid, "assistant", "owner's reply")
+
+        all_msgs = hub.chats.get_messages(cid)
+        owner_user_msg_id = [m["id"] for m in all_msgs if m["role"] == "user"][0]
+
+        # Editer tries to edit owner's message.
+        resp = await app_client.post(
+            "/api/chat/M333YK47",
+            json={
+                "message": "editer's text",
+                "conversation_id": cid,
+                "edit_message_id": owner_user_msg_id,
+            },
+            headers={"Authorization": f"Bearer {editer_token}"},
+        )
+        assert resp.status_code == 404
+    finally:
+        chat_api.get_llm_client = original_get_llm
+
+
+async def test_branch_unknown_message_404(app_client: httpx.AsyncClient) -> None:
+    """Branch endpoint with unknown message_id → 404."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "branchuser", "password": "br-u-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    branch_token = await _login(app_client, "branchuser", "br-u-pass-1")
+
+    resp = await app_client.post(
+        "/api/chats/0000000000000000000000000000/branch",
+        json={"message_id": 999999},
+        headers={"Authorization": f"Bearer {branch_token}"},
+    )
+    assert resp.status_code == 404
+
+
+async def test_branch_foreign_conversation_404(app_client: httpx.AsyncClient) -> None:
+    """Branch endpoint on another user's conversation → 404."""
+    admin_token = await _admin_login(app_client)
+
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "br-owner", "password": "br-o-p-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "br-editer", "password": "br-e-p-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    _owner_token = await _login(app_client, "br-owner", "br-o-p-1")
+    editer_token = await _login(app_client, "br-editer", "br-e-p-1")
+
+    from mechanic.api.deps import get_hub
+
+    hub = get_hub()
+    conv = hub.chats.create_conversation("br-owner", "M333YK47")
+    cid = conv["id"]
+    hub.chats.add_message(cid, "user", "hello")
+    hub.chats.add_message(cid, "assistant", "hi")
+
+    all_msgs = hub.chats.get_messages(cid)
+    user_msg_id = [m["id"] for m in all_msgs if m["role"] == "user"][0]
+
+    resp = await app_client.post(
+        f"/api/chats/{cid}/branch",
+        json={"message_id": user_msg_id},
+        headers={"Authorization": f"Bearer {editer_token}"},
+    )
+    assert resp.status_code == 404
+
+
+async def test_branch_missing_auth_401(app_client: httpx.AsyncClient) -> None:
+    """Branch endpoint without auth token → 401."""
+    resp = await app_client.post(
+        "/api/chats/some-id/branch",
+        json={"message_id": 1},
+    )
+    assert resp.status_code == 401
+
+
+async def test_message_shape_fields(app_client: httpx.AsyncClient) -> None:
+    """GET /api/chats/{id} messages contain all new branching fields."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "shapeuser", "password": "shape-pw1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    shape_token = await _login(app_client, "shapeuser", "shape-pw1")
+
+    from mechanic.api.deps import get_hub
+
+    hub = get_hub()
+    conv = hub.chats.create_conversation("shapeuser", "M333YK47")
+    cid = conv["id"]
+    hub.chats.add_message(cid, "user", "question 1")
+    hub.chats.add_message(cid, "assistant", "answer 1")
+
+    resp = await app_client.get(
+        f"/api/chats/{cid}",
+        headers={"Authorization": f"Bearer {shape_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    messages = data["messages"]
+    assert len(messages) == 2
+
+    required_fields = {
+        "id",
+        "parent_id",
+        "sibling_index",
+        "sibling_count",
+        "prev_sibling_id",
+        "next_sibling_id",
+    }
+    for msg in messages:
+        assert required_fields.issubset(msg.keys()), (
+            f"Missing fields in message {msg.get('id')}: "
+            f"{required_fields - set(msg.keys())}"
+        )
+
+    # First user message has parent_id is None (root).
+    user_msg = [m for m in messages if m["role"] == "user"][0]
+    assert user_msg["parent_id"] is None
+
+
+async def test_message_siblings_after_edit(app_client: httpx.AsyncClient) -> None:
+    """Sibling metadata correct after an edit creates two siblings."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "sibuser", "password": "sibuserpw", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    sib_token = await _login(app_client, "sibuser", "sibuserpw")
+
+    import mechanic.api.chat_api as chat_api
+    from mechanic.api.deps import get_hub
+
+    hub = get_hub()
+    original_get_llm = chat_api.get_llm_client
+    chat_api.get_llm_client = lambda protocol, transport=None: _FakeLLMClient()  # type: ignore[assignment]
+
+    try:
+        conv = hub.chats.create_conversation("sibuser", "M333YK47")
+        cid = conv["id"]
+        hub.chats.add_message(cid, "user", "original text")
+        hub.chats.add_message(cid, "assistant", "answer to original")
+
+        # Get the user message id.
+        all_msgs = hub.chats.get_messages(cid)
+        user_msg_id = [m["id"] for m in all_msgs if m["role"] == "user"][0]
+
+        # Edit to create a sibling.
+        resp = await app_client.post(
+            "/api/chat/M333YK47",
+            json={
+                "message": "edited text",
+                "conversation_id": cid,
+                "edit_message_id": user_msg_id,
+            },
+            headers={"Authorization": f"Bearer {sib_token}"},
+        )
+        assert resp.status_code == 200
+
+        # Capture the new user message id immediately after edit (before switching).
+        all_after_edit = await app_client.get(
+            f"/api/chats/{cid}",
+            headers={"Authorization": f"Bearer {sib_token}"},
+        )
+        new_user_msg_id = [
+            m["id"]
+            for m in all_after_edit.json()["messages"]
+            if m["text"] == "edited text"
+        ][0]
+
+        # Switch to the old branch.
+        from mechanic.llm.types import StopReason, TextDelta, TurnComplete
+
+        class _OldLLM:
+            async def stream_chat(self, request):
+                yield TextDelta("old answer")
+                yield TurnComplete(
+                    stop_reason=StopReason.END_TURN,
+                    input_tokens=5,
+                    output_tokens=3,
+                )
+
+            async def fetch_models(self, base_url: str, api_key: str) -> list:
+                return []
+
+        chat_api.get_llm_client = lambda protocol, transport=None: _OldLLM()  # type: ignore[assignment]
+        try:
+            resp_switch = await app_client.post(
+                f"/api/chats/{cid}/branch",
+                json={"message_id": user_msg_id},
+                headers={"Authorization": f"Bearer {sib_token}"},
+            )
+            assert resp_switch.status_code == 200
+            switch_data = resp_switch.json()
+            old_messages = switch_data["messages"]
+
+            # Find the user message on old branch.
+            old_user = [m for m in old_messages if m["role"] == "user"][0]
+            assert old_user["text"] == "original text"
+            assert old_user["sibling_index"] == 1
+            assert old_user["sibling_count"] == 2
+
+            # Switch to new branch using the captured id.
+            chat_api.get_llm_client = lambda protocol, transport=None: _FakeLLMClient()  # type: ignore[assignment]
+            resp_new = await app_client.post(
+                f"/api/chats/{cid}/branch",
+                json={"message_id": new_user_msg_id},
+                headers={"Authorization": f"Bearer {sib_token}"},
+            )
+            assert resp_new.status_code == 200
+            new_data = resp_new.json()
+            new_messages = new_data["messages"]
+
+            # The edited user message on active path.
+            new_user = [m for m in new_messages if m["role"] == "user"][0]
+            assert new_user["text"] == "edited text"
+            assert new_user["sibling_index"] == 2
+            assert new_user["sibling_count"] == 2
+
+            # prev_sibling_id / next_sibling_id should be set.
+            assert new_user["prev_sibling_id"] is not None
+        finally:
+            chat_api.get_llm_client = original_get_llm
+    finally:
+        chat_api.get_llm_client = original_get_llm
+
+
+async def test_conversation_message_count_grows_with_branches(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """Editing a message adds rows; total count reflects all branches."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "countuser", "password": "countuserpw", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    cnt_token = await _login(app_client, "countuser", "countuserpw")
+
+    import mechanic.api.chat_api as chat_api
+    from mechanic.api.deps import get_hub
+
+    hub = get_hub()
+    original_get_llm = chat_api.get_llm_client
+    chat_api.get_llm_client = lambda protocol, transport=None: _FakeLLMClient()  # type: ignore[assignment]
+
+    try:
+        conv = hub.chats.create_conversation("countuser", "M333YK47")
+        cid = conv["id"]
+        hub.chats.add_message(cid, "user", "msg1")
+        hub.chats.add_message(cid, "assistant", "ans1")
+
+        # Initial count: 2 messages.
+        assert hub.chats.count_messages(cid) == 2
+
+        user_msg_id = [
+            m["id"] for m in hub.chats.get_messages(cid)
+            if m["role"] == "user"
+        ][0]
+
+        # Edit creates a new user + assistant row.
+        resp = await app_client.post(
+            "/api/chat/M333YK47",
+            json={
+                "message": "msg2",
+                "conversation_id": cid,
+                "edit_message_id": user_msg_id,
+            },
+            headers={"Authorization": f"Bearer {cnt_token}"},
+        )
+        assert resp.status_code == 200
+
+        # Now there are 4 messages total (original user, original assistant,
+        # new user, new assistant).
+        assert hub.chats.count_messages(cid) == 4
+    finally:
+        chat_api.get_llm_client = original_get_llm

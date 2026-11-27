@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import type { TicketDraftEvent } from '../types'
+import { ref, reactive, computed } from 'vue'
+import type { TicketDraftEvent, DiagnosticResult } from '../types'
 import { createTicket } from '../api'
 import { t } from '../i18n'
 
 const props = defineProps<{
   draft: TicketDraftEvent
   vehicleId: string
+  diag?: DiagnosticResult | null
 }>()
 
 const emit = defineEmits<{
@@ -46,6 +47,16 @@ const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const successId = ref<string | null>(null)
 
+const overrideConfirmed = ref(false)
+
+const isWarning = computed(() => props.diag?.signal_quality === 'warning')
+const belowFloor = computed(
+  () => props.diag?.confidence != null && props.diag.confidence < 0.5,
+)
+const canSubmit = computed(
+  () => !belowFloor.value && (!isWarning.value || overrideConfirmed.value),
+)
+
 function validate(): string | null {
   // conclusion non-empty
   if (!conclusion.value.trim()) return t('ticket.validation.conclusion')
@@ -72,6 +83,8 @@ async function handleSubmit(): Promise<void> {
     return
   }
 
+  if (!canSubmit.value) return
+
   submitting.value = true
   try {
     const ops = operationsText.value.split('\n').map(l => l.trim()).filter(Boolean)
@@ -90,6 +103,7 @@ async function handleSubmit(): Promise<void> {
       operations: ops,
       spare_parts: parts,
       references: refs,
+      override_confirmed: overrideConfirmed.value,
     }
 
     const result = await createTicket(payload)
@@ -126,6 +140,19 @@ const urgencyLabels: Record<string, string> = {
     <div class="readonly-chips">
       <span class="chip readonly-chip">Тип: {{ draft.payload.anomaly_type }}</span>
       <span class="chip readonly-chip mono">{{ draft.session_id }}</span>
+    </div>
+
+    <p class="floor-hint">{{ t('ticket.floor_hint') }}</p>
+
+    <div v-if="belowFloor" class="error-strip" role="alert">
+      {{ t('ticket.floor_blocked') }}
+    </div>
+    <div v-else-if="isWarning" class="warning-strip" role="alert">
+      {{ t('ticket.warning_notice') }}
+      <label class="override-row">
+        <input v-model="overrideConfirmed" type="checkbox" />
+        <span>{{ t('ticket.override_checkbox') }}</span>
+      </label>
     </div>
 
     <!-- Conclusion -->
@@ -209,7 +236,7 @@ const urgencyLabels: Record<string, string> = {
 
     <!-- Actions -->
     <div class="form-actions">
-      <button type="button" class="primary" :disabled="submitting" @click="handleSubmit">
+      <button type="button" class="primary" :disabled="submitting || !canSubmit" @click="handleSubmit">
         {{ submitting ? t('ticket.submitting') : t('ticket.submit') }}
       </button>
       <button type="button" :disabled="submitting" @click="emit('close')">{{ t('ticket.cancel') }}</button>
@@ -319,5 +346,20 @@ const urgencyLabels: Record<string, string> = {
   font-size: 15px;
   color: var(--accent);
   margin: 0 0 12px;
+}
+
+.floor-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.override-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  cursor: pointer;
+  font-size: 13px;
 }
 </style>

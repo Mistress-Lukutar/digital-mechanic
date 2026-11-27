@@ -130,7 +130,16 @@ export function createSseChat(options: SseChatOptions) {
   function loadConversation(detail: ChatConversationDetail): void {
     if (streaming.value) stop()
     messages.value = detail.messages.map((m) => {
-      const msg: ChatMessage = { role: m.role, text: m.text, steps: [] }
+      const msg: ChatMessage = {
+        role: m.role,
+        text: m.text,
+        steps: [],
+        id: m.id,
+        siblingIndex: m.sibling_index,
+        siblingCount: m.sibling_count,
+        prevSiblingId: m.prev_sibling_id,
+        nextSiblingId: m.next_sibling_id,
+      }
       if (m.image) msg.image = m.image
       return msg
     })
@@ -142,6 +151,7 @@ export function createSseChat(options: SseChatOptions) {
     message: string,
     sessionId: string | null = null,
     image?: string,
+    editMessageId?: number,
   ): Promise<void> {
     if (streaming.value) return
 
@@ -170,6 +180,7 @@ export function createSseChat(options: SseChatOptions) {
       }
       if (conversationId.value) body.conversation_id = conversationId.value
       if (image) body.image = image
+      if (editMessageId !== undefined) body.edit_message_id = editMessageId
 
       const response = await fetch(url, {
         method: 'POST',
@@ -395,5 +406,20 @@ export function createSseChat(options: SseChatOptions) {
     }
   }
 
-  return { messages, streaming, error, conversationId, resetLocal, loadConversation, send, stop }
+  /** Edit a user message at the given index: truncate the local transcript
+      from that message onward and re-send the new text as a branch. */
+  async function editMessage(
+    vehicleId: string,
+    messageIndex: number,
+    newText: string,
+  ): Promise<void> {
+    if (streaming.value) return
+    const msg = messages.value[messageIndex]
+    if (!msg || msg.id === undefined || msg.role !== 'user') return
+    const image = msg.image
+    messages.value = messages.value.slice(0, messageIndex)
+    await send(vehicleId, newText, null, image, msg.id)
+  }
+
+  return { messages, streaming, error, conversationId, resetLocal, loadConversation, send, stop, editMessage }
 }

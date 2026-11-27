@@ -1,6 +1,7 @@
 // Thin fetch helpers for the Digital Mechanic API.
 
 import type {
+  AdminAlertItem,
   AdminUserItem,
   AuthMeResponse,
   AuthTokenResponse,
@@ -8,6 +9,8 @@ import type {
   ChatConversationItem,
   ChatTurnDetail,
   DocumentInfo,
+  EconomyPrices,
+  EconomicsResponse,
   FleetStats,
   LlmSettingsView,
   UsageRowItem,
@@ -241,6 +244,18 @@ export async function deleteChat(
   )
 }
 
+/** POST /api/chats/{conversation_id}/branch — switch active branch. */
+export async function switchChatBranch(
+  conversationId: string,
+  messageId: number,
+): Promise<ChatConversationDetail> {
+  return apiSend<ChatConversationDetail>(
+    apiUrl(`/api/chats/${encodeURIComponent(conversationId)}/branch`),
+    'POST',
+    { message_id: messageId },
+  )
+}
+
 /** POST /api/tickets — create a ticket. */
 export async function createTicket(
   payload: Record<string, unknown>,
@@ -353,6 +368,25 @@ export async function resetAdminPassword(
 }
 
 // ---------------------------------------------------------------------------
+// Admin — alerts
+// ---------------------------------------------------------------------------
+
+/** GET /api/admin/alerts?limit=N */
+export async function getAdminAlerts(limit: number = 50): Promise<AdminAlertItem[]> {
+  return apiGet<AdminAlertItem[]>(apiUrl(`/api/admin/alerts?limit=${limit}`))
+}
+
+/** GET /api/admin/alerts/unread_count */
+export async function getAdminAlertsUnread(): Promise<{ unread: number }> {
+  return apiGet<{ unread: number }>(apiUrl('/api/admin/alerts/unread_count'))
+}
+
+/** POST /api/admin/alerts/{id}/read */
+export async function markAdminAlertRead(id: number): Promise<{ status: string }> {
+  return apiSend<{ status: string }>(apiUrl(`/api/admin/alerts/${id}/read`), 'POST')
+}
+
+// ---------------------------------------------------------------------------
 // Admin — LLM settings
 // ---------------------------------------------------------------------------
 
@@ -374,5 +408,30 @@ export async function updateLlmSettings(params: {
     apiUrl('/api/admin/settings/llm'),
     'PUT',
     params,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Economy / pricing
+// ---------------------------------------------------------------------------
+
+/** GET /api/admin/economics/prices */
+export async function getEconomyPrices(): Promise<EconomyPrices> {
+  return apiGet<EconomyPrices>(apiUrl('/api/admin/economics/prices'))
+}
+
+/** PUT /api/admin/economics/prices */
+export async function saveEconomyPrices(prices: EconomyPrices): Promise<EconomyPrices> {
+  return apiSend<EconomyPrices>(apiUrl('/api/admin/economics/prices'), 'PUT', prices)
+}
+
+/** GET /api/admin/economics?machines=&period_days=&questions= */
+export async function getEconomics(
+  machines: number,
+  periodDays: number,
+  questions: number,
+): Promise<EconomicsResponse> {
+  return apiGet<EconomicsResponse>(
+    apiUrl(`/api/admin/economics?machines=${machines}&period_days=${periodDays}&questions=${questions}`),
   )
 }

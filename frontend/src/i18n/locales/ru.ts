@@ -108,10 +108,13 @@ const ru = {
   'chat.error.connection': 'Ошибка соединения',
   'chat.mic.label': 'Голосовой ввод',
   'chat.mic.listening': 'Слушаю…',
-  'chat.empty_vehicle': 'Выберите заявку в парке или откройте чат из истории',
+  'chat.empty_vehicle': 'Выберите заявку в парке',
   'chat.reasoning.toggle': 'Думаю…',
   'chat.attach.label': 'Прикрепить изображение',
   'chat.attach.remove': 'Убрать изображение',
+  'chat.edit.label': 'Редактировать',
+  'chat.edit.save': 'Отправить',
+  'chat.edit.cancel': 'Отмена',
 
   // ---------------------------------------------------------------------------
   // chats.* — ChatsPanel
@@ -161,6 +164,10 @@ const ru = {
   'ticket.validation.ref_manual': 'Ссылка #{n}: укажите руководство',
   'ticket.validation.ref_page': 'Ссылка #{n}: страница должна быть ≥ 1',
   'ticket.error.create': 'Ошибка создания заявки',
+  'ticket.floor_hint': 'Порог отказа от заявки: 0,50',
+  'ticket.floor_blocked': 'Уверенность ниже порога 0,50 — заявка недоступна, повторите запись',
+  'ticket.warning_notice': 'Качество записи с предупреждением — надёжность результата понижена, рекомендуется повторная запись.',
+  'ticket.override_checkbox': 'Подтверждаю заявку с учётом предупреждения о качестве записи',
 
   // ---------------------------------------------------------------------------
   // doc.* — DocPanel
@@ -200,6 +207,7 @@ const ru = {
   // ---------------------------------------------------------------------------
   'admin.tab.dashboard': 'Дашборд',
   'admin.tab.users': 'Пользователи',
+  'admin.tab.alerts': 'Оповещения',
   'admin.tab.llm': 'Настройки LLM',
   'admin.dashboard.title': 'Дашборд использования',
   'admin.stat.requests': 'Запросов',
@@ -218,6 +226,16 @@ const ru = {
   'admin.table.output_tokens': 'Исх. токены',
   'admin.table.duration': 'Длительность (мс)',
   'admin.table.status': 'Статус',
+  'admin.alerts.title': 'Оповещения о нестандартных ситуациях',
+  'admin.alerts.empty': 'Оповещений нет',
+  'admin.alerts.refresh': 'Обновить',
+  'admin.alerts.mark_read': 'Прочитано',
+  'admin.alerts.read': 'прочитано',
+  'admin.alerts.col.time': 'Время',
+  'admin.alerts.col.kind': 'Тип',
+  'admin.alerts.col.text': 'Ситуация',
+  'admin.alerts.col.where': 'Кто / где',
+  'admin.alerts.col.status': 'Статус',
   'admin.error_label': 'Ошибка',
   'admin.no_records': 'Записей нет',
   'admin.users.title': 'Пользователи',
@@ -261,6 +279,47 @@ const ru = {
   'admin.detail_hint': 'Клик по строке «chat» — вопрос, ответ и цитаты хода',
   'admin.detail_loading': 'Загрузка…',
   'admin.detail_error': 'Детализация недоступна',
+  'admin.detail.steps': 'Шаги',
+  'admin.detail.step_tool': 'Инструмент',
+  'admin.detail.step_args': 'Аргументы',
+  'admin.detail.step_status': 'Статус',
+  'admin.detail.step_time': 'Время',
+  'admin.detail.step_summary': 'Сводка',
+  'admin.detail.step_ok': 'OK',
+  'admin.detail.step_error': 'Ошибка',
+
+  // ---------------------------------------------------------------------------
+  // admin.econ.* — Economy tab
+  // ---------------------------------------------------------------------------
+  'admin.tab.econ': 'Экономика',
+  'admin.econ.title': 'Экономика сценария и парка',
+  'admin.econ.prices': 'Цены модели',
+  'admin.econ.model_label': 'Модель / источник прайса',
+  'admin.econ.input_price': 'Цена входа за 1 млн',
+  'admin.econ.output_price': 'Цена выхода за 1 млн',
+  'admin.econ.currency': 'Валюта',
+  'admin.econ.usd_rate': 'Курс ЦБ $',
+  'admin.econ.indexation': 'Индексация (разово), ₽',
+  'admin.econ.assumptions': 'Допущения',
+  'admin.econ.machines': 'Машин в парке',
+  'admin.econ.period': 'Периодичность проверки, дней',
+  'admin.econ.questions': 'Вопросов механика на проверку',
+  'admin.econ.save_prices': 'Сохранить цены',
+  'admin.econ.recalc': 'Рассчитать',
+  'admin.econ.export_csv': 'Экспорт CSV',
+  'admin.econ.stats': 'Замер стенда: ходов {n}, медиана входа {in}, выхода {out}',
+  'admin.econ.scenario': 'Сценарий (диагностика → ответ/заявка)',
+  'admin.econ.scenario_turns': 'Вызовов модели на сценарий',
+  'admin.econ.scenario_tokens_in': 'Токенов входа на сценарий',
+  'admin.econ.scenario_tokens_out': 'Токенов выхода на сценарий',
+  'admin.econ.scenario_cost': 'Стоимость сценария, ₽',
+  'admin.econ.fleet': 'Пересчёт на парк',
+  'admin.econ.checks_month': 'Проверок парка в месяц',
+  'admin.econ.scenarios_month': 'Сценариев в месяц',
+  'admin.econ.cost_month': 'Стоимость парка в месяц, ₽',
+  'admin.econ.cost_year': 'Стоимость парка в год, ₽',
+  'admin.econ.tokens_scenario': 'Токенов на сценарий',
+  'admin.econ.csv_title': 'Экономика «Цифровой механик»',
 
   // ---------------------------------------------------------------------------
   // confirm.* — useConfirm defaults

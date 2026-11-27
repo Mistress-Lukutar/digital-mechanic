@@ -24,7 +24,7 @@ import pytest
 from httpx import ASGITransport
 
 from mechanic.llm import StopReason, TextDelta, TurnComplete
-from mechanic.llm.types import ChatRequest
+from mechanic.llm.types import ChatRequest, ToolCall, ToolCallsReady
 
 # ---------------------------------------------------------------------------
 # Paths and constants.
@@ -113,6 +113,54 @@ async def app_client(tmp_path: Path) -> httpx.AsyncClient:
                     "model_version": "mock-v1",
                 },
             )
+        if vid == "P854BT78":
+            return httpx.Response(
+                200,
+                json={
+                    "vehicle_id": "P854BT78",
+                    "session_id": "S-0021",
+                    "status": "anomaly",
+                    "anomaly_type": "F09",
+                    "anomaly_title": "Турбокомпрессор",
+                    "anomaly_score": 0.72,
+                    "confidence": 0.66,
+                    "signal_quality": "warning",
+                    "description": "Стук в турбине",
+                    "model_version": "mock-v1",
+                },
+            )
+        if vid == "M739BA198":
+            return httpx.Response(
+                200,
+                json={
+                    "vehicle_id": "M739BA198",
+                    "session_id": "S-0103",
+                    "status": "anomaly",
+                    "anomaly_type": "F02",
+                    "anomaly_title": "Давление масла",
+                    "anomaly_score": 0.74,
+                    "confidence": 0.48,
+                    "signal_quality": "warning",
+                    "description": "Низкое давление масла",
+                    "model_version": "mock-v1",
+                },
+            )
+        if vid == "P456AT178":
+            return httpx.Response(
+                200,
+                json={
+                    "vehicle_id": "P456AT178",
+                    "session_id": "S-0003",
+                    "status": "anomaly",
+                    "anomaly_type": "F01",
+                    "anomaly_title": "Клапаны",
+                    "anomaly_score": 0.71,
+                    "confidence": 0.80,
+                    "signal_quality": "bad",
+                    "description": "Стук клапанов",
+                    "model_version": "mock-v1",
+                },
+            )
         return httpx.Response(404, json={"detail": "vehicle not found"})
 
     def _toir_handler(request: httpx.Request) -> httpx.Response:
@@ -157,7 +205,7 @@ async def app_client(tmp_path: Path) -> httpx.AsyncClient:
     yield client
     await client.aclose()
 
-    for service in (hub.auth, hub.ticket_log, hub.usage):
+    for service in (hub.auth, hub.ticket_log, hub.usage, hub.alerts):
         try:
             service._conn.close()  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001
@@ -657,3 +705,279 @@ async def test_chat_invalid_image_url_422(app_client: httpx.AsyncClient) -> None
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 422
+
+
+async def test_ticket_submit_requires_warning_override(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """POST /api/tickets with warning signal_quality requires override_confirmed."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "P854BT78",
+        "session_id": "S-0021",
+        "anomaly_type": "F09",
+        "conclusion": "Стук в турбокомпрессоре",
+        "urgency": "medium",
+        "operations": ["Проверить турбокомпрессор"],
+        "spare_parts": [],
+        "references": [{"manual": "236.01.01 РК", "pdf_page": 50}],
+    }
+
+    # Without override_confirmed → 422 mentioning «подтвердите»
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    assert "подтвердите" in resp.json()["detail"]
+
+    # With override_confirmed true → success (200 per existing convention)
+    payload_with_override = {**payload, "override_confirmed": True}
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload_with_override,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["ticket_id"] == "TKT-0001"
+
+    # Verify ticket appears in list
+    list_resp = await app_client.get(
+        "/api/tickets/P854BT78", headers={"Authorization": f"Bearer {mech_token}"}
+    )
+    assert list_resp.status_code == 200
+    tickets = list_resp.json()
+    assert len(tickets) == 1
+
+    # Alert created for warning override.
+    alerts_resp = await app_client.get(
+        "/api/admin/alerts", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert alerts_resp.status_code == 200
+    alerts = alerts_resp.json()
+    override_alerts = [a for a in alerts if a["kind"] == "warning_override"]
+    assert len(override_alerts) >= 1
+    assert override_alerts[0]["vehicle_id"] == "P854BT78"
+
+
+async def test_ticket_submit_blocked_below_floor(app_client: httpx.AsyncClient) -> None:
+    """Session with confidence below floor → ticket blocked even with override."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "M739BA198",
+        "session_id": "S-0103",
+        "anomaly_type": "F02",
+        "conclusion": "Низкое давление масла",
+        "urgency": "high",
+        "operations": ["Проверить давление масла"],
+        "spare_parts": [],
+        "references": [{"manual": "236.01.01 РК", "pdf_page": 50}],
+    }
+
+    # With override_confirmed true but confidence below floor → 422 mentioning «порога»
+    payload_with_override = {**payload, "override_confirmed": True}
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload_with_override,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "порога" in detail
+
+
+async def test_ticket_submit_blocked_bad_quality(app_client: httpx.AsyncClient) -> None:
+    """Session with signal_quality bad → ticket blocked regardless of override."""
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "P456AT178",
+        "session_id": "S-0003",
+        "anomaly_type": "F01",
+        "conclusion": "Стук клапанов",
+        "urgency": "high",
+        "operations": ["Отрегулировать клапаны"],
+        "spare_parts": [],
+        "references": [{"manual": "236.01.01 РК", "pdf_page": 50}],
+    }
+
+    # Without override_confirmed → 422 mentioning «повторите запись»
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "повторите запись" in detail
+
+    # With override_confirmed true → still 422 (bad quality always blocks)
+    payload_with_override = {**payload, "override_confirmed": True}
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload_with_override,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "повторите запись" in detail
+
+
+# ---------------------------------------------------------------------------
+# Fake LLM client that yields one tool call then final text.
+# ---------------------------------------------------------------------------
+
+
+class FakeToolLLMClient:
+    """Fake LLM that yields a tool call followed by a final response."""
+
+    async def stream_chat(
+        self, request: ChatRequest
+    ) -> AsyncIterator[TextDelta | ToolCallsReady | TurnComplete]:
+        yield ToolCallsReady(
+            tool_calls=[
+                ToolCall(
+                    call_id="call_1",
+                    name="get_diagnostic_result",
+                    arguments_json=json.dumps({"vehicle_id": "M333YK47"}),
+                )
+            ],
+        )
+        yield TextDelta("диагноз получен")
+        yield TurnComplete(
+            stop_reason=StopReason.END_TURN,
+            input_tokens=10,
+            output_tokens=5,
+        )
+
+    async def fetch_models(self, base_url: str, api_key: str) -> list:
+        return []
+
+
+async def test_admin_usage_detail_contains_agent_steps(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """POST /api/chat → tool call → GET detail → steps present."""
+    admin_token = await _admin_login(app_client)
+
+    # Create mech2 user.
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech2", "password": "mech-pass-2", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech2_token = await _login(app_client, "mech2", "mech-pass-2")
+
+    # Patch the chat module's client factory with our tool-calling fake.
+    import mechanic.api.chat_api as chat_api_module
+
+    original_get_llm = chat_api_module.get_llm_client
+    chat_api_module.get_llm_client = (  # type: ignore[assignment]
+        lambda protocol, transport=None: FakeToolLLMClient()
+    )
+
+    try:
+        resp = await app_client.post(
+            "/api/chat/M333YK47",
+            json={"message": "проверь диагностику"},
+            headers={"Authorization": f"Bearer {mech2_token}"},
+        )
+        assert resp.status_code == 200
+
+        # Find the chat usage record.
+        from mechanic.api.deps import get_hub
+
+        hub = get_hub()
+        recent = hub.usage.recent(200)
+        chat_records = [r for r in recent if r.kind == "chat"]
+        assert chat_records, f"No chat records: {[r.kind for r in recent]}"
+
+        # Get the newest chat record (last in list).
+        latest = chat_records[-1]
+        detail_resp = await app_client.get(
+            f"/api/admin/usage/{latest.id}/detail",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert detail_resp.status_code == 200
+        detail = detail_resp.json()
+
+        # Assert steps are present and contain the tool call.
+        assert "steps" in detail
+        steps = detail["steps"]
+        assert isinstance(steps, list)
+        assert len(steps) >= 1
+        assert steps[0]["tool"] == "get_diagnostic_result"
+        assert steps[0]["ok"] is True
+        assert "arguments" in steps[0]
+        args = steps[0]["arguments"]
+        assert isinstance(args, dict)
+        assert "vehicle_id" in args
+    finally:
+        chat_api_module.get_llm_client = original_get_llm
+
+
+async def test_admin_economics_endpoint(app_client: httpx.AsyncClient) -> None:
+    """GET /api/admin/economics returns scenario + fleet calculation."""
+    token = await _admin_login(app_client)
+
+    # Seed usage rows so medians are deterministic.
+    from mechanic.api.deps import get_hub
+
+    hub = get_hub()
+    hub.usage.record(username="x", kind="chat", input_tokens=10000, output_tokens=1000)
+    hub.usage.record(username="x", kind="chat", input_tokens=10000, output_tokens=1000)
+    hub.usage.record(username="x", kind="chat", input_tokens=12000, output_tokens=800)
+
+    # GET /api/admin/economics with default params
+    resp = await app_client.get(
+        "/api/admin/economics?machines=50&period_days=14&questions=3",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+
+    data = resp.json()
+
+    # scenario.turns == diagnosis(1) + questions(3) = 4
+    assert data["scenario"]["turns"] == 4
+
+    # usage_stats medians: inputs [10000,10000,12000] → median=10000
+    #                        outputs [1000,1000,800]   → median=1000
+    assert data["usage_stats"]["median_input"] == 10000
+    assert data["usage_stats"]["median_output"] == 1000
+
+    # scenario cost: per_turn = (10000*0.22 + 1000*0.88)/1e6 = 0.00308
+    #   factor = 82.313 (USD), turns=4
+    #   cost = 0.00308 * 4 * 82.313 ≈ 1.0141
+    expected_cost = 4 * (10000 * 0.22 + 1000 * 0.88) / 1_000_000 * 82.313
+    assert data["scenario"]["cost_rub"] == pytest.approx(expected_cost, rel=0.01)
+
+    # fleet cost_year_rub ≈ scenario_cost * (30/14*50) * 12
+    expected_year = expected_cost * (30 / 14 * 50) * 12
+    assert data["fleet"]["cost_year_rub"] == pytest.approx(expected_year, rel=0.01)
+
+    # Assumptions are capped correctly
+    assert data["assumptions"]["machines"] == 50
+    assert data["assumptions"]["period_days"] == 14
+    assert data["assumptions"]["questions"] == 3

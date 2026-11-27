@@ -27,12 +27,21 @@ from pathlib import Path
 
 import pymupdf
 
-from rag.config import RagSettings, get_settings
-from rag.extract.chunker import PageRecord, chunk_page
-from rag.extract.layout import Line
-from rag.extract.passport import measure
-from rag.extract.quality import measure_document, write_report
-from rag.extract.structure import (
+# Classic table detector, no bundled neural layout (issue #1, follow-up
+# F-1): on pymupdf >= 2.2 find_tables() silently runs the pymupdf/layout
+# BoxRFDGNN model over ONNX with ~64 intra-op threads per page, which pegs
+# every core during ingestion — and on our manuals it finds FEWER tables
+# than the classic detector («236.01.01 РК» p.286: neural 0, classic 1).
+# The flag is checked first by Page.get_layout and short-circuits; setting
+# _get_layout = None would not survive the lazy import's activate().
+pymupdf._layout_enabled = False
+
+from rag.config import RagSettings, get_settings  # noqa: E402
+from rag.extract.chunker import PageRecord, chunk_page  # noqa: E402
+from rag.extract.layout import Line  # noqa: E402
+from rag.extract.passport import measure  # noqa: E402
+from rag.extract.quality import measure_document, write_report  # noqa: E402
+from rag.extract.structure import (  # noqa: E402
     assign_page_sections,
     build_module_registry,
     build_sections,
@@ -40,16 +49,16 @@ from rag.extract.structure import (
     find_toc_pages,
     parse_toc,
 )
-from rag.extract.tables import page_with_tables
-from rag.extract.textnorm import normalize_page_text
-from rag.extract.wordforms import build_wordforms, prune
-from rag.extract.wordforms import save as save_wordforms
-from rag.index.bm25 import BM25Index
-from rag.index.dense import DenseIndex
-from rag.index.store import write_version
-from rag.index.tokenizer import tokenize
-from rag.knowledge.loader import load_knowledge
-from rag.search import normalize_engine
+from rag.extract.tables import page_with_tables  # noqa: E402
+from rag.extract.textnorm import normalize_page_text  # noqa: E402
+from rag.extract.wordforms import build_wordforms, prune  # noqa: E402
+from rag.extract.wordforms import save as save_wordforms  # noqa: E402
+from rag.index.bm25 import BM25Index  # noqa: E402
+from rag.index.dense import DenseIndex  # noqa: E402
+from rag.index.store import write_version  # noqa: E402
+from rag.index.tokenizer import tokenize  # noqa: E402
+from rag.knowledge.loader import load_knowledge  # noqa: E402
+from rag.search import normalize_engine  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

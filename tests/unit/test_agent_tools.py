@@ -30,6 +30,7 @@ from mechanic.agent.tools_base import (
     ToolOutcome,
 )
 from mechanic.config import Settings
+from mechanic.services.alerts import AlertsStore
 from mechanic.services.auth import AuthService
 from mechanic.services.chats import ChatStore
 from mechanic.services.fleet import FleetStore
@@ -210,6 +211,7 @@ def _build_test_hub(
         ticket_log=TicketLog(DATA_DIR / "test_tickets.db"),
         chats=ChatStore(DATA_DIR / "test_chats.db"),
         usage=UsageLog(DATA_DIR / "test_usage.db"),
+        alerts=AlertsStore(DATA_DIR / "test_alerts.db"),
         auth=AuthService(DATA_DIR / "test_auth.db"),
     )
     return hub
@@ -540,6 +542,7 @@ class TestBuildRegistry:
             "search_manuals",
             "get_vehicle_info",
             "create_ticket",
+            "report_issue",
             "show_document",
         ]
 
@@ -619,3 +622,119 @@ class TestShowDocumentPDFMissing:
             )
 
         assert "недоступен" in str(exc_info.value)
+
+
+class TestCreateTicketFuelMismatch:
+    """Tests for fuel-compatibility gate in create_ticket."""
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_blocks_fuel_mismatch(self) -> None:
+        """F08 on petrol Y652CK98 → ToolError with 'противоречит'; alert created."""
+        hub = _build_test_hub()
+        context = ctx(
+            vehicle_id="Y652CK98", session_id="S-0132", hub=hub
+        )
+
+        from mechanic.agent.tools_impl.tickets import make_create_ticket_tool
+
+        tool_def = make_create_ticket_tool()(context.services)  # type: ignore[arg-type]
+        args = {
+            "anomaly_type": "F08",
+            "conclusion": "Жёсткая работа",
+            "operations": ["Общая проверка топливной системы"],
+            "references": [{"manual": "ЗМЗ-5234.10 РК", "pdf_page": 52}],
+        }
+
+        with pytest.raises(ToolError) as exc_info:
+            await tool_def.executor(args, context)
+
+        assert "противоречит" in str(exc_info.value)
+
+        alerts = hub.alerts.recent()
+        assert len(alerts) >= 1
+        alert = alerts[0]
+        assert alert.kind == "fuel_mismatch"
+        assert alert.vehicle_id == "Y652CK98"
+        assert alert.session_id == "S-0132"
+        assert alert.engine_model == "ЗМЗ-5234.10"
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_allows_f08_on_diesel(self) -> None:
+        """F08 on diesel M333YK47 → no error, ticket_draft event."""
+        hub = _build_test_hub()
+        context = ctx(
+            vehicle_id="M333YK47", session_id="S-0005", hub=hub
+        )
+
+        from mechanic.agent.tools_impl.tickets import make_create_ticket_tool
+
+        tool_def = make_create_ticket_tool()(context.services)  # type: ignore[arg-type]
+        args = {
+            "anomaly_type": "F08",
+            "conclusion": "Неисправность топливной системы.",
+            "urgency": "low",
+            "priority_rationale": "механик сказал низкий",
+            "operations": ["Проверить форсунки"],
+            "references": [
+                {"manual": "236.01.01 РК", "pdf_page": 112}
+            ],
+        }
+
+        result = await tool_def.executor(args, context)
+
+        assert isinstance(result, ToolOutcome)
+        assert result.event is not None
+        assert result.event[0] == "ticket_draft"
+
+
+class TestReportIssue:
+    """Tests for report_issue tool."""
+
+    @pytest.mark.asyncio
+    async def test_report_issue_creates_alert(self) -> None:
+        """Valid issue → str response with alert in store."""
+        hub = _build_test_hub()
+        context = ctx(
+            vehicle_id="M333YK47",
+            session_id="S-0005",
+            hub=hub,
+        )
+        context.username = "tester-mech"
+
+        from mechanic.agent.tools_impl.report_issue import (
+            make_report_issue_tool,
+        )
+
+        tool_def = make_report_issue_tool()(context.services)  # type: ignore[arg-type]
+        result = await tool_def.executor(
+            {"issue": "В руководстве нет процедуры проверки X, механик ждёт ответа"},
+            context,
+        )
+
+        assert isinstance(result, str)
+        assert "передана администратору" in result
+
+        alerts = hub.alerts.recent()
+        assert len(alerts) >= 1
+        alert = alerts[0]
+        assert alert.kind == "agent_report"
+        assert alert.username == "tester-mech"
+        assert alert.vehicle_id == "M333YK47"
+        assert alert.engine_model == "ЯМЗ-236М2"
+
+    @pytest.mark.asyncio
+    async def test_report_issue_requires_text(self) -> None:
+        """Empty args → ToolError."""
+        hub = _build_test_hub()
+        context = ctx(vehicle_id="M333YK47", hub=hub)
+
+        from mechanic.agent.tools_impl.report_issue import (
+            make_report_issue_tool,
+        )
+
+        tool_def = make_report_issue_tool()(context.services)  # type: ignore[arg-type]
+
+        with pytest.raises(ToolError) as exc_info:
+            await tool_def.executor({}, context)
+
+        assert "issue" in str(exc_info.value).lower()

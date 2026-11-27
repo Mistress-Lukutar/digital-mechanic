@@ -1,9 +1,10 @@
 '''
 File:   chat_api.py
-Brief:  Chat endpoint with SSE streaming, conversation reset, and language selection.
+Brief:  Chat endpoint with SSE streaming, conversation reset, message-edit
+        (branching), and language selection.
 Author: Mistress-Lukutar
 Date:   2026-11-27
-Version: v0.3.0
+Version: v0.4.0
 
 Provides the ``/api/chat`` router with a streaming chat endpoint that wraps
 the :class:`~mechanic.agent.loop.AgentLoop` and yields SSE-formatted events,
@@ -17,6 +18,10 @@ SQLite so that LLM context survives backend restarts.
 
 Multimodal support: ``ChatRequest`` accepts an optional ``image`` data-URL
 that is forwarded into the agent turn as a multimodal content part.
+
+Message editing (branching): when ``edit_message_id`` is set on
+``ChatRequest``, the corresponding user message is replaced by a sibling
+branch and the assistant answer is regenerated from that point onward.
 '''
 
 from __future__ import annotations
@@ -73,6 +78,45 @@ def _extract_citations(text: str) -> list[dict]:
     return citations
 
 
+def _compact_args(args: object) -> object:
+    """Shrink tool-call arguments for the usage-log trace.
+
+    Dicts keep their keys with stringified values truncated to 120 chars
+    (max 10 keys); anything else becomes a truncated string.
+    """
+    if isinstance(args, dict):
+        out: dict[str, str] = {}
+        for i, (k, v) in enumerate(args.items()):
+            if i >= 10:
+                break
+            text = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+            out[str(k)] = text[:120]
+        return out
+    return str(args)[:200]
+
+
+def _hydrate_store(
+    conversations: ConversationStore, key: str, messages: list[dict]
+) -> None:
+    """Rebuild in-memory turns for *key* from persisted message dicts.
+
+    Args:
+        conversations: In-memory conversation store to populate.
+        key: Conversation id used as the store key.
+        messages: Message dicts from
+        :meth:`~mechanic.services.chats.ChatStore.get_messages`.
+    """
+    for m in messages:
+        if not m["text"]:
+            continue
+        if m["role"] == "user":
+            conversations.add_user_message(key, m["text"], image=m.get("image"))
+        elif m["role"] == "assistant":
+            conversations.add_assistant_parts(
+                key, [TextPart(text=m["text"])]
+            )
+
+
 router = APIRouter(prefix="/api", tags=["chat"])
 
 # Maximum length for a data-URL image (~1.5 MB JPEG base64-encoded).
@@ -88,6 +132,9 @@ class ChatRequest(BaseModel):
         language: Target response language (ru, kk, uz, hi); defaults to ru.
         image: Optional data-URL image (``data:image/...``). Must be ≤ 2 100 000 chars.
         conversation_id: Resumed conversation ID; a new one is created if absent.
+        edit_message_id: When set together with ``conversation_id``, edits that
+            user message: a sibling branch is created and the answer is
+            regenerated.
     """
 
     message: str
@@ -95,6 +142,7 @@ class ChatRequest(BaseModel):
     language: Literal["ru", "kk", "uz", "hi"] | None = None
     image: str | None = None
     conversation_id: str | None = None
+    edit_message_id: int | None = None
 
     @field_validator("image")
     @classmethod
@@ -167,6 +215,7 @@ async def _chat_events(
     language: Literal["ru", "kk", "uz", "hi"] | None = None,
     image: str | None = None,
     store_key: str | None = None,
+    conversation_id: str | None = None,
 ) -> object:  # AsyncIterator[tuple[str, dict]]
     """Generate SSE events from the agent loop.
 
@@ -181,6 +230,8 @@ async def _chat_events(
         language: Target response language (ru/kk/uz/hi).
         image: Optional data-URL image for multimodal input.
         store_key: Key for conversation storage; defaults to vehicle_id.
+        conversation_id: Current conversation id, passed to the prompt builder
+            so past-discussion lookups can exclude it.
 
     Yields:
         (event_name, payload) tuples from the agent loop.
@@ -194,7 +245,10 @@ async def _chat_events(
         protocol=protocol,
     )
     registry = _build_registry(hub)
-    system_prompt = build_system_prompt(hub, vehicle_id, language=language)
+    system_prompt = build_system_prompt(
+        hub, vehicle_id, language=language, username=username,
+        conversation_id=conversation_id,
+    )
 
     loop = AgentLoop(
         client=client,
@@ -232,33 +286,60 @@ async def chat(
 
     llm_cfg = effective_llm_config(hub.settings, get_app_settings())
 
+    if body.edit_message_id is not None and not body.conversation_id:
+        raise HTTPException(
+            status_code=400, detail="edit_message_id требует conversation_id"
+        )
+
     # Resolve or create the conversation.
+    edit_parent_id: int | None = None
     if body.conversation_id:
         conv = chats_store.get_conversation(body.conversation_id)
         if conv is None:
             raise HTTPException(status_code=404, detail="чат не найден")
         if conv["username"] != user.username or conv["vehicle_id"] != vehicle_id:
             raise HTTPException(status_code=404, detail="чат не найден")
-        # Hydrate in-memory store when it has no turns for this key.
-        if not conversations.history(body.conversation_id):
-            for m in chats_store.get_messages(body.conversation_id):
-                if not m["text"]:
-                    continue
-                if m["role"] == "user":
-                    conversations.add_user_message(
-                        body.conversation_id, m["text"], image=m["image"]
-                    )
-                elif m["role"] == "assistant":
-                    conversations.add_assistant_parts(
-                        body.conversation_id, [TextPart(text=m["text"])]
-                    )
+
+        if body.edit_message_id is not None:
+            target = chats_store.get_message(
+                body.conversation_id, body.edit_message_id
+            )
+            if target is None:
+                raise HTTPException(status_code=404, detail="сообщение не найдено")
+            if target["role"] != "user":
+                raise HTTPException(
+                    status_code=400,
+                    detail="можно редактировать только сообщения пользователя",
+                )
+            prefix = (
+                chats_store.get_path_to(body.conversation_id, target["parent_id"])
+                if target["parent_id"] is not None
+                else []
+            )
+            conversations.forget(body.conversation_id)
+            _hydrate_store(conversations, body.conversation_id, prefix)
+            edit_parent_id = target["parent_id"]
+        else:
+            # Hydrate in-memory store when it has no turns for this key.
+            if not conversations.history(body.conversation_id):
+                _hydrate_store(
+                    conversations, body.conversation_id,
+                    chats_store.get_messages(body.conversation_id),
+                )
+
         conversation_id = body.conversation_id
     else:
         conv = chats_store.create_conversation(user.username, vehicle_id)
         conversation_id = conv["id"]
 
     # Persist the user turn right away.
-    chats_store.add_message(conversation_id, "user", body.message, image=body.image)
+    if body.edit_message_id is not None:
+        chats_store.add_message(
+            conversation_id, "user", body.message,
+            image=body.image, parent_id=edit_parent_id,
+        )
+    else:
+        chats_store.add_message(conversation_id, "user", body.message, image=body.image)
 
     store_key = conversation_id
 
@@ -268,6 +349,9 @@ async def chat(
         answer_parts: list[str] = []
         tools_used: list[str] = []
         ticket_draft_info: dict | None = None
+        agent_steps: list[dict] = []
+        current_step: dict | None = None
+        step_started: float | None = None
         conv_payload = json.dumps(
             {"conversation_id": conversation_id}, ensure_ascii=False
         )
@@ -283,6 +367,7 @@ async def chat(
             language=body.language or "ru",
             image=body.image,
             store_key=store_key,
+            conversation_id=conversation_id,
         ):
             yield f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
@@ -292,6 +377,26 @@ async def chat(
                 tool_name = payload.get("name")
                 if tool_name is not None and tool_name not in tools_used:
                     tools_used.append(tool_name)
+                step_started = time.perf_counter()
+                agent_steps.append(
+                    {
+                        "tool": tool_name,
+                        "arguments": _compact_args(payload.get("arguments")),
+                        "ok": None,
+                        "summary": "",
+                        "duration_ms": 0,
+                    }
+                )
+                current_step = agent_steps[-1]
+            elif name == "tool_result":
+                if current_step is not None:
+                    current_step["ok"] = not payload.get("is_error", False)
+                    current_step["summary"] = str(payload.get("summary", ""))[:200]
+                    if step_started is not None:
+                        current_step["duration_ms"] = int(
+                            (time.perf_counter() - step_started) * 1000
+                        )
+                    current_step = None
             elif name == "ticket_draft":
                 ticket_draft_info = {
                     "anomaly_type": payload.get("payload", {}).get("anomaly_type"),
@@ -308,6 +413,7 @@ async def chat(
                     "ticket_draft": ticket_draft_info,
                     "has_image": body.image is not None,
                     "language": body.language,
+                    "steps": agent_steps[:20],
                 }
                 hub.usage.record(
                     username=user.username,
@@ -334,6 +440,12 @@ async def chat(
                     duration_ms=int((time.perf_counter() - t0) * 1000),
                     status="error",
                     error=payload.get("message", "")[:300],
+                    detail={
+                        "question": body.message[:4000],
+                        "tools": tools_used,
+                        "steps": agent_steps[:20],
+                        "language": body.language,
+                    },
                 )
                 if error_text:
                     chats_store.add_message(conversation_id, "assistant", error_text)
