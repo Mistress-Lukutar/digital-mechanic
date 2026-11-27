@@ -120,7 +120,7 @@ watch(() => streaming.value, async (now, was) => {
 })
 
 function autoGrow(e: Event): void {
-  const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'
+  const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 160) + 'px'
 }
 
 function onFileSelected(e: Event): void {
@@ -573,29 +573,16 @@ function toggleMic(): void {
           <img :src="attachedImage" alt="" class="preview-thumb" />
           <button class="remove-btn" @click="attachedImage = null" :title="t('chat.attach.remove')">&times;</button>
         </div>
-        <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
-        <input type="file" accept="image/*" ref="fileInput" style="display:none" @change="onFileSelected" />
-        <div class="composer-tools">
-          <button
-            v-if="!streaming && vehicleId"
-            class="attach-btn"
-            :title="t('chat.attach.label')"
-            aria-label="Прикрепить изображение"
-            @click="fileInput?.click()"
-          >
+        <div class="composer-line">
+          <button v-if="!streaming && vehicleId" class="attach-btn" :title="t('chat.attach.label')" aria-label="Прикрепить изображение" @click="fileInput?.click()">
             <svg class="attach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
             </svg>
           </button>
+          <textarea v-model="messageInput" rows="1" :placeholder="t('chat.input.placeholder')" :disabled="streaming || !vehicleId" @keydown="onKeydown" @input="autoGrow" />
+          <input type="file" accept="image/*" ref="fileInput" style="display:none" @change="onFileSelected" />
           <div class="composer-tools-right">
-            <button
-              v-if="micSupported && !streaming && vehicleId"
-              class="mic-btn"
-              :class="{ listening: micListening }"
-              :title="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
-              :aria-label="micListening ? t('chat.mic.listening') : t('chat.mic.label')"
-              @click="toggleMic"
-            >
+            <button v-if="micSupported && !streaming && vehicleId" class="mic-btn" :class="{ listening: micListening }" :title="micListening ? t('chat.mic.listening') : t('chat.mic.label')" :aria-label="micListening ? t('chat.mic.listening') : t('chat.mic.label')" @click="toggleMic">
               <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -718,11 +705,11 @@ function toggleMic(): void {
 .chat-empty-banner .empty-icon { width: 48px; height: 48px; opacity: 0.4; }
 .quick-chip { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim); padding: 4px 12px; font-size: 12px; border-radius: 999px; cursor: pointer; }
 .quick-chip:hover { border-color: var(--accent); color: var(--accent); }
-.input-row { display: flex; flex-direction: column; gap: 6px; margin: 8px 16px 12px; padding: 10px 12px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 6px 24px rgba(0,0,0,0.35); flex-shrink: 0; }
+.input-row { display: flex; flex-direction: column; gap: 6px; margin: 8px 16px 12px; padding: 8px 10px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 6px 24px rgba(0,0,0,0.35); flex-shrink: 0; }
 .input-row:focus-within { border-color: var(--accent-dim); }
-.input-row textarea { background: transparent; border: 0; padding: 8px 10px; min-height: 40px; max-height: 120px; font-size: 14px; font-family: inherit; resize: none; width: 100%; }
-.composer-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.composer-tools-right { display: flex; align-items: center; gap: 6px; }
+.input-row textarea { background: transparent; border: 0; padding: 8px 10px; min-height: 40px; max-height: 160px; font-size: 14px; font-family: inherit; resize: none; flex: 1; min-width: 0; overflow-y: auto; }
+.composer-line { display: flex; align-items: flex-end; gap: 6px; }
+.composer-tools-right { display: flex; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .send-btn { width: 44px; height: 44px; border-radius: 50%; font-size: 20px; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
 .stop-btn { height: 44px; width: auto; min-width: 64px; border-radius: 999px; padding: 0 16px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
 .attach-btn { width: 36px; height: 36px; border-radius: 50%; background: transparent; border: 0; color: var(--text-dim); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; flex-shrink: 0; }
@@ -764,7 +751,14 @@ function toggleMic(): void {
   .header-info { order: -1; flex-basis: 100%; }
   .header-main { font-size: 15px; }
   .chat-header .sidebar-toggle:last-of-type { margin-left: auto; }
-  .input-row { margin: 8px 8px 10px; }
+  .input-row { margin: 8px 8px 10px; padding: 6px 8px; gap: 4px; }
+  .input-row textarea { min-height: 36px; max-height: 120px; padding: 6px 8px; }
+  .attach-btn { width: 36px; height: 36px; }
+  .mic-btn { width: 38px; height: 38px; }
+  .mic-icon { width: 18px; height: 18px; }
+  .send-btn { width: 38px; height: 38px; }
+  .send-icon { width: 18px; height: 18px; }
+  .stop-btn { height: 38px; min-width: 56px; }
 }
 .reasoning-toggle { background: transparent; border: 0; color: var(--text-dim); font-size: 11px; cursor: pointer; padding: 0 2px; line-height: 1.2; display: inline-flex; align-items: center; gap: 4px; }
 .reasoning-toggle:hover { color: var(--accent); }

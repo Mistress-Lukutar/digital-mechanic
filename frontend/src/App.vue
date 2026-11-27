@@ -312,6 +312,7 @@ onMounted(restoreAuth)
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
 }
 
 /* Top bar */
@@ -451,6 +452,7 @@ onMounted(restoreAuth)
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .stub-page {

@@ -96,6 +96,7 @@ function dismissError(): void {
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
   padding: 24px 16px;
 }
 

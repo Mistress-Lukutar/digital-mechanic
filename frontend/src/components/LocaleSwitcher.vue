@@ -219,6 +219,7 @@ onUnmounted(() => {
     min-width: 0;
     border-radius: var(--radius) var(--radius) 0 0;
     max-height: 60vh;
+    max-height: 60dvh;
     overflow-y: auto;
     z-index: 160;
   }

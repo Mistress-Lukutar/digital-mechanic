@@ -472,6 +472,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   padding: 8px;
   max-height: calc(100vh - 200px);
+  max-height: calc(100dvh - 200px);
 }
 
 .pdf-page {
