@@ -1,12 +1,13 @@
 '''
 File:   eval.py
-Brief:  Evaluation runner over the committed question sets.
+Brief:  Evaluation runner over the external question sets.
 Author: Demetrius242
 Date:   2026-11-26
-Version: v0.1.0
+Version: v0.1.1
 
-Runs the search engine in-process against the committed eval sets in
-data/eval/ and prints hit@1/hit@5 (±1 page), MRR, the value check for the
+Runs the search engine in-process against the external eval sets
+(RAG_EVAL_DIR; the sets are not committed — golden.jsonl quotes the
+manuals) and prints hit@1/hit@5 (±1 page), MRR, the value check for the
 golden set and the refusal rate for the negative set. Run before every
 stage commit; the hit@5/MRR numbers go into the commit message.
 
@@ -116,8 +117,8 @@ def _value_present(value: str, page_text: str) -> bool:
     '''Check that every number of the gold value appears in the page text.
 
     Numbers are compared with separators normalised (dashes and spaces
-    collapse); a gold value like "430-470 (43-47)" requires "430-470" and
-    "43-47" both to appear on the page.
+    collapse); a gold value like "415-455 (41-45)" requires "415-455" and
+    "41-45" both to appear on the page.
 
     Args:
         value: Expected value string from the golden set.

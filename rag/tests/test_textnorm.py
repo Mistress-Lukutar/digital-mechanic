@@ -28,17 +28,17 @@ def test_prefix_break_keeps_hyphen() -> None:
 
 def test_soft_hyphen_becomes_dash() -> None:
     '''U+00AD from some font runs is treated as a regular hyphen.'''
-    text = "вертикальные 430\u00ad470 (43\u00ad47)"
+    text = "вертикальные 415\u00ad455 (41\u00ad45)"
     normalized = normalize_page_text(text)
-    assert "430-470" in normalized
-    assert "(43-47)" in normalized
+    assert "415-455" in normalized
+    assert "(41-45)" in normalized
 
 
 def test_range_space_normalisation() -> None:
-    '''"100- 120" collapses to "100-120"; en dash unifies.'''
-    assert "100-120" in normalize_page_text("100- 120")
-    assert "430-470" in normalize_page_text("430–470")
-    assert "98…107,8" in normalize_page_text("98…107,8")  # ellipsis kept
+    '''"95- 110" collapses to "95-110"; en dash unifies.'''
+    assert "95-110" in normalize_page_text("95- 110")
+    assert "415-455" in normalize_page_text("415–455")
+    assert "12…15,7" in normalize_page_text("12…15,7")  # ellipsis kept
 
 
 def test_letter_spacing_joined() -> None:

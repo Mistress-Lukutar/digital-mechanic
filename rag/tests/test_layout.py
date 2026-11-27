@@ -38,9 +38,9 @@ def test_table_row_pipe(tmp_path) -> None:
     doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)
     put_text(page, (60, 100), "Болты крепления крышек коренных подшипников:", 11)
-    put_text(page, (400, 100), "430-470 (43-47)", 11)
+    put_text(page, (400, 100), "415-455 (41-45)", 11)
     put_text(page, (60, 115), "Болты крепления крышек шатунов:", 11)
-    put_text(page, (400, 115), "200-220 (20-22)", 11)
+    put_text(page, (400, 115), "205-225 (20-22)", 11)
     doc.save(str(path))
     doc.close()
 
@@ -48,10 +48,10 @@ def test_table_row_pipe(tmp_path) -> None:
     lines = page_lines(doc[0])
     # The arial test font may extract hyphens as U+00AD; compare prefixes.
     assert any(
-        "подшипников: | 430" in line.text for line in lines
+        "подшипников: | 415" in line.text for line in lines
     ), [line.text for line in lines]
     assert any(
-        "шатунов: | 200" in line.text for line in lines
+        "шатунов: | 205" in line.text for line in lines
     ), [line.text for line in lines]
 
 
