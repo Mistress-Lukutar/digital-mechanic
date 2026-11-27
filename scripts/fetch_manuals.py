@@ -212,18 +212,27 @@ def walk_public_folder(
 def download_href(public_key: str, path: str) -> str:
     '''Return the temporary download URL for one public file.
 
+    The endpoint occasionally answers without a href (rate limiting on
+    the shared folder), so the call is retried.
+
     Args:
         public_key: Public link or hash of the shared folder.
-        path: Path of the file inside the public folder.
+        path: Path of the file inside the public folder (leading slash,
+            as returned by the listing).
 
     Returns:
         Direct download href.
     '''
-    data = api_get({"public_key": public_key, "path": path})
-    href = data.get("href")
-    if not href:
-        raise SystemExit(f"ERROR: no download href for {path}")
-    return str(href)
+    last: str = "no attempts made"
+    for attempt in range(ATTEMPTS):
+        data = api_get({"public_key": public_key, "path": path})
+        href = data.get("href")
+        if href:
+            return str(href)
+        last = json.dumps(data)[:160]
+        if attempt < ATTEMPTS - 1:
+            time.sleep(RETRY_DELAY_SEC)
+    raise SystemExit(f"ERROR: no download href for {path}: {last}")
 
 
 def download_to(href: str, target: Path, size: int) -> None:
