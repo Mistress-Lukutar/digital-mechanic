@@ -183,6 +183,8 @@ const hi = {
   'fleet.table.engine': 'इंजन',
   'fleet.table.group': 'समूह',
   'fleet.table.status': 'स्थिति',
+  'fleet.filtered_title': 'फ़िल्टर: {label} ({n})',
+  'fleet.empty_group': 'इस श्रेणी में कोई वाहन नहीं',
 
   // ---------------------------------------------------------------------------
   // admin.* — AdminView
