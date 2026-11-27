@@ -38,11 +38,12 @@ const kk = {
   'garage.search.placeholder': 'Мемл. нөмір, гараж №, марка, модель…',
   'garage.filter.all': 'Барлығы',
   'garage.filter.normal': 'Қалыпты',
-  'garage.filter.attention': 'Назар аудару қажет',
+  'garage.filter.attention': 'Жазба проблемалары',
   'garage.filter.quarantine': 'Карантин',
   'garage.empty': 'Ештеңе табылмады',
   'garage.counts_anomalies': 'Ауытқулар: {n}',
   'garage.counts_checks': 'Тексерулер: {m}',
+  'garage.vehicle_id': 'Мем. №',
 
   // ---------------------------------------------------------------------------
   // status.* — StatusCard
@@ -170,7 +171,7 @@ const kk = {
   'fleet.group.normal': 'Қалыпты',
   'fleet.group.attention': 'Назар аудару',
   'fleet.group.quarantine': 'Карантин',
-  'fleet.requires_attention': 'Назар аудару қажет',
+  'fleet.requires_attention': 'Жазба проблемалары',
   'fleet.priority_list': 'Басымдық тізімі',
   'fleet.no_anomalies': 'Ауытқусыз',
   'fleet.open': 'Ашу',

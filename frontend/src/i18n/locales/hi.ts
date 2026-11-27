@@ -38,11 +38,12 @@ const hi = {
   'garage.search.placeholder': 'वाहन नंबर, गैराज नंबर, ब्रांड, मॉडल…',
   'garage.filter.all': 'सभी',
   'garage.filter.normal': 'सामान्य',
-  'garage.filter.attention': 'ध्यान चाहिए',
+  'garage.filter.attention': 'रिकॉर्डिंग समस्याएँ',
   'garage.filter.quarantine': 'कारांटीन',
   'garage.empty': 'कुछ नहीं मिला',
   'garage.counts_anomalies': 'विचलन: {n}',
   'garage.counts_checks': 'जाँच: {m}',
+  'garage.vehicle_id': 'राज्य सं.',
 
   // ---------------------------------------------------------------------------
   // status.* — StatusCard
@@ -170,7 +171,7 @@ const hi = {
   'fleet.group.normal': 'सामान्य',
   'fleet.group.attention': 'ध्यान',
   'fleet.group.quarantine': 'कारांटीन',
-  'fleet.requires_attention': 'ध्यान चाहिए',
+  'fleet.requires_attention': 'रिकॉर्डिंग समस्याएँ',
   'fleet.priority_list': 'प्राथमिकता सूची',
   'fleet.no_anomalies': 'विचलन रहित',
   'fleet.open': 'खोलें',
