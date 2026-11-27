@@ -11,6 +11,7 @@ import ChatView from './pages/ChatView.vue'
 import FleetView from './pages/FleetView.vue'
 import AdminView from './pages/AdminView.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import ChangePasswordModal from './components/ChangePasswordModal.vue'
 
 type Page = 'login' | 'garage' | 'chat' | 'fleet' | 'admin'
 const page = ref<Page>('login')
@@ -21,6 +22,7 @@ const restoring = ref(true)
 // Auth state
 const loginError = ref<string | null>(null)
 const pwdChangeError = ref<string | null>(null)
+const pwdChangeLoading = ref(false)
 
 // Garage data
 const vehicles = ref<VehicleItem[]>([])
@@ -43,12 +45,6 @@ async function handleLogin(username: string, password: string): Promise<void> {
   loginError.value = null
   try {
     await auth.login(username, password)
-    // A forced password change keeps the user on the login view
-    // (LoginView swaps to the change-password form).
-    if (auth.mustChangePassword.value) {
-      page.value = 'login'
-      return
-    }
     page.value = 'garage'
     fetchGarageData()
   } catch (e) {
@@ -62,9 +58,9 @@ async function handleLogin(username: string, password: string): Promise<void> {
 
 async function handlePasswordChange(oldP: string, newP: string): Promise<void> {
   pwdChangeError.value = null
+  pwdChangeLoading.value = true
   try {
     await auth.changePassword(oldP, newP)
-    page.value = 'garage'
     fetchGarageData()
   } catch (e) {
     if (e instanceof Error) {
@@ -72,6 +68,8 @@ async function handlePasswordChange(oldP: string, newP: string): Promise<void> {
     } else {
       pwdChangeError.value = t('login.error.change')
     }
+  } finally {
+    pwdChangeLoading.value = false
   }
 }
 
@@ -214,10 +212,8 @@ onMounted(restoreAuth)
       <!-- Login page -->
       <LoginView
         v-if="page === 'login'"
-        :must-change-password="auth.mustChangePassword.value"
         :error="loginError"
         @login="handleLogin"
-        @change-password="handlePasswordChange"
         @dismissed-error="loginError = null"
       />
 
@@ -259,6 +255,14 @@ onMounted(restoreAuth)
 
     <!-- Confirm dialog (for future use) -->
     <ConfirmDialog />
+
+    <!-- Mandatory password-change modal -->
+    <ChangePasswordModal
+      v-if="auth.mustChangePassword.value"
+      :error="pwdChangeError"
+      :loading="pwdChangeLoading"
+      @submit="handlePasswordChange"
+    />
   </div>
 </template>
 
