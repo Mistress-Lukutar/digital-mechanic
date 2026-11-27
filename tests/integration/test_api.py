@@ -845,6 +845,106 @@ async def test_ticket_submit_blocked_bad_quality(app_client: httpx.AsyncClient) 
     assert "повторите запись" in detail
 
 
+async def test_ticket_submit_blocked_check_failed_status(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """Real check_failed session (P456AT178/S-0003) → status gate blocks.
+
+    The deterministic status gate must fire before the quality gates, so
+    the detail names the failed recording, not the signal quality.
+    """
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    payload = {
+        "vehicle_id": "P456AT178",
+        "session_id": "S-0003",
+        "anomaly_type": "F01",
+        "conclusion": "Стук клапанов",
+        "urgency": "high",
+        "operations": ["Отрегулировать клапаны"],
+        "spare_parts": [],
+        "references": [{"manual": "236.01.01 РК", "pdf_page": 50}],
+        "override_confirmed": True,
+    }
+    resp = await app_client.post(
+        "/api/tickets",
+        json=payload,
+        headers={"Authorization": f"Bearer {mech_token}"},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "check_failed" in detail
+    assert "повторите запись" in detail
+
+
+async def test_ticket_submit_blocked_check_failed_good_quality(
+    app_client: httpx.AsyncClient,
+) -> None:
+    """check_failed + good quality (out-of-mock-contract pair) → still blocked.
+
+    The mock data always pairs check_failed with signal_quality bad, so the
+    bad-quality gate would never see this; the status gate is what refuses
+    it deterministically.
+    """
+    from shared.models import SessionCheck
+
+    from mechanic.api import deps as api_deps
+
+    admin_token = await _admin_login(app_client)
+    await app_client.post(
+        "/api/admin/users",
+        json={"username": "mech", "password": "mech-pass-1", "role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mech_token = await _login(app_client, "mech", "mech-pass-1")
+
+    hub = api_deps.get_hub()
+    original_get_session = hub.fleet.get_session
+    synthetic = SessionCheck(
+        vehicle_id="P456AT178",
+        session_id="S-9001",
+        status="check_failed",
+        signal_quality="good",
+        confidence=0.9,
+        description="синтетическая сессия: сбой записи с хорошим качеством",
+        model_version="mock-test",
+    )
+
+    def _fake_get_session(vehicle_id: str, session_id: str) -> SessionCheck:
+        if vehicle_id == "P456AT178" and session_id == "S-9001":
+            return synthetic
+        return original_get_session(vehicle_id, session_id)
+
+    hub.fleet.get_session = _fake_get_session  # type: ignore[method-assign]
+    try:
+        payload = {
+            "vehicle_id": "P456AT178",
+            "session_id": "S-9001",
+            "anomaly_type": "F01",
+            "conclusion": "Стук клапанов",
+            "urgency": "high",
+            "operations": ["Отрегулировать клапаны"],
+            "spare_parts": [],
+            "references": [{"manual": "236.01.01 РК", "pdf_page": 50}],
+            "override_confirmed": True,
+        }
+        resp = await app_client.post(
+            "/api/tickets",
+            json=payload,
+            headers={"Authorization": f"Bearer {mech_token}"},
+        )
+        assert resp.status_code == 422, resp.text
+        assert "check_failed" in resp.json()["detail"]
+    finally:
+        hub.fleet.get_session = original_get_session  # type: ignore[method-assign]
+
+
 # ---------------------------------------------------------------------------
 # Fake LLM client that yields one tool call then final text.
 # ---------------------------------------------------------------------------

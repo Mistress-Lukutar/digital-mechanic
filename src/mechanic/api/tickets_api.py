@@ -113,6 +113,17 @@ async def submit_ticket(
         session = None  # unknown session → gate skipped
     override_used = False
     if session is not None:
+        # Deterministic status gate (ТЗ: сбой проверки → не диагностировать):
+        # a check_failed session can never carry a ticket, no matter what
+        # quality/confidence the record claims.
+        if session.status == "check_failed":
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "проверка завершилась сбоем записи (check_failed) — "
+                    "заявка недоступна, повторите запись"
+                ),
+            )
         floor = get_settings().confidence_ticket_floor
         confidence = session.confidence
         if session.signal_quality == "bad":
