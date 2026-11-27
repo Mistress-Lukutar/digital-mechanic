@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from mechanic.config import Settings
 from mechanic.services.auth import AuthService
+from mechanic.services.chats import ChatStore
 from mechanic.services.fleet import FleetStore
 from mechanic.services.ml_client import MlClient
 from mechanic.services.rag_client import ManualManifest, RagClient
@@ -35,6 +36,7 @@ class ServiceHub:
     rag: RagClient
     manifest: ManualManifest
     ticket_log: TicketLog
+    chats: ChatStore
     usage: UsageLog
     auth: AuthService
 
@@ -60,6 +62,7 @@ def build_service_hub(settings: Settings) -> ServiceHub:
         ),
         manifest=ManualManifest(settings.manuals_dir),
         ticket_log=TicketLog(settings.resolve_db_path()),
+        chats=ChatStore(settings.resolve_db_path()),
         usage=UsageLog(settings.resolve_db_path()),
         auth=AuthService(settings.resolve_db_path()),
     )

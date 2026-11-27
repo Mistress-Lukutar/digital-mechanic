@@ -3,7 +3,7 @@ File:   loop.py
 Brief:  Bare tool-calling agent loop streaming chat events.
 Author: Mistress-Lukutar
 Date:   2026-11-26
-Version: v0.1.0
+Version: v0.2.0
 
 A bare streaming loop: streams LLM output, executes the model's tool
 calls through the registry, feeds results back and repeats until the
@@ -112,27 +112,30 @@ class AgentLoop:
         session_id: str | None = None,
         username: str = "mechanic",
         image: str | None = None,
+        store_key: str | None = None,
     ) -> AsyncIterator[tuple[str, dict]]:
         '''Run one user message through the loop, yielding events.
 
         Args:
-            vehicle_id: Selected vehicle; keys the conversation.
+            vehicle_id: Selected vehicle; keys ToolContext.
             text: The user's message.
             session_id: Session the message refers to (e.g. a check being
                 discussed); passed to tool executors via ToolContext.
             username: Authenticated user, for tool context.
             image: Optional data-URL image for multimodal input.
+            store_key: Key for conversation storage; defaults to vehicle_id.
 
         Yields:
             (event_name, payload) tuples; see module docstring.
         '''
+        key = store_key or vehicle_id
         context = ToolContext(
             vehicle_id=vehicle_id,
             session_id=session_id,
             username=username,
             services=self._tool_services,
         )
-        self._store.add_user_message(vehicle_id, text, image=image)
+        self._store.add_user_message(key, text, image=image)
 
         usage_input = 0
         usage_output = 0
@@ -147,7 +150,7 @@ class AgentLoop:
             request = ChatRequest(
                 endpoint=self._endpoint,
                 system_prompt=prompt,
-                turns=self._store.history(vehicle_id),
+                turns=self._store.history(key),
                 tools=self._registry.specs(),
                 temperature=self._temperature,
                 max_tokens=self._max_output_tokens,
@@ -200,21 +203,21 @@ class AgentLoop:
             if stream_error is not None:
                 if accumulated:
                     self._store.add_assistant_parts(
-                        vehicle_id, [TextPart(text=accumulated)]
+                        key, [TextPart(text=accumulated)]
                     )
                 yield ("error", {"message": stream_error.message})
                 return
 
             if calls_ready is not None:
                 self._store.add_assistant_parts(
-                    vehicle_id,
+                    key,
                     self._assistant_call_parts(calls_ready),
                 )
                 for call in calls_ready.tool_calls:
                     yield ("tool_start", self._call_event(call))
                     outcome = await self._execute(call, context)
                     self._store.add_tool_results(
-                        vehicle_id,
+                        key,
                         [
                             ToolResult(
                                 call_id=call.call_id,
@@ -253,7 +256,7 @@ class AgentLoop:
                 # TOOL_USE without parsable calls: bail out instead of looping.
                 if accumulated:
                     self._store.add_assistant_parts(
-                        vehicle_id, [TextPart(text=accumulated)]
+                        key, [TextPart(text=accumulated)]
                     )
                 yield (
                     "error",
@@ -263,7 +266,7 @@ class AgentLoop:
 
             if accumulated:
                 self._store.add_assistant_parts(
-                    vehicle_id, [TextPart(text=accumulated)]
+                    key, [TextPart(text=accumulated)]
                 )
             usage = (
                 {"input_tokens": usage_input, "output_tokens": usage_output}

@@ -57,6 +57,10 @@ def init_hub(settings: Settings) -> ServiceHub:
             _hub.usage._conn.close()
         except Exception:  # noqa: BLE001
             pass
+        try:
+            _hub.chats._conn.close()
+        except Exception:  # noqa: BLE001
+            pass
     _hub = build_service_hub(settings)
     return _hub
 

@@ -31,6 +31,7 @@ from mechanic.agent.tools_base import (
 )
 from mechanic.config import Settings
 from mechanic.services.auth import AuthService
+from mechanic.services.chats import ChatStore
 from mechanic.services.fleet import FleetStore
 from mechanic.services.hub import ServiceHub
 from mechanic.services.ml_client import MlClient
@@ -207,6 +208,7 @@ def _build_test_hub(
         rag=rag,
         manifest=ManualManifest(settings.manuals_dir),
         ticket_log=TicketLog(DATA_DIR / "test_tickets.db"),
+        chats=ChatStore(DATA_DIR / "test_chats.db"),
         usage=UsageLog(DATA_DIR / "test_usage.db"),
         auth=AuthService(DATA_DIR / "test_auth.db"),
     )

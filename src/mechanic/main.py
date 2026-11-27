@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from mechanic.api.admin_api import router as admin_router
 from mechanic.api.auth_api import router as auth_router
 from mechanic.api.chat_api import router as chat_router
+from mechanic.api.chats_api import router as chats_router
 from mechanic.api.config_api import router as config_router  # noqa: F401 — registered below
 from mechanic.api.deps import get_hub, init_app_settings, init_hub
 from mechanic.api.documents_api import router as documents_router
@@ -107,6 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(vehicles_router)
     app.include_router(chat_router)
+    app.include_router(chats_router)
     app.include_router(config_router)
     app.include_router(tickets_router)
     app.include_router(documents_router)
