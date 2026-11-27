@@ -18,6 +18,7 @@ from pathlib import Path
 from mechanic.config import Settings
 from mechanic.services.app_settings import (
     AppSettings,
+    EconomyPrices,
     LlmConfig,
     effective_llm_config,
 )
@@ -111,5 +112,75 @@ def test_effective_no_stored_returns_env_defaults() -> None:
         assert cfg.model == "claude-sonnet"
         assert cfg.temperature == 0.7
         assert cfg.max_output_tokens == 4096
+
+        db.close()
+
+
+def test_economy_prices_default_when_absent() -> None:
+    """When no economy_prices key is stored, get returns defaults."""
+    with tempfile.TemporaryDirectory() as td:
+        db_path = Path(td) / "app.db"
+        db = AppSettings(db_path)
+
+        prices = db.get_economy_prices()
+
+        assert isinstance(prices, EconomyPrices)
+        assert prices.input_price == 0.22
+        assert prices.output_price == 0.88
+        assert prices.currency == "USD"
+        assert prices.usd_rate == 82.313
+        assert prices.model_label == "Qwen3-30B-A3B (Alibaba Model Studio)"
+        assert prices.indexation_cost == 0.0
+
+        db.close()
+
+
+def test_economy_prices_save_get_roundtrip() -> None:
+    """Save custom prices and retrieve them unchanged."""
+    with tempfile.TemporaryDirectory() as td:
+        db_path = Path(td) / "app.db"
+        db = AppSettings(db_path)
+
+        custom = EconomyPrices(
+            input_price=0.50,
+            output_price=1.50,
+            currency="RUB",
+            usd_rate=90.0,
+            model_label="Custom Model",
+            indexation_cost=5000.0,
+        )
+        db.save_economy_prices(custom)
+
+        retrieved = db.get_economy_prices()
+
+        assert retrieved.input_price == 0.50
+        assert retrieved.output_price == 1.50
+        assert retrieved.currency == "RUB"
+        assert retrieved.usd_rate == 90.0
+        assert retrieved.model_label == "Custom Model"
+        assert retrieved.indexation_cost == 5000.0
+
+        db.close()
+
+
+def test_economy_prices_corrupt_json_returns_default() -> None:
+    """Garbage JSON under the key → get returns default prices."""
+    with tempfile.TemporaryDirectory() as td:
+        db_path = Path(td) / "app.db"
+        db = AppSettings(db_path)
+
+        # Write garbage directly into the raw store.
+        db._conn.execute(
+            """
+            INSERT OR REPLACE INTO app_settings (key, value_json)
+            VALUES ('economy_prices', '{bad json!!!')
+            """
+        )
+        db._conn.commit()
+
+        prices = db.get_economy_prices()
+
+        assert isinstance(prices, EconomyPrices)
+        assert prices.input_price == 0.22  # default value
 
         db.close()
