@@ -7,8 +7,9 @@ Version: v0.1.0
 
 ``page.get_text()`` returns words in PDF-object order, which is scrambled in
 the 236 RE tables ("− вертикальные 4 ... 415-455 ... 1-45)"). This module
-rebuilds the visual order: words are derotated, grouped into visual lines by
-the y-centre, sorted by x inside a line, and joined with gap-aware rules:
+rebuilds the visual order: words are mapped to reader coordinates, grouped
+into visual lines by the y-centre, sorted by x inside a line, and joined
+with gap-aware rules:
 
 - gap below ``MICRO_GAP_RATIO * height``  → words glued without a space
   (the layer stores broken words like "ЗАТ" + "Я" + "ЖКИ" with zero gaps);
@@ -73,12 +74,17 @@ class Line:
 
 
 def page_words(page: pymupdf.Page) -> list[Word]:
-    '''Extract words of *page* in derotated coordinates.
+    '''Extract words of *page* in reader-visual coordinates.
 
-    PyMuPDF reports word rectangles in the unrotated coordinate system even
-    for pages with a /Rotate flag; multiplying by ``derotation_matrix``
-    maps them back to what a reader sees. Ten pages of the 236 RE manual
-    are rotated by 90°, so this matters.
+    ``get_text("words")`` reports word rectangles in the unrotated
+    (mediabox) coordinate system even for pages with a /Rotate flag;
+    multiplying by ``rotation_matrix`` maps them to what a reader sees.
+    The inverse matrix was used here before (plan fix-golden-value-checks,
+    item 6) and mangled exactly the rotated pages — for the 236 RE manual
+    those are 6-11, 13, 14, 168, 169, including the summary specification
+    table on pages 6-9, whose lines came out word-reversed and
+    bottom-up. Upright pages (rotation 0) are unaffected: the matrix is
+    the identity there.
 
     Args:
         page: Opened PyMuPDF page.
@@ -86,7 +92,7 @@ def page_words(page: pymupdf.Page) -> list[Word]:
     Returns:
         Word list in reader-visual coordinates.
     '''
-    matrix = page.derotation_matrix
+    matrix = page.rotation_matrix
     words: list[Word] = []
     for x0, y0, x1, y1, text, *_rest in page.get_text("words"):
         rect = pymupdf.Rect(x0, y0, x1, y1) * matrix

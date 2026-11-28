@@ -25,6 +25,37 @@ _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?;])\s+")
 _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
 # Minimum table row count before splitting a table block by rows.
 TABLE_SPLIT_ROWS = 12
+# A hard seam may move this many characters to land on a space.
+SEAM_SNAP_CHARS = 40
+
+
+def _next_space(text: str, index: int) -> int:
+    '''First space at or after *index* (within SEAM_SNAP_CHARS), or *index*.
+
+    Args:
+        text: Text being cut.
+        index: Desired cut position.
+
+    Returns:
+        Adjusted cut position that does not open a word.
+    '''
+    limit = min(len(text), index + SEAM_SNAP_CHARS)
+    space = text.find(" ", index, limit)
+    return space + 1 if space != -1 else index
+
+
+def _prev_space(text: str, index: int) -> int:
+    '''Last space before *index* (within SEAM_SNAP_CHARS), or *index*.
+
+    Args:
+        text: Text being cut.
+        index: Desired cut position.
+
+    Returns:
+        Adjusted cut position that does not close a word.
+    '''
+    space = text.rfind(" ", max(0, index - SEAM_SNAP_CHARS), index)
+    return space if space != -1 else index
 
 
 @dataclass
@@ -77,7 +108,8 @@ def split_block(text: str, max_chars: int) -> list[str]:
     '''Split one text block into pieces within *max_chars*.
 
     Splits prefer paragraphs, then sentences; the last resort is a hard cut
-    with a small overlap so numbers at the seam stay searchable.
+    with a small overlap. Both sides of every hard seam snap to word
+    boundaries so numbers and node names at the seam stay searchable.
 
     Args:
         text: Block text without internal newlines-breaking structure.
@@ -119,13 +151,30 @@ def split_block(text: str, max_chars: int) -> list[str]:
                 continue
             if current:
                 pieces.append(current)
-            current = sentence[-max_chars:] if len(sentence) > max_chars else sentence
+            if len(sentence) > max_chars:
+                # Keep the tail, but start it on a word boundary: a blind
+                # cut severs the first word («…Болт|ы крепления…»), leaving
+                # a bogus token in both pieces and losing the word from
+                # BM25 at the seam.
+                current = sentence[_next_space(sentence, len(sentence) - max_chars):]
+            else:
+                current = sentence
         if current:
             pieces.append(current)
         return [p for p in pieces if p.strip()]
-    # Hard cut with overlap.
-    step = max_chars - 60
-    return [text[start : start + max_chars] for start in range(0, len(text), step)]
+    # Hard cut with overlap; both sides of every seam snap to spaces so
+    # node names and numbers at the seam stay searchable as whole tokens.
+    pieces = []
+    start = 0
+    while start < len(text):
+        end = min(start + max_chars, len(text))
+        if end < len(text):
+            end = max(_prev_space(text, end), start + 1)
+        pieces.append(text[start:end])
+        if end >= len(text):
+            break
+        start = _next_space(text, max(start + 1, end - 60))
+    return [p for p in pieces if p.strip()]
 
 
 def _split_table_rows(rows: list[str], max_chars: int) -> list[str]:

@@ -119,7 +119,10 @@ def expand_query(
     The original query comes first (slang-replaced copy appended), then up
     to three manual-terminology formulations of the detected fault. Fault
     formulations are NOT added for "none" cells: those queries are refused
-    before scoring, so the effort would be wasted.
+    before scoring, so the effort would be wasted. Moment-torque queries
+    ("затягиваются болты...") gain the appendix-table wording ("момент
+    затяжки") the same way — assembly prose otherwise outranks the norm
+    tables (issue: golden g10).
 
     Args:
         query: Raw query text.
@@ -138,7 +141,41 @@ def expand_query(
         for formulation in info.queries[:MAX_FAULT_QUERIES]:
             if formulation not in queries:
                 queries.append(formulation)
+    queries.extend(_moment_formulations(query, knowledge, queries))
     return queries
+
+
+def _moment_formulations(
+    query: str,
+    knowledge: Knowledge,
+    existing: list[str],
+) -> list[str]:
+    '''Extra formulations for moment-torque queries.
+
+    Assembly instructions say «затягиваются болты крепления…» while the
+    norm appendix tables are titled «Моменты затяжки…»: a query about
+    tightening gets the table wording as an additional variant, so the
+    appendix competes with the prose it should outrank. Skipped when the
+    query already carries the formulation phrase (no redundant variants).
+
+    Args:
+        query: Original query text.
+        knowledge: Loaded knowledge (moment match terms and queries).
+        existing: Query variants gathered so far (for deduplication).
+
+    Returns:
+        Formulations to append (deduplicated against *existing*).
+    '''
+    moment = knowledge.moment
+    if not moment.queries or not moment.match:
+        return []
+    normalized = normalize_text(query)
+    triggered = any(normalize_text(term) in normalized for term in moment.match)
+    if not triggered:
+        return []
+    if any(normalize_text(f) in normalized for f in moment.queries):
+        return []
+    return [f for f in moment.queries if f not in existing]
 
 
 __all__: list[str] = [

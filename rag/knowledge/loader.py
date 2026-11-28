@@ -61,12 +61,21 @@ class CoverageStatus:
 
 
 @dataclass
+class MomentInfo:
+    '''Moment-torque wording bridge (assembly prose → appendix tables).'''
+
+    match: list[str] = field(default_factory=list)
+    queries: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Knowledge:
     '''Everything loaded from rag/knowledge.'''
 
     docs: dict[str, DocInfo] = field(default_factory=dict)
     faults: dict[str, FaultInfo] = field(default_factory=dict)
     synonyms: list[Synonym] = field(default_factory=list)
+    moment: MomentInfo = field(default_factory=MomentInfo)
     coverage: dict[str, dict[str, CoverageStatus]] = field(default_factory=dict)
     coverage_default: str = "unknown"
 
@@ -87,7 +96,9 @@ def load_knowledge(directory: Path) -> Knowledge:
     knowledge = Knowledge()
     knowledge.docs = _load_docs(directory / "docs.yaml")
     knowledge.faults = _load_faults(directory / "faults.yaml")
-    knowledge.synonyms = _load_synonyms(directory / "synonyms.yaml")
+    knowledge.synonyms, knowledge.moment = _load_synonyms(
+        directory / "synonyms.yaml"
+    )
     knowledge.coverage, knowledge.coverage_default = _load_coverage(
         directory / "coverage.yaml"
     )
@@ -139,8 +150,8 @@ def _load_faults(path: Path) -> dict[str, FaultInfo]:
     return faults
 
 
-def _load_synonyms(path: Path) -> list[Synonym]:
-    '''Parse synonyms.yaml.'''
+def _load_synonyms(path: Path) -> tuple[list[Synonym], MomentInfo]:
+    '''Parse synonyms.yaml (slang terms + the moment-wording bridge).'''
     data = _read_yaml(path)
     result: list[Synonym] = []
     for item in data.get("synonyms", []):
@@ -148,7 +159,12 @@ def _load_synonyms(path: Path) -> list[Synonym]:
         term = str(item.get("term", ""))
         if slang and term:
             result.append(Synonym(slang=slang, term=term))
-    return result
+    raw_moment = data.get("moment") or {}
+    moment = MomentInfo(
+        match=[str(m) for m in raw_moment.get("match", [])],
+        queries=[str(q) for q in raw_moment.get("queries", [])],
+    )
+    return result, moment
 
 
 def _load_coverage(
@@ -188,6 +204,7 @@ __all__: list[str] = [
     "DocInfo",
     "FaultInfo",
     "Knowledge",
+    "MomentInfo",
     "Synonym",
     "load_knowledge",
     "load_knowledge_cached",
