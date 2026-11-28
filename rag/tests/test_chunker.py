@@ -89,3 +89,31 @@ def test_split_block_sentences() -> None:
     pieces = split_block(text, 700)
     assert len(pieces) >= 2
     assert all(len(p) <= 760 for p in pieces)
+
+
+def test_split_block_no_midword_seams() -> None:
+    '''hard-cut and tail seams land on word boundaries, not inside words.
+
+    A seam like «…Болт|ы крепления…» (golden g10, appendix moment table)
+    leaves a bogus token in both pieces and drops the word from BM25 at
+    the boundary — every piece must start and end with a whole word.
+    '''
+    vocab = ["Болты", "крепления", "головки", "цилиндров", "50", "(5,1)"]
+    text = " ".join(vocab * 200)
+    pieces = split_block(text, 700)
+    assert len(pieces) >= 2
+    for piece in pieces:
+        tokens = piece.split()
+        assert tokens[0] in vocab
+        assert tokens[-1] in vocab
+
+
+def test_split_block_long_sentence_no_midword_tail() -> None:
+    '''an oversized sentence tail starts on a word boundary.'''
+    text = "Вступление завершено. " + "слово " * 300 + "заключение."
+    pieces = split_block(text, 700)
+    assert len(pieces) >= 2
+    for piece in pieces:
+        tokens = piece.split()
+        assert tokens[0] == "слово" or tokens[0] in ("Вступление", "заключение.")
+        assert tokens[-1] != "сло"
