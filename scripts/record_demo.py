@@ -589,7 +589,7 @@ def run_mobile(pw, *, record: bool, hold_scale: float) -> None:
     sc.hold(3.5)
     sc.mark("m_verdict")
 
-    sc.sub("Вердикт, история и чат — всё под пальцем")
+    sc.sub("Вердикт, история и чат — всё под рукой")
     sc.hold(3.0)
     sc.finish()
 
