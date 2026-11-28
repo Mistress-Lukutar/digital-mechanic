@@ -271,6 +271,23 @@ def _ass_time(seconds: float) -> str:
     return f"{h}:{m:02d}:{s:05.2f}"
 
 
+def _subtract(e0: float, e1: float, cuts: list[tuple[float, float]]):
+    """Вычесть интервалы cuts из [e0, e1]: список оставшихся кусков."""
+    pieces = [(e0, e1)]
+    for x0, x1 in sorted(cuts):
+        nxt: list[tuple[float, float]] = []
+        for p0, p1 in pieces:
+            if p1 <= x0 or p0 >= x1:
+                nxt.append((p0, p1))
+                continue
+            if p0 < x0:
+                nxt.append((p0, x0))
+            if p1 > x1:
+                nxt.append((x1, p1))
+        pieces = nxt
+    return pieces
+
+
 def build_ass(tl: dict) -> Path:
     """ASS из реплик timeline.json (маппинг реального времени в финальное)."""
     desk, mobile = tl["desk"], tl["mobile"]
@@ -291,6 +308,17 @@ def build_ass(tl: dict) -> Path:
             speed = _speed(rule, in_dur)
             block_out_dur = in_dur / speed
 
+            # врезки плана внутри блока; врезка приоритетна — занятый ею
+            # отрезок вырезается из реплик записи, иначе обе строки висят
+            # одновременно и наслаиваются друг на друга
+            extras = []
+            for m_start, frac, text in EXTRA_CUES:
+                if m_start == start_m:
+                    extras.append((out_t + frac * block_out_dur,
+                                   out_t + block_out_dur, text))
+            for x0, x1, text in extras:
+                events.append((x0, x1, text))
+
             # реплики записи, пересекающиеся с блоком
             for cue in cues:
                 c0, c1 = min(cue[0], t1), min(cue[1], t1)
@@ -299,13 +327,10 @@ def build_ass(tl: dict) -> Path:
                 # если реплика началась до блока (перетекла) — визуально обрежем
                 e0 = out_t + max(0.0, (c0 - t0)) / speed
                 e1 = out_t + (c1 - t0) / speed
-                events.append((e0, e1, cue[2]))
-            # врезки плана внутри блока
-            for m_start, frac, text in EXTRA_CUES:
-                if m_start == start_m:
-                    e0 = out_t + frac * block_out_dur
-                    e1 = out_t + block_out_dur
-                    events.append((e0, e1, text))
+                for p0, p1 in _subtract(
+                    e0, e1, [(x0, x1) for x0, x1, _ in extras]
+                ):
+                    events.append((p0, p1, cue[2]))
 
             out_t += block_out_dur
 
