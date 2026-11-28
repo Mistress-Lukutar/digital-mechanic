@@ -44,3 +44,6 @@ data/manuals/_staging/
 # OS noise
 Thumbs.db
 .DS_Store
+
+# Demo video assets (montage outputs, raw takes)
+demo/
